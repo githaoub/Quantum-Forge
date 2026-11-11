@@ -513,6 +513,9 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 	state.starMatter = math.max(0, state.starMatter - cost)
 
 	local best: RollResult? = nil
+	local bestNewBlade = false
+	local bestNewVariant = false
+	local copies: { Types.ForgedCopy } = {}
 	for _ = 1, batch do
 		-- Pity: one short of the guarantee forces a pity rarity from this crate's
 		-- own pool. The counter resets only on a pity-rarity hit, so a lucky early
@@ -526,6 +529,11 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 		local variant = ForgeConfig.rollVariant()
 		local mods = ModifierConfig.roll()
 
+		-- Discovery flags are read before `markCodex` writes them, and they are
+		-- per copy: a ten-pull can contain two firsts.
+		local newBlade = not state.codex["blade:" .. blade.id]
+		local newVariant = not state.codex["variant:" .. variant.id]
+
 		local uid = mintUid()
 		state.blades[uid] = {
 			id = blade.id,
@@ -536,7 +544,8 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 			prefix = mods.prefix,
 			suffix = mods.suffix,
 		}
-		ProgressionService.markCodex(state, state.blades[uid])
+		local instance = state.blades[uid]
+		ProgressionService.markCodex(state, instance)
 
 		if ForgeConfig.PityRarities[rarity] then
 			state.forgePity = 0
@@ -545,9 +554,22 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 		end
 		state.forgeRolls += 1
 
-		local power = ForgeConfig.powerCopy(state.blades[uid])
+		local power = ForgeConfig.powerCopy(instance)
+		table.insert(copies, {
+			blade = blade.id,
+			variant = variant.id,
+			element = mods.element,
+			grade = mods.grade,
+			prefix = mods.prefix,
+			suffix = mods.suffix,
+			power = power,
+			newBlade = newBlade,
+			newVariant = newVariant,
+		})
 		if best == nil or power > best.power then
 			best = { uid = uid, blade = blade, variant = variant, mods = mods, power = power }
+			bestNewBlade = newBlade
+			bestNewVariant = newVariant
 		end
 	end
 
@@ -567,9 +589,11 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 	-- Auto-equip only when it is genuinely stronger. A Prismatic mid-tier blade
 	-- can beat a Standard two tiers up, which is the whole point of variants;
 	-- with modifiers the same is true of a Transcendent one.
+	local equippedNow = state.equippedUid == best.uid
 	if best.power > ProgressionService.bladeMultiplier(state) then
 		state.equippedUid = best.uid
 		state.equippedBlade = best.blade.id
+		equippedNow = true
 	end
 
 	DataManager.markDirty(player)
@@ -585,6 +609,11 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 		amount = cost,
 		batch = batch,
 		crate = tier.id,
+		results = copies,
+		power = best.power,
+		equipped = equippedNow,
+		newBlade = bestNewBlade,
+		newVariant = bestNewVariant,
 		crit = best.variant.id ~= ForgeConfig.StandardVariant or best.mods.grade ~= "chipped",
 		text = string.format(
 			"%s %s",

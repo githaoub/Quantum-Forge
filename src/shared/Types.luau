@@ -336,6 +336,23 @@ export type ActionResult = {
 	reason: string?,
 }
 
+--- One copy inside a batch reveal. The client resolves names and colours from
+--- the registries; this only carries ids, so a ten-pull costs ten tiny tables.
+export type ForgedCopy = {
+	blade: string,
+	variant: string,
+	element: string?,
+	grade: string?,
+	prefix: string?,
+	suffix: string?,
+	power: number?,
+	--- First copy of this silhouette on the account. Drives the NEW badge.
+	newBlade: boolean?,
+	--- First copy of this variant on the account. A first Prismatic is worth its
+	--- own line even when the silhouette was already known.
+	newVariant: boolean?,
+}
+
 --- One-shot client feedback. `kind` drives which juice effect the client plays.
 export type FeedEvent = {
 	kind: string, -- "forge" | "forged" | "crit" | "vent" | "overheat" | "purchase" | "ascend" | "toast" | "offline" | "locked"
@@ -358,6 +375,18 @@ export type FeedEvent = {
 	--- a batch count, so the reveal can say `x10` instead of pretending the other
 	--- nine did not happen.
 	batch: number?,
+	--- Every copy in the transaction, in roll order. A single roll carries one
+	--- entry; the top-level fields remain the best copy for callers that only
+	--- need one.
+	results: { ForgedCopy }?,
+	--- Combined power of the best copy, so the reveal can print it without
+	--- waiting for an inventory refetch.
+	power: number?,
+	--- True when the best copy is the one the server auto-equipped.
+	equipped: boolean?,
+	--- Discovery flags for the best copy. The ribbon carries the rest.
+	newBlade: boolean?,
+	newVariant: boolean?,
 	--- Crate id the copies came from. The reveal and the funnel both want to name
 	--- the pool, not just the blade.
 	crate: string?,

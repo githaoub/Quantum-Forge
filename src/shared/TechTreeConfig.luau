@@ -213,8 +213,12 @@ function TechTreeConfig.compute(levels: { [string]: number }): Stats
 		end
 	end
 
-	-- A widened band must still leave a gap before overheat.
-	stats.sweetSpotMax = math.min(stats.sweetSpotMax, Config.OverheatAt - 5)
+	-- A widened band must stop at the lean point, not at the old five-point
+	-- gap before overheat. At max Thermal Calibration `OverheatAt - 5` reached
+	-- 95 while the penalty started at 90, so the top five points printed a
+	-- 2.5x band caption and paid 0.5x. The band can end where the penalty
+	-- begins; it cannot overlap it.
+	stats.sweetSpotMax = math.min(stats.sweetSpotMax, Config.PenaltyFrom)
 	stats.sweetSpotMin = math.max(stats.sweetSpotMin, 10)
 
 	return stats
