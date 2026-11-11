@@ -7,8 +7,10 @@
 -- kills long-term retention. Everything here either multiplies what the player
 -- already earns, removes a chore, or is status.
 --
--- Every ID is a placeholder and MUST be replaced with a real Marketplace ID
--- before publishing; MarketplaceService silently fails purchases on 0. Server
+-- The ids below are live Marketplace listings created through
+-- `scripts/create_store_items.py` (Open Cloud). That script is idempotent: it
+-- looks entries up by name, creates only what is missing, and patches the ids
+-- back here. A new listing is free; only a purchase charges Robux. Server
 -- validates ownership for passes and grants for products — the client never
 -- decides what a purchase is worth.
 --
@@ -49,7 +51,7 @@ export type ProductDef = {
 
 MonetizationConfig.Passes = {
 	fastForge = {
-		id = 0,
+		id = 2078144425,
 		name = "Fast Forge",
 		description = "Doubles accepted clicks per second.",
 		enabled = true,
@@ -59,7 +61,7 @@ MonetizationConfig.Passes = {
 	} :: PassDef,
 
 	autoVent = {
-		id = 0,
+		id = 2080202442,
 		name = "Auto-Vent AI",
 		description = "Vents at 85% heat automatically, so the core never runs lean.",
 		enabled = true,
@@ -69,7 +71,7 @@ MonetizationConfig.Passes = {
 	} :: PassDef,
 
 	x2StarMatter = {
-		id = 0,
+		id = 2079002443,
 		name = "2x Star-Matter",
 		description = "Doubles all Star-Matter income, forever.",
 		enabled = true,
@@ -79,11 +81,11 @@ MonetizationConfig.Passes = {
 	} :: PassDef,
 
 	vipAura = {
-		id = 0,
+		id = 2079290439,
 		name = "VIP",
-		description = "Every gamepass, forever, plus the VIP badge and aura.",
+		description = "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
 		enabled = true,
-		price = 499,
+		price = 1699,
 		badge = "VIP",
 		icon = "vip_aura",
 	} :: PassDef,
@@ -92,7 +94,7 @@ MonetizationConfig.Passes = {
 	--- high-Robux sink leaves the top of the market unserved; this is the sink,
 	--- and it is a multiplier rather than currency so it never skips the ladder.
 	eternalForge = {
-		id = 0,
+		id = 2078156449,
 		name = "Eternal Forge",
 		description = "+25% to all Star-Matter income, forever.",
 		enabled = true,
@@ -106,7 +108,7 @@ MonetizationConfig.Products = {
 	--- The player-to-payer door. Priced at the floor of the Robux ladder so the
 	--- first purchase is a decision nobody has to think about.
 	starterForge = {
-		id = 0,
+		id = 3730425410,
 		name = "Starter Forge Pack",
 		description = "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
 		enabled = true,
@@ -116,7 +118,7 @@ MonetizationConfig.Products = {
 	} :: ProductDef,
 
 	instantOverdrive = {
-		id = 0,
+		id = 3730425423,
 		name = "Instant Overdrive",
 		description = "Fifteen minutes of triple Star-Matter.",
 		enabled = true,
@@ -126,7 +128,7 @@ MonetizationConfig.Products = {
 	} :: ProductDef,
 
 	instantVent = {
-		id = 0,
+		id = 3730425432,
 		name = "Emergency Vent",
 		description = "Dumps all heat instantly, wherever the core is.",
 		enabled = true,
@@ -138,7 +140,7 @@ MonetizationConfig.Products = {
 	--- Long-horizon utility rather than currency: a mission already paid for, so
 	--- it buys time rather than a number.
 	expressSalvage = {
-		id = 0,
+		id = 3730425441,
 		name = "Express Salvage",
 		description = "Instantly completes any expedition in flight.",
 		enabled = true,
@@ -176,7 +178,7 @@ end
 
 --- Storefront order. Passes first (permanent), then consumables, because the
 --- permanent row is the one a returning player is still deciding about.
-MonetizationConfig.PassOrder = { "vipAura", "fastForge", "x2StarMatter", "autoVent", "eternalForge" }
+MonetizationConfig.PassOrder = { "vipAura", "eternalForge", "fastForge", "x2StarMatter", "autoVent" }
 MonetizationConfig.ProductOrder = { "starterForge", "instantOverdrive", "instantVent", "expressSalvage" }
 
 return MonetizationConfig

@@ -271,12 +271,23 @@ function ShopView.init(parent: Instance)
 	-- declaring it explicitly keeps the storefront from reshuffling between
 	-- sessions.
 	local passOrder = MonetizationConfig.PassOrder
+	local separateTotal = 0
+	for _, other in passOrder do
+		local otherDef = MonetizationConfig.Passes[other]
+		if otherDef and other ~= "vipAura" then
+			separateTotal += otherDef.price
+		end
+	end
 	for _, key in passOrder do
 		local def = MonetizationConfig.Passes[key]
 		if def then
+			local description = def.description
+			if key == "vipAura" and separateTotal > def.price then
+				description = string.format("%s Buy separately: R$ %d.", description, separateTotal)
+			end
 			buildRow(parent, order, {
 				name = def.name,
-				description = def.description,
+				description = description,
 				badge = def.badge,
 				icon = def.icon,
 				price = def.price,

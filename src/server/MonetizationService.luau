@@ -50,6 +50,17 @@ local function grantPass(state: Types.ProfileState, key: string)
 	state.passes[key] = true
 end
 
+--- VIP is a bundle, not a badge. Every path that grants it runs this, so a
+--- player who buys VIP mid-session gets the other passes immediately instead of
+--- waiting for the next join.
+local function grantVipBundle(state: Types.ProfileState)
+	for key, def in MonetizationConfig.Passes do
+		if key ~= "vipAura" and isConfiguredPass(def) and not state.passes[key] then
+			grantPass(state, key)
+		end
+	end
+end
+
 --- Re-checks pass ownership on join. This is the authority — a client claiming a
 --- pass it does not own is ignored entirely.
 ---
@@ -80,12 +91,8 @@ local function refreshPasses(player: Player)
 	end
 
 	if state.passes.vipAura then
-		for key, def in MonetizationConfig.Passes do
-			if key ~= "vipAura" and isConfiguredPass(def) and not state.passes[key] then
-				grantPass(state, key)
-				DataManager.markDirty(player)
-			end
-		end
+		grantVipBundle(state)
+		DataManager.markDirty(player)
 	end
 end
 
@@ -110,7 +117,7 @@ local function grantProduct(player: Player, key: string): boolean
 		local base = math.max(now, state.boostX2Until)
 		state.boostX2Until = base + MonetizationConfig.StarterSeconds
 	elseif key == "instantVent" then
-			state.heat = 0
+		state.heat = 0
 		state.streak = 0
 	elseif key == "expressSalvage" then
 		-- Only meaningful with a mission out; the clock is moved, not the payout,
@@ -174,6 +181,9 @@ function MonetizationService.init()
 			return
 		end
 		grantPass(state, key)
+		if key == "vipAura" then
+			grantVipBundle(state)
+		end
 		DataManager.markDirty(player)
 		Net.sendEvent(player, { kind = "toast", text = string.format("%s unlocked", def.name) })
 	end)

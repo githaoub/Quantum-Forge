@@ -51,20 +51,17 @@ PLACE_ID = 102663811434617
 UNIVERSE_ID = 10775534186
 
 # name, description, price in Robux, badge png, config key
+#
+# Pricing rule: Eternal Forge is the second-most expensive item in the shop,
+# under VIP only, because it is the strongest permanent multiplier. VIP is a
+# bundle and must stay cheaper than buying Fast Forge + Auto-Vent + 2x
+# Star-Matter + Eternal Forge separately (99 + 149 + 199 + 1499 = 1946), so a
+# VIP buyer saves 247 Robux and one checkout.
 PASSES = [
-    ("Fast Forge", "Doubles accepted clicks per second.", 99, "fast_forge", "fastForge"),
     (
-        "Auto-Vent AI",
-        "Vents at 85% heat automatically, so you never burn out.",
-        149,
-        "auto_vent",
-        "autoVent",
-    ),
-    ("2x Star-Matter", "Doubles all Star-Matter income, forever.", 199, "x2_star_matter", "x2StarMatter"),
-    (
-        "VIP Quantum Aura",
-        "Exclusive aura plus one extra drone slot.",
-        399,
+        "VIP",
+        "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
+        1699,
         "vip_aura",
         "vipAura",
     ),
@@ -75,12 +72,21 @@ PASSES = [
         "eternal_forge",
         "eternalForge",
     ),
+    ("Fast Forge", "Doubles accepted clicks per second.", 99, "fast_forge", "fastForge"),
+    ("2x Star-Matter", "Doubles all Star-Matter income, forever.", 199, "x2_star_matter", "x2StarMatter"),
+    (
+        "Auto-Vent AI",
+        "Vents at 85% heat automatically, so you never burn out.",
+        149,
+        "auto_vent",
+        "autoVent",
+    ),
 ]
 
 PRODUCTS = [
     (
         "Starter Forge Pack",
-        "25 Aether and fifteen minutes of double income. One-time boost for a fresh forge.",
+        "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
         5,
         "starter_forge",
         "starterForge",
@@ -88,7 +94,7 @@ PRODUCTS = [
     ("Instant Overdrive", "Fifteen minutes of triple Star-Matter.", 25, "instant_overdrive", "instantOverdrive"),
     (
         "Emergency Vent",
-        "Clears a thermal lockout and resets Core Heat to zero.",
+        "Dumps all heat instantly, wherever the core is.",
         15,
         "instant_vent",
         "instantVent",
@@ -130,6 +136,18 @@ def list_passes(session: requests.Session, key: str) -> list[dict]:
         return []
     r.raise_for_status()
     return r.json().get("gamePasses", [])
+
+
+def list_products(session: requests.Session, key: str) -> list[dict]:
+    r = session.get(
+        f"https://apis.roblox.com/developer-products/v2/universes/{UNIVERSE_ID}/developer-products/creator",
+        headers=headers(key),
+        timeout=40,
+    )
+    if r.status_code == 403:
+        return []
+    r.raise_for_status()
+    return r.json().get("developerProducts", [])
 
 
 def create_pass(session: requests.Session, key: str, name: str, desc: str, price: int, png: Path) -> int:
@@ -212,9 +230,21 @@ def main(argv: list[str] | None = None) -> int:
     key = api_key()
     session = requests.Session()
 
-    existing = list_passes(session, key)
+    existing_passes = list_passes(session, key)
+    existing_products = list_products(session, key)
     print(f"universe {UNIVERSE_ID}")
-    print(f"  {len(existing)} game pass(es) already exist" + (f": {[p.get('name') for p in existing]}" if existing else ""))
+    print(f"  {len(existing_passes)} game pass(es) already exist" + (f": {[p.get('name') for p in existing_passes]}" if existing_passes else ""))
+    print(f"  {len(existing_products)} developer product(s) already exist" + (f": {[p.get('name') for p in existing_products]}" if existing_products else ""))
+
+    # Name -> id, so a re-run patches the config instead of creating a second
+    # copy of every listing. Duplicate store items are real money and real
+    # support tickets, not a cosmetic bug.
+    by_name: dict[str, int] = {}
+    for entry in existing_passes + existing_products:
+        name = entry.get("name")
+        asset = entry.get("gamePassId") or entry.get("productId") or entry.get("id") or 0
+        if name and asset:
+            by_name[str(name)] = int(asset)
 
     plan = [(n, d, p, i, k, "pass") for n, d, p, i, k in PASSES]
     plan += [(n, d, p, i, k, "product") for n, d, p, i, k in PRODUCTS]
@@ -225,12 +255,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         for name, _desc, price, slug, _key, kind in plan:
-            print(f"  would create {kind:<8} {name:<22} R$ {price:<5} icon {slug}.png")
+            state = f"exists (id {by_name[name]})" if name in by_name else "would create"
+            print(f"  {state:<22} {kind:<8} {name:<22} R$ {price:<5} icon {slug}.png")
         print("\n--check made no changes.")
         return 0
 
     ids: dict[str, int] = {}
     for name, desc, price, slug, config_key, kind in plan:
+        if name in by_name:
+            ids[config_key] = by_name[name]
+            print(f"  {kind:<8} {name:<22} R$ {price:<5} -> {by_name[name]} (existing)")
+            continue
         png = ICON_DIR / f"{slug}.png"
         maker = create_pass if kind == "pass" else create_product
         asset = maker(session, key, name, desc, price, png)
