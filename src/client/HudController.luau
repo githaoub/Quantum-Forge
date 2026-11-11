@@ -521,23 +521,24 @@ end
 --- difference, which is the whole point of pinning them apart.
 function HudController.layout()
 	if topBar then
-		topBar.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.TOPBAR_H)
-		topBar.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.TOPBAR_Y)
+		topBar.Size = UDim2.fromOffset(Layout.BAR_W, Layout.TOPBAR_H)
+		topBar.Position = UDim2.fromOffset(Layout.BAR_X, Layout.TOPBAR_Y)
 	end
 	if rateStrip then
-		rateStrip.Size = UDim2.fromOffset(Layout.RATE_W, Layout.RATE_H)
-		rateStrip.Position = UDim2.fromOffset(Layout.RATE_X, Layout.RATE_Y)
+		-- Parented to the rail foot, which `Sections.layout` owns. Fill it.
+		rateStrip.Size = UDim2.fromScale(1, 1)
+		rateStrip.Position = UDim2.fromOffset(0, 0)
 	end
 end
 
-function HudController.init(canvas: Frame)
+function HudController.init(canvas: Frame, railFoot: Frame?)
 	local bar = UiKit.panel(canvas, {
 		tier = "shell",
 		radius = Theme.Radius.lg,
 	})
 	bar.Name = "TopBar"
-	bar.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.TOPBAR_H)
-	bar.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.TOPBAR_Y)
+	bar.Size = UDim2.fromOffset(Layout.BAR_W, Layout.TOPBAR_H)
+	bar.Position = UDim2.fromOffset(Layout.BAR_X, Layout.TOPBAR_Y)
 	topBar = bar
 
 	-- Left group: identity, then the three currencies. A list rather than hand
@@ -658,45 +659,41 @@ function HudController.init(canvas: Frame)
 	ascendButton = buildAscendButton(right)
 	dailyButton = buildDailyButton(right)
 
-	-- Rate readout. A compact instrument on the right end of the nav strip,
-	-- between the utility keys and the vault and settings keys. Same ownership:
-	-- this module already runs the stall detector, so the numbers and the
-	-- honesty about them stay in one place.
-	--
-	-- It is parented to the canvas, not the strip, because the strip is built by
-	-- `Sections` after this module runs. ZIndex 12 keeps the whole readout above
-	-- the strip, which sits at the default.
-	local strip = UiKit.panel(canvas, {
-		tier = "well",
-		radius = Theme.Radius.sm,
-	})
-	strip.Name = "RateStrip"
-	strip.Size = UDim2.fromOffset(Layout.RATE_W, Layout.RATE_H)
-	strip.Position = UDim2.fromOffset(Layout.RATE_X, Layout.RATE_Y)
-	strip.ZIndex = 12
+	-- Rate readout. It lives at the foot of the rail now: the top bar is verbs and
+	-- currency, the rail is navigation and telemetry. Same ownership as before —
+	-- this module already runs the stall detector, so the numbers and the honesty
+	-- about them stay in one place.
+	local strip = UiKit.create("Frame", {
+		Name = "RateStrip",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+	}) :: Frame
+	strip.Parent = railFoot or canvas
 	rateStrip = strip
 
 	local rateLabel = UiKit.label(strip, {
 		text = "LINKING…",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
 		color = Theme.Color.textFaint,
+		wrap = true,
 	})
-	rateLabel.Position = UDim2.fromOffset(10, 0)
-	rateLabel.Size = UDim2.new(1, -130, 1, 0)
+	rateLabel.Position = UDim2.fromOffset(0, 0)
+	rateLabel.Size = UDim2.new(1, 0, 0, 32)
 	rateLabel.Name = "Rate"
 
-	-- The steady number gets its own field, right-aligned and in the currency's
-	-- colour. It is the value the player is actually watching, and two facts glued
-	-- into one string with a separator is how a HUD starts reading as machine output.
+	-- The steady number gets its own field under the status line, in the
+	-- currency's colour. It is the value the player is actually watching.
 	rateValueLabel = UiKit.label(strip, {
 		text = "",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Subheading,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.starMatter,
-		align = Enum.TextXAlignment.Right,
+		align = Enum.TextXAlignment.Left,
 	})
-	rateValueLabel.Position = UDim2.fromOffset(10, 0)
-	rateValueLabel.Size = UDim2.new(1, -20, 1, 0)
+	rateValueLabel.Position = UDim2.fromOffset(0, 34)
+	rateValueLabel.Size = UDim2.new(1, 0, 0, 24)
 	rateValueLabel.Name = "RateValue"
 	rateValueLabel.Visible = false
 

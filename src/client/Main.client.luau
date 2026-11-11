@@ -68,25 +68,6 @@ local function reflow(width: number)
 	CratesView.layout()
 end
 
--- ---------------------------------------------------------------------------
--- Event throttle
--- ---------------------------------------------------------------------------
-
--- Some server events are legitimate but repeatable: a locked-out player who
--- keeps clicking gets a "locked" event per attempt. Toasting each one would turn
--- the screen into a wall of red text.
-local lastEventAt: { [string]: number } = {}
-local EVENT_COOLDOWN = 1.4
-
-local function shouldShow(kind: string): boolean
-	local now = os.clock()
-	local last = lastEventAt[kind] or 0
-	if now - last < EVENT_COOLDOWN then
-		return false
-	end
-	lastEventAt[kind] = now
-	return true
-end
 
 -- ---------------------------------------------------------------------------
 -- Server event handlers
@@ -134,24 +115,7 @@ local function onFeedEvent(event: Types.FeedEvent)
 			ForgeView.punch(2.2)
 		end
 		return
-	elseif event.kind == "overheat" then
-		if shouldShow("overheat") then
-			Notifications.push("CORE OVERHEATED, vent to recover", "bad")
-		end
-		Vfx.flash(Theme.Color.danger, 0.32)
-		local heatAnchor = ForgeView.strikeAnchor()
-		if heatAnchor ~= nil then
-			Vfx.float(heatAnchor, "OVERHEAT!", {
-				color = Theme.Color.danger,
-				size = Theme.Text.Heading,
-				crit = true,
-				drift = 104,
-			})
-			if not SpriteFx.play(heatAnchor, "overheat", Theme.Color.danger, { size = 460 }) then
-				Vfx.burst(heatAnchor, Theme.Color.danger, 2.0)
-			end
-		end
-		return
+
 	elseif event.kind == "forged" then
 		-- Forging is the biggest beat in the loop: the blade itself has to change,
 		-- not just a toast. `celebrate` owns the viewport for ~2.6s and owns the
@@ -177,10 +141,7 @@ local function onFeedEvent(event: Types.FeedEvent)
 		ForgeView.celebrate(event.blade, event.variant, batch)
 		Sfx.result(rank)
 		return
-	elseif event.kind == "locked" then
-		-- Intentionally silent: ForgeView already explains the lock on the local
-		-- tap, and the server echo would double it.
-		return
+
 	elseif event.kind == "vent" then
 		Notifications.push(event.text or "Heat vented", "good")
 		return
@@ -254,12 +215,13 @@ local function boot()
 	Notifications.init(canvas)
 	Modals.init(canvas)
 
-	HudController.init(canvas)
 	ForgeView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
 	CratesView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
 	-- The nav owns the section panels; the two full-bleed cards are passed in so
 	-- the host can hide them without reaching into another module's state.
 	Sections.init(canvas, ForgeView.card(), { crates = CratesView.card() })
+	-- After the rail exists, because the rate readout lives at its foot.
+	HudController.init(canvas, Sections.railFoot())
 	-- The vault is a canvas-level overlay, so it is built after the panels and
 	-- before anything can open it. Built lazily on first open would cost a frame
 	-- of empty screen at the worst moment.
@@ -309,12 +271,6 @@ local function boot()
 		DailyView.open()
 	end
 
-	-- The forge card's crate chip switches to the roll page. `ForgeView`
-	-- deliberately does not require `Sections`: one module owns the anvil, one
-	-- owns the pools, and the seam between them is a callback.
-	ForgeView.openCrates = function()
-		Sections.select("crates")
-	end
 
 	-- Picking a pool on the roll page moves the anvil with it. Both surfaces price
 	-- the same crate, and a player who picked Void here should not find the forge
@@ -669,7 +625,7 @@ local function boot()
 					vault = HudController.vaultHandler ~= nil,
 					settings = HudController.settingsHandler ~= nil,
 					daily = HudController.dailyHandler ~= nil,
-					crates = ForgeView.openCrates ~= nil,
+					crates = Sections.activeTab() ~= nil,
 					crateSel = ForgeView.crateId(),
 				}
 			elseif command == "state" then

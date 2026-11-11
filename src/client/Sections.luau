@@ -28,6 +28,7 @@ local Sfx = require(script.Parent.Sfx)
 local Vfx = require(script.Parent.Vfx)
 local Modals = require(script.Parent.Modals)
 local Layout = require(script.Parent.Layout)
+local Icons = require(script.Parent.Icons)
 local TechTreeConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("TechTreeConfig"))
 
 local DroneView = require(script.Parent.DroneView)
@@ -60,7 +61,7 @@ local SECTIONS: { SectionDef } = {
 		title = "THE FORGE",
 		kicker = "STRIKE THE ANVIL  ·  ROLL THE CRATE  ·  CHASE THE VARIANT",
 		accent = Theme.Color.gold,
-		icon = "★",
+		icon = "forge",
 		page = true,
 	},
 	{
@@ -69,7 +70,7 @@ local SECTIONS: { SectionDef } = {
 		title = "CRATE VAULT",
 		kicker = "FIVE POOLS  ·  ODDS ON THE TABLE  ·  SINGLE OR TEN",
 		accent = Theme.Color.quantum,
-		icon = "▣",
+		icon = "crates",
 		page = true,
 	},
 	{
@@ -78,7 +79,7 @@ local SECTIONS: { SectionDef } = {
 		title = "DRONE FLEET",
 		kicker = "BUY DRONES  ·  SEND EXPEDITIONS  ·  SPEND AETHER",
 		accent = Theme.Color.cyan,
-		icon = "▲",
+		icon = "fleet",
 		init = DroneView.init,
 		destroy = DroneView.destroy,
 	},
@@ -88,7 +89,7 @@ local SECTIONS: { SectionDef } = {
 		title = "RUNE FORGE",
 		kicker = "MASTER THE BLADE IN HAND  ·  SOCKET SHARDS  ·  STACK BONUSES",
 		accent = Theme.Color.quantum,
-		icon = "◆",
+		icon = "runes",
 		init = RuneView.init,
 		destroy = RuneView.destroy,
 	},
@@ -98,7 +99,7 @@ local SECTIONS: { SectionDef } = {
 		title = "TECH TREE",
 		kicker = "SPEND QUANTUM CORES  ·  PERMANENT MULTIPLIERS",
 		accent = Theme.Color.quantum,
-		icon = "✦",
+		icon = "tech",
 		init = TechTreeView.init,
 		destroy = TechTreeView.destroy,
 	},
@@ -108,7 +109,7 @@ local SECTIONS: { SectionDef } = {
 		title = "QUANTUM STORE",
 		kicker = "GAME PASSES  ·  BOOSTS AND UTILITY",
 		accent = Theme.Color.emerald,
-		icon = "¤",
+		icon = "store",
 		init = ShopView.init,
 		destroy = ShopView.destroy,
 	},
@@ -119,9 +120,9 @@ for _, def in SECTIONS do
 	byKey[def.key] = def
 end
 
--- The nav is the only module that knows how many sections exist, and the strip
--- geometry lives in `Layout`. Hand it the count at load, before Main primes the
--- layout, so the tab row and the rate band split the strip correctly.
+-- `Sections` is the only module that knows how many sections exist, and the rail
+-- geometry lives in `Layout`. Hand it the count at load so a future section does
+-- not need a second edit.
 Layout.TAB_COUNT = #SECTIONS
 
 local content: ScrollingFrame? = nil
@@ -132,11 +133,18 @@ local distributor: (() -> ())? = nil
 local forge: Frame? = nil
 --- Full-bleed cards owned by page sections, keyed by section key.
 local pages: { [string]: Frame } = {}
-local nav: Frame? = nil
-local tabRow: Frame? = nil
+local rail: Frame? = nil
+local railFoot: Frame? = nil
 local tabHandles: { [string]: UiKit.TabHandle } = {}
-local banners: { [string]: Frame } = {}
-local kickers: { [string]: TextLabel } = {}
+--- Inline section header inside the row host. One header, repainted on select,
+--- instead of seven banner plates built and hidden.
+local headerBox: Frame? = nil
+local headerLogo: Frame? = nil
+local headerLogoStroke: UIStroke? = nil
+local headerIcons: { [string]: Frame } = {}
+local headerTitle: TextLabel? = nil
+local headerKicker: TextLabel? = nil
+local headerDetail: TextLabel? = nil
 local active: string? = nil
 local settingsListener: (() -> ())? = nil
 
@@ -195,9 +203,44 @@ local function tintFace(name: string, color: Color3?)
 	end
 end
 
+--- Paints the one banner the host owns. The old build made seven banner plates
+--- and toggled their visibility, which is seven plates' worth of layout work for
+--- one visible line; the marks are the only per-section objects, because a
+--- vector icon cannot be recoloured without a rebuild.
+local function paintHeader(def: SectionDef)
+	if headerTitle then
+		headerTitle.Text = def.title
+		headerTitle.TextColor3 = Theme.Color.text
+	end
+	if headerKicker then
+		headerKicker.Text = string.upper(def.kicker)
+	end
+	if headerDetail then
+		headerDetail.Text = string.upper(def.label) .. "  /  " .. tostring(#SECTIONS)
+	end
+	if headerLogoStroke then
+		headerLogoStroke.Color = def.accent
+	end
+	if headerLogo then
+		headerLogo.BackgroundColor3 = def.accent
+	end
+	for key, icon in headerIcons do
+		icon.Visible = key == def.key
+	end
+	if headerBox then
+		headerBox.Visible = def.init ~= nil
+	end
+end
+
 --- Which section is on screen.
 function Sections.activeTab(): string?
 	return active
+end
+
+--- The frame the rail keeps for telemetry. `HudController` fills it with the
+--- rate readout, because it owns the stall detector and the smoothing.
+function Sections.railFoot(): Frame?
+	return railFoot
 end
 
 --- Puts a returning section back where the player left it.
@@ -260,12 +303,7 @@ function Sections.select(name: string)
 	active = name
 	highlight(name)
 
-	for key, banner in banners do
-		banner.Visible = key == name
-	end
-	for key, kicker in kickers do
-		kicker.Visible = key == name
-	end
+	paintHeader(def)
 
 	if def.init then
 		host.Visible = true
@@ -330,93 +368,151 @@ end
 -- Lifecycle
 -- ---------------------------------------------------------------------------
 
---- One tab's width.
----
---- The tabs are the elastic element on the strip: their width is whatever
---- `Layout` managed to leave between the left edge and the rate band, so the
---- strip never shows a hole between STORE and the readout on a wide window and
---- never overlaps on a narrow one.
-local function tabWidth(): number
-	return Layout.TAB_W
-end
-
-local function placeTabs()
-	local row = tabRow
-	if row == nil then
-		return
-	end
-	local width = tabWidth()
-	row.Size = UDim2.fromOffset(#SECTIONS * width + Layout.TAB_GAP * (#SECTIONS - 1), 34)
-	for _, handle in tabHandles do
-		handle.button.Size = UDim2.fromOffset(width, 34)
-	end
-end
-
---- Moves the strip and the section host after a window resize.
----
---- The strip and the panel take their size straight from `Layout`. Section
---- content is deliberately not touched: rows are elastic in X, so a wider section
---- is the same rows with more room, which is what a resize should mean.
----
---- The utility keys moved to the top bar. A strip that carried tabs, three
---- overlays, the rate readout, the vault and the gear was five controls deep on a
---- 46px band, and every one of them was competing with the tab row for width.
+--- Places the rail and the content host after a window resize. Only X moves:
+--- the rail is a fixed width, and every row inside the content is elastic, so a
+--- wider window is the same rows with more room.
 function Sections.layout()
-	if nav == nil then
+	if rail == nil then
 		return
 	end
-	nav.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.NAV_H)
-	nav.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.NAV_Y)
+	rail.Position = UDim2.fromOffset(Layout.RAIL_X, Layout.RAIL_Y)
+	rail.Size = UDim2.fromOffset(Layout.RAIL_W, Layout.CONTENT_H)
+
+	if railFoot then
+		railFoot.Position = UDim2.new(0, 6, 1, -(Layout.RAIL_FOOT_H + 6))
+		railFoot.Size = UDim2.new(1, -12, 0, Layout.RAIL_FOOT_H)
+	end
 
 	if host then
 		host.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
 		host.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
 	end
 
-	placeTabs()
+	if headerBox then
+		headerBox.Size = UDim2.new(1, -32, 0, 64)
+	end
+	if content then
+		content.Size = UDim2.new(1, -32, 1, -100)
+	end
+end
+
+--- One rail item: glyph over label, with a 3px accent bar on the left edge when
+--- the section is active. Built by hand rather than through `UiKit.tab`, because
+--- a tab is a horizontal underline and this is a vertical list entry.
+local function buildRailItem(parent: Frame, def: SectionDef, index: number): UiKit.TabHandle
+	local height = Layout.RAIL_ITEM_H
+	local button = UiKit.create("TextButton", {
+		Name = string.format("Tab_%s", def.label),
+		BackgroundColor3 = Theme.Color.card,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Position = UDim2.fromOffset(0, (index - 1) * (height + Layout.RAIL_ITEM_GAP)),
+		Size = UDim2.fromOffset(Layout.RAIL_W - 16, height),
+	}) :: TextButton
+	UiKit.corner(button, Theme.Radius.sm)
+
+	local bar = UiKit.create("Frame", {
+		Name = "Bar",
+		BackgroundColor3 = def.accent,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 0.5, -12),
+		Size = UDim2.fromOffset(3, 24),
+		Visible = false,
+	}) :: Frame
+	UiKit.corner(bar, 1)
+	bar.Parent = button
+
+	-- Two drawn marks, one dim and one accent, toggled on select. Recolouring a
+	-- vector icon means rebuilding its frames; two copies is cheaper than a
+	-- repaint and cannot leave a half-tinted glyph behind.
+	local iconHost = UiKit.create("Frame", {
+		Name = "Icon",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset((Layout.RAIL_W - 16 - 22) / 2, 9),
+		Size = UDim2.fromOffset(22, 22),
+	}) :: Frame
+	iconHost.Parent = button
+
+	local iconDim = Icons.build(iconHost, def.icon, 22, Theme.Color.textFaint)
+	iconDim.Name = "Dim"
+	local iconLit = Icons.build(iconHost, def.icon, 22, def.accent)
+	iconLit.Name = "Lit"
+	iconLit.Visible = false
+
+	local face = UiKit.label(button, {
+		text = def.label,
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
+	})
+	face.Name = "Face"
+	face.Position = UDim2.fromOffset(4, 33)
+	face.Size = UDim2.new(1, -8, 0, 15)
+
+	local function setActive(on: boolean)
+		bar.Visible = on
+		face.TextColor3 = if on then Theme.Color.text else Theme.Color.textFaint
+		iconDim.Visible = not on
+		iconLit.Visible = on
+		button.BackgroundColor3 = if on then Theme.Color.panelRaised else Theme.Color.card
+		button.BackgroundTransparency = if on then 0 else 1
+	end
+
+	UiKit.track(button, button.MouseEnter:Connect(function()
+		if not bar.Visible then
+			face.TextColor3 = Theme.Color.textDim
+		end
+	end))
+	UiKit.track(button, button.MouseLeave:Connect(function()
+		if not bar.Visible then
+			face.TextColor3 = Theme.Color.textFaint
+		end
+	end))
+
+	UiKit.track(button, button.Activated:Connect(function()
+		Sfx.tab()
+		Sections.select(def.key)
+	end))
+
+	button.Parent = parent
+	return { button = button, setActive = setActive }
 end
 
 function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: Frame }?)
-	-- Nav strip. One solid plate across the full width: sections on the left,
-	-- the rate readout and the overlay keys on the right. The rate readout is
-	-- built by `HudController` and floats over this strip at ZIndex 12, because
-	-- that module already owns the stall detector and the two facts belong
-	-- together.
-	local strip = UiKit.panel(canvas, {
+	-- The rail. Six sections, then whatever the rate band needs at the foot.
+	-- A vertical list is the single biggest structural change in the refactor:
+	-- six equal tabs across a strip was the strongest "template" signal on screen,
+	-- and the rail hands 52px of height back to every section.
+	local shell = UiKit.panel(canvas, {
 		tier = "shell",
 		radius = Theme.Radius.lg,
 	})
-	strip.Name = "Nav"
-	strip.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.NAV_H)
-	strip.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.NAV_Y)
-	nav = strip
+	shell.Name = "Rail"
+	shell.Size = UDim2.fromOffset(Layout.RAIL_W, Layout.CONTENT_H)
+	shell.Position = UDim2.fromOffset(Layout.RAIL_X, Layout.RAIL_Y)
+	rail = shell
 
-	local row = UiKit.create("Frame", {
-		Name = "Tabs",
+	local items = UiKit.create("Frame", {
+		Name = "Items",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(10, (Layout.NAV_H - 34) / 2),
-		Size = UDim2.fromOffset(#SECTIONS * (Layout.TAB_W + Layout.TAB_GAP), 34),
+		Position = UDim2.fromOffset(8, 10),
+		Size = UDim2.new(1, -16, 0, 0),
 	}) :: Frame
-	row.Parent = strip
-	tabRow = row
-	UiKit.hlist(row, Layout.TAB_GAP, Enum.VerticalAlignment.Center)
+	items.Parent = shell
 
-	local width = tabWidth()
 	for index, def in SECTIONS do
-		local handle = UiKit.tab(row, {
-			text = def.label,
-			accent = def.accent,
-			width = width,
-			height = 34,
-			onSelect = function()
-				Sections.select(def.key)
-			end,
-		})
-		local button = handle.button
-		button.Name = string.format("Tab_%s", def.label)
-		button.LayoutOrder = index
-		tabHandles[def.key] = handle
+		tabHandles[def.key] = buildRailItem(items, def, index)
 	end
+
+	local foot = UiKit.create("Frame", {
+		Name = "Foot",
+		BackgroundTransparency = 1,
+	}) :: Frame
+	foot.Parent = shell
+	railFoot = foot
 
 	settingsListener = StateStore.onSync(function(payload)
 		-- Keep the audio gate honest on a fresh client: the saved preference is
@@ -425,9 +521,9 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 		Sfx.setEnabled(payload.settings.sfx)
 	end)
 
-	-- Section panel. Every management screen is the same shell, the same banner
-	-- position and the same scroll rect, so switching sections swaps content
-	-- without moving the frame the player is looking at.
+	-- Section panel. Every management screen is the same shell and the same
+	-- scroll rect, so switching sections swaps content without moving the frame
+	-- the player is looking at.
 	local panel = UiKit.panel(canvas, {
 		tier = "shell",
 		radius = Theme.Radius.xl,
@@ -438,43 +534,78 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	panel.Visible = false
 	host = panel
 
-	for _, def in SECTIONS do
-		if def.init then
-			-- Header: a banner only as wide as its title, with the kicker set
-			-- beside it. A full-width 21px plank with one word in the middle was
-			-- the same mistake the side panel made in reverse: it took the whole
-			-- screen and said one thing.
-			local banner = UiKit.banner(panel, {
-				text = def.title,
-				position = UDim2.fromOffset(18, 14),
-				width = UDim2.fromOffset(430, 46),
-				size = 21,
-				accent = def.accent,
-				icon = def.icon,
-			})
-			banner.Name = "Banner_" .. def.key
-			banner.Visible = false
-			banners[def.key] = banner
+	-- Section banner. One plate, repainted on select: accent mark, title, kicker.
+	-- This is the "game header" a Roblox sim puts on every screen, done once
+	-- instead of seven times. The marks are the only per-section children.
+	local banner = UiKit.panel(panel, {
+		tier = "raised",
+		radius = Theme.Radius.card,
+	})
+	banner.Name = "SectionBanner"
+	banner.Position = UDim2.fromOffset(16, 16)
+	banner.Size = UDim2.new(1, -32, 0, 64)
+	headerBox = banner
 
-			local kicker = UiKit.label(panel, {
-				text = def.kicker,
-				size = Theme.Text.Micro,
-				font = Theme.Font.Label,
-				color = Theme.Color.textFaint,
-			})
-			kicker.Name = "Kicker_" .. def.key
-			kicker.Position = UDim2.fromOffset(466, 26)
-			kicker.Size = UDim2.new(1, -484, 0, 22)
-			kicker.TextYAlignment = Enum.TextYAlignment.Center
-			kicker.Visible = false
-			kickers[def.key] = kicker
-		end
+	headerLogo = UiKit.create("Frame", {
+		Name = "Mark",
+		BackgroundColor3 = Theme.Color.gold,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 12, 0.5, -20),
+		Size = UDim2.fromOffset(40, 40),
+	}) :: Frame
+	UiKit.corner(headerLogo, Theme.Radius.sm)
+	headerLogoStroke = UiKit.stroke(headerLogo, Theme.Color.gold, Theme.Stroke.hair, 0)
+	headerLogo.Parent = banner
+
+	local marks = UiKit.create("Frame", {
+		Name = "Marks",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.fromOffset(24, 24),
+	}) :: Frame
+	marks.Parent = headerLogo
+	for _, section in SECTIONS do
+		local icon = Icons.build(marks, section.icon, 24, Theme.onColor(headerLogo.BackgroundColor3))
+		icon.Name = section.key
+		icon.Visible = false
+		headerIcons[section.key] = icon
 	end
+
+	headerTitle = UiKit.label(banner, {
+		text = "THE FORGE",
+		size = Theme.Text.Title - 4,
+		font = Theme.Font.Heading,
+		color = Theme.Color.text,
+	})
+	headerTitle.Name = "Title"
+	headerTitle.Position = UDim2.fromOffset(64, 9)
+	headerTitle.Size = UDim2.new(1, -230, 0, 30)
+
+	headerKicker = UiKit.label(banner, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	headerKicker.Name = "Kicker"
+	headerKicker.Position = UDim2.fromOffset(64, 39)
+	headerKicker.Size = UDim2.new(1, -230, 0, 15)
+
+	headerDetail = UiKit.label(banner, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	headerDetail.Name = "Detail"
+	headerDetail.Position = UDim2.new(1, -150, 0, 24)
+	headerDetail.Size = UDim2.fromOffset(138, 16)
 
 	local scroll = UiKit.scroll(panel)
 	scroll.Name = "Content"
-	scroll.Size = UDim2.new(1, -36, 1, -112)
-	scroll.Position = UDim2.fromOffset(18, 92)
+	scroll.Size = UDim2.new(1, -32, 1, -100)
+	scroll.Position = UDim2.fromOffset(16, 92)
 	content = scroll
 
 	-- Two columns. At 1685 design px a single column of rows stretches a card to
@@ -673,9 +804,9 @@ function Sections.destroy()
 		settingsListener()
 		settingsListener = nil
 	end
-	if nav then
-		nav:Destroy()
-		nav = nil
+	if rail then
+		rail:Destroy()
+		rail = nil
 	end
 	if host then
 		host:Destroy()
@@ -685,13 +816,18 @@ function Sections.destroy()
 	forge = nil
 	table.clear(pages)
 	table.clear(tabHandles)
-	table.clear(banners)
-	table.clear(kickers)
 	table.clear(savedScroll)
 	table.clear(columns)
 	rowSink = nil
 	distributor = nil
-	tabRow = nil
+	railFoot = nil
+	headerBox = nil
+	headerLogo = nil
+	headerLogoStroke = nil
+	headerTitle = nil
+	headerKicker = nil
+	headerDetail = nil
+	table.clear(headerIcons)
 	pendingRestore = nil
 	scrollEpoch += 1
 end

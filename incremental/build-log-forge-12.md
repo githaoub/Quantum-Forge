@@ -1,3 +1,14 @@
+---
+type: build-log
+status: done
+updated: 2026-11-11
+aliases:
+  - build-log-forge-12
+tags:
+  - build-log
+  - forge
+---
+
 # Forge 12 - crate, economy, modifiers, codex, boards, trade, and the currency art
 
 Shipped 2026-11-11. The design record is `ADR-056` through `ADR-067` in

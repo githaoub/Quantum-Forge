@@ -141,7 +141,7 @@ local function build(canvas: Frame)
 	kicker.ZIndex = 3
 
 	local copy = UiKit.label(frame, {
-		text = "Strike the anvil to forge Star-Matter. Spend it on the crate to roll blades, and every blade multiplies the next strike.",
+		text = "Strike the anvil to forge Star-Matter. Open CRATES to roll a blade; every copy you pull multiplies the next strike.",
 		size = Theme.Text.Body,
 		font = Theme.Font.Body,
 		color = Theme.Color.textSecondary,

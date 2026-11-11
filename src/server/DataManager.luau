@@ -70,7 +70,6 @@ local function defaults(): Types.ProfileState
 		quantumCores = 0,
 
 		heat = 0,
-		lockUntil = 0,
 		blades = {
 			[STARTER_UID] = {
 				id = BladeRegistry.StarterBlade,

@@ -215,8 +215,10 @@ export type PanelOpts = {
 	lipColor: Color3?,
 }
 
---- The standard chunky panel: opaque fill, 3px outline, 12px corners, a 2px lit
---- bevel along the top and a 5px shadow lip along the bottom.
+--- The standard surface: opaque fill, a 1px `stroke` border, a 6px corner. No
+--- bevel and no lip by default: depth is the fill value, and a lit edge on every
+--- plate is what made the old build read as a stack of toy blocks. Both are still
+--- available for the one element a screen wants to read as a physical plate.
 function UiKit.panel(parent: Instance, opts: PanelOpts?): Frame
 	local o = opts or {}
 	local tier = Theme.elevation(o.tier)
@@ -228,31 +230,30 @@ function UiKit.panel(parent: Instance, opts: PanelOpts?): Frame
 	}) :: Frame
 
 	UiKit.corner(panel, radius)
-	UiKit.stroke(panel, o.stroke, o.strokeThickness, o.strokeTransparency or tier.strokeTransparency)
+	UiKit.stroke(panel, o.stroke or Theme.Color.stroke, o.strokeThickness or Theme.Stroke.thin, o.strokeTransparency or tier.strokeTransparency)
 
-	if o.bevel ~= false then
+	if o.bevel == true then
 		local bevel = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.white,
-			BackgroundTransparency = 0.76,
+			BackgroundTransparency = 0.84,
 			BorderSizePixel = 0,
-			Size = UDim2.new(1, -20, 0, 2),
+			Size = UDim2.new(1, -20, 0, 1),
 			Position = UDim2.fromOffset(10, 1),
 			ZIndex = 0,
 		}) :: Frame
-		UiKit.corner(bevel, 2)
 		bevel.Parent = panel
 	end
 
-	if o.lip ~= false then
+	if o.lip == true then
 		local lip = UiKit.create("Frame", {
 			BackgroundColor3 = o.lipColor or Theme.Color.ink,
-			BackgroundTransparency = 0.42,
+			BackgroundTransparency = 0.55,
 			BorderSizePixel = 0,
-			Size = UDim2.new(1, -20, 0, 5),
-			Position = UDim2.new(0, 10, 1, -6),
+			Size = UDim2.new(1, -20, 0, 3),
+			Position = UDim2.new(0, 10, 1, -4),
 			ZIndex = 0,
 		}) :: Frame
-		UiKit.corner(lip, 3)
+		UiKit.corner(lip, 2)
 		lip.Parent = panel
 	end
 
@@ -366,6 +367,9 @@ end
 
 export type BannerOpts = {
 	text: string,
+	--- Second line under the title. When set, the title is the upper half of the
+	--- lockup instead of a vertically centred single line.
+	subtitle: string?,
 	width: UDim2?,
 	position: UDim2?,
 	height: number?,
@@ -379,13 +383,13 @@ export type BannerOpts = {
 	size: number?,
 }
 
---- A wood banner: the reference's signature header. Gradient plaque, 3px
---- outline, lit top bevel, a 30px icon square and white GothamBlack type with a
---- hard black stroke. Parent it to a panel at a negative Y to let it overhang
---- the panel's top edge the way the reference does.
+--- A region header: a flat steel plate, one hairline border, a square accent
+--- plaque and type flush left. The old wood gradient banner with a centred
+--- stroked title was the loudest "template" signal in the build; this one reads as
+--- a label on a machine face.
 function UiKit.banner(parent: Instance, opts: BannerOpts): Frame
 	local o = opts
-	local height = o.height or 46
+	local height = o.height or 44
 
 	local banner = UiKit.create("Frame", {
 		Name = "Banner",
@@ -396,36 +400,23 @@ function UiKit.banner(parent: Instance, opts: BannerOpts): Frame
 		Position = o.position or UDim2.fromOffset(0, 0),
 	}) :: Frame
 	UiKit.corner(banner, Theme.Radius.card)
-	UiKit.gradient(banner, { Theme.Color.woodLight, Theme.Color.wood, Theme.Color.woodDeep }, 90)
-	UiKit.stroke(banner, Theme.Color.outline, Theme.Stroke.thick, 0)
+	UiKit.stroke(banner, Theme.Color.stroke, Theme.Stroke.thin, 0)
 
-	local bevel = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.white,
-		BackgroundTransparency = 0.62,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, -18, 0, 2),
-		Position = UDim2.fromOffset(9, 1),
-		ZIndex = 0,
-	}) :: Frame
-	UiKit.corner(bevel, 2)
-	bevel.Parent = banner
-
-	local textLeft = 12
+	local textLeft = 14
 	if o.accent then
 		local plaque = UiKit.create("Frame", {
 			BackgroundColor3 = o.accent,
 			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(30, 30),
-			Position = UDim2.new(0, 9, 0.5, -15),
+			Size = UDim2.fromOffset(26, 26),
+			Position = UDim2.new(0, 10, 0.5, -13),
 			ZIndex = 1,
 		}) :: Frame
-		UiKit.corner(plaque, 6)
-		UiKit.stroke(plaque, Theme.Color.outline, Theme.Stroke.thin, 0)
+		UiKit.corner(plaque, Theme.Radius.sm)
 		local glyph = UiKit.label(plaque, {
 			text = o.icon or "◆",
-			size = 15,
+			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
-			color = Theme.Color.ink,
+			color = Theme.onColor(o.accent),
 			align = Enum.TextXAlignment.Center,
 		})
 		glyph.Size = UDim2.fromScale(1, 1)
@@ -436,40 +427,57 @@ function UiKit.banner(parent: Instance, opts: BannerOpts): Frame
 
 	local title = UiKit.label(banner, {
 		text = o.text,
-		size = o.size or 22,
+		size = o.size or Theme.Text.Heading,
 		font = Theme.Font.Black,
 		color = Theme.Color.text,
-		align = Enum.TextXAlignment.Center,
-		stroke = true,
+		align = Enum.TextXAlignment.Left,
 	})
 	title.Name = "Title"
-	title.Size = UDim2.new(1, -(textLeft + 12), 1, 0)
-	title.Position = UDim2.fromOffset(textLeft, 0)
+	if o.subtitle then
+		-- Two-line lockup: the name is the heading, the line under it is the one
+		-- fact that qualifies it (rarity, class, owner). A single vertically
+		-- centred title wastes the middle of a 64px plate.
+		local half = math.floor(height / 2)
+		title.Size = UDim2.new(1, -(textLeft + 12), 0, (o.size or Theme.Text.Heading) + 4)
+		title.Position = UDim2.fromOffset(textLeft, half - (o.size or Theme.Text.Heading) - 4)
+
+		local sub = UiKit.label(banner, {
+			text = o.subtitle,
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Left,
+		})
+		sub.Name = "Subtitle"
+		sub.Position = UDim2.fromOffset(textLeft, half + 4)
+		sub.Size = UDim2.new(1, -(textLeft + 12), 0, 15)
+	else
+		title.Size = UDim2.new(1, -(textLeft + 12), 1, 0)
+		title.Position = UDim2.fromOffset(textLeft, 0)
+	end
 
 	if o.right then
+		local accent = o.rightAccent or Theme.Color.gold
 		local tab = UiKit.create("Frame", {
 			Name = "RightTab",
-			BackgroundColor3 = o.rightAccent or Theme.Color.gold,
+			BackgroundColor3 = accent,
 			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(84, 26),
-			Position = UDim2.new(1, -92, 0.5, -13),
+			Size = UDim2.fromOffset(76, 22),
+			Position = UDim2.new(1, -86, 0.5, -11),
 			ZIndex = 1,
 		}) :: Frame
-		UiKit.corner(tab, 7)
-		UiKit.gradient(tab, { Theme.Color.gold, Theme.Color.goldDeep }, 90)
-		UiKit.stroke(tab, Theme.Color.outline, Theme.Stroke.thin, 0)
+		UiKit.corner(tab, Theme.Radius.sm)
 		local tabText = UiKit.label(tab, {
 			text = o.right,
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
-			color = Theme.Color.text,
+			color = Theme.onColor(accent),
 			align = Enum.TextXAlignment.Center,
-			stroke = true,
 		})
 		tabText.Size = UDim2.fromScale(1, 1)
 		tabText.Parent = tab
 		tab.Parent = banner
-		title.Size = UDim2.new(1, -(textLeft + 104), 1, 0)
+		title.Size = UDim2.new(1, -(textLeft + 96), 1, 0)
 	end
 
 	banner.Parent = parent
@@ -571,68 +579,34 @@ export type ButtonOpts = {
 	handler: (() -> ())?,
 }
 
---- Chunky action button: solid plate, 3px outline, white stroked face, hover
---- brightens the border. `accent` adds a gradient child plate so the tint never
---- multiplies the label.
+--- Flat key: one fill, one hairline border, a face in whichever of ink or white
+--- survives the fill. The old version stacked a gradient plate, a lit bevel and a
+--- stroked face on every button; none of that is here, because a control should
+--- read as a control and not as a moulded toy.
 function UiKit.button(parent: Instance, opts: ButtonOpts): TextButton
 	local o = opts
-	local baseFill = o.fill or Theme.Color.panelRaised
-	local baseStroke = o.stroke or Theme.Color.outline
-	local radius = o.radius or Theme.Radius.card
+	local baseFill = o.accent and o.accent[1] or o.fill or Theme.Color.panelRaised
+	local baseStroke = o.stroke or Theme.Color.stroke
+	local radius = o.radius or Theme.Radius.md
+	local faceColor = o.textColor or o.color or (if o.accent then Theme.onColor(baseFill) else Theme.Color.text)
 
 	local button = UiKit.create("TextButton", {
 		BackgroundColor3 = baseFill,
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Text = if o.accent then "" else (o.text or ""),
-		TextColor3 = o.textColor or o.color or Theme.Color.text,
+		Text = o.text or "",
+		TextColor3 = faceColor,
 		TextSize = o.size or Theme.Text.Body,
 		Font = o.font or Theme.Font.Heading,
-		TextStrokeColor3 = Theme.Color.outline,
-		TextStrokeTransparency = 0,
+		TextStrokeTransparency = 1,
 		LayoutOrder = o.layoutOrder or 0,
 		Size = UDim2.new(1, 0, 0, o.height or 44),
 	}) :: TextButton
 
 	UiKit.corner(button, radius)
-	local stroke = UiKit.stroke(button, baseStroke, Theme.Stroke.thick, 0.15)
+	local stroke = UiKit.stroke(button, baseStroke, Theme.Stroke.thin, 0)
 	UiKit.focus(button, stroke, baseStroke, 0)
-
-	if o.accent then
-		local plate = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.white,
-			BorderSizePixel = 0,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 1,
-		}) :: Frame
-		UiKit.corner(plate, radius)
-		UiKit.gradient(plate, o.accent, 90)
-		plate.Parent = button
-
-		local bevel = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.white,
-			BackgroundTransparency = 0.7,
-			BorderSizePixel = 0,
-			Size = UDim2.new(1, -16, 0, 2),
-			Position = UDim2.fromOffset(8, 1),
-			ZIndex = 2,
-		}) :: Frame
-		UiKit.corner(bevel, 2)
-		bevel.Parent = plate
-
-		local face = UiKit.label(button, {
-			text = o.text or "",
-			size = o.size or Theme.Text.Body,
-			font = o.font or Theme.Font.Heading,
-			color = o.textColor or o.color or Theme.Color.text,
-			align = Enum.TextXAlignment.Center,
-			stroke = true,
-		})
-		face.Name = "Face"
-		face.Size = UDim2.fromScale(1, 1)
-		face.ZIndex = 3
-	end
 
 	if o.padding then
 		UiKit.padding(button, o.padding)
@@ -640,11 +614,13 @@ function UiKit.button(parent: Instance, opts: ButtonOpts): TextButton
 
 	UiKit.track(button, button.MouseEnter:Connect(function()
 		Sfx.hover()
-		UiKit.tween(stroke, Theme.Duration.fast, { Transparency = 0, Thickness = Theme.Stroke.bold })
+		UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = baseFill:Lerp(Theme.Color.white, 0.07) })
+		UiKit.tween(stroke, Theme.Duration.fast, { Color = Theme.Color.strokeBright })
 	end))
 
 	UiKit.track(button, button.MouseLeave:Connect(function()
-		UiKit.tween(stroke, Theme.Duration.normal, { Transparency = 0.15, Thickness = Theme.Stroke.thick })
+		UiKit.tween(button, Theme.Duration.normal, { BackgroundColor3 = baseFill })
+		UiKit.tween(stroke, Theme.Duration.normal, { Color = baseStroke })
 	end))
 
 	if o.handler then
@@ -708,8 +684,7 @@ function UiKit.actionButton(parent: Instance, opts: {
 	local accent = opts.accent
 	local radius = opts.radius or Theme.Radius.sm
 	local height = opts.height or 32
-	local faceColor = opts.labelColor or Theme.Color.text
-	local faceStroke = opts.labelStroke ~= false
+	local faceStroke = opts.labelStroke == true
 
 	local button = UiKit.create("TextButton", {
 		BackgroundColor3 = Theme.Color.slate,
@@ -720,32 +695,7 @@ function UiKit.actionButton(parent: Instance, opts: {
 		Size = UDim2.new(1, 0, 0, height),
 	}) :: TextButton
 	UiKit.corner(button, radius)
-	local stroke = UiKit.stroke(button, Theme.Color.outline, Theme.Stroke.thick, 0)
-
-	local fill = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.white,
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 1,
-		Visible = false,
-	}) :: Frame
-	UiKit.corner(fill, radius)
-	local gradient = UiKit.gradient(fill, { accent, accent:Lerp(Theme.Color.white, 0.22) }, 90)
-	fill.Parent = button
-
-	-- One-pixel lit edge along the top. Cheap, and it is the whole difference
-	-- between "coloured rectangle" and "moulded button".
-	local bevel = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.white,
-		BackgroundTransparency = 0.68,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, -14, 0, 2),
-		Position = UDim2.fromOffset(7, 1),
-		ZIndex = 2,
-		Visible = false,
-	}) :: Frame
-	UiKit.corner(bevel, 2)
-	bevel.Parent = fill
+	local stroke = UiKit.stroke(button, Theme.Color.stroke, Theme.Stroke.thin, 0)
 
 	local label = UiKit.label(button, {
 		text = opts.label or "",
@@ -753,7 +703,7 @@ function UiKit.actionButton(parent: Instance, opts: {
 		font = opts.font or Theme.Font.Black,
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
-		stroke = true,
+		stroke = faceStroke,
 	})
 	label.Name = "Face"
 	label.Size = UDim2.fromScale(1, 1)
@@ -765,63 +715,54 @@ function UiKit.actionButton(parent: Instance, opts: {
 		label.Text = text
 
 		if kind == "ready" then
-			fill.Visible = true
-			bevel.Visible = true
-			if opts.solid then
-				gradient.Color = ColorSequence.new(tint, tint)
-			else
-				gradient.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, tint:Lerp(Theme.Color.white, 0.18)),
-					ColorSequenceKeypoint.new(0.5, tint),
-					ColorSequenceKeypoint.new(1, tint:Lerp(Theme.Color.ink, 0.18)),
-				})
-			end
-			button.BackgroundTransparency = 0
 			button.BackgroundColor3 = tint
+			button.BackgroundTransparency = 0
 			stroke.Color = Theme.Color.outline
 			stroke.Transparency = 0
-			label.TextColor3 = faceColor
+			label.TextColor3 = opts.labelColor or Theme.onColor(tint)
 			label.TextTransparency = 0
-			label.TextStrokeTransparency = if faceStroke then 0 else 1
+			label.TextStrokeTransparency = if faceStroke then 0.25 else 1
 			button.Active = true
 		elseif kind == "equipped" then
-			fill.Visible = false
-			bevel.Visible = false
-			button.BackgroundColor3 = Theme.Color.emeraldDeep
-			button.BackgroundTransparency = 0.55
-			stroke.Color = Theme.Color.outline
+			-- A badge, not a CTA: the fill drops to a tint and the border carries
+			-- the state, so an owned item never competes with something buyable.
+			button.BackgroundColor3 = Theme.Color.emerald
+			button.BackgroundTransparency = 0.86
+			stroke.Color = Theme.Color.emerald
 			stroke.Transparency = 0
 			label.TextColor3 = Theme.Color.emerald
 			label.TextTransparency = 0
-			label.TextStrokeTransparency = 0.2
+			label.TextStrokeTransparency = 1
 			button.Active = false
 		else
-			fill.Visible = false
-			bevel.Visible = false
 			button.BackgroundColor3 = Theme.Color.slate
 			button.BackgroundTransparency = 0
-			stroke.Color = Theme.Color.outline
+			stroke.Color = Theme.Color.stroke
 			stroke.Transparency = 0
 			label.TextColor3 = Theme.Color.locked
-			label.TextTransparency = 0.1
+			label.TextTransparency = 0
 			label.TextStrokeTransparency = 1
 			button.Active = false
 		end
 	end
 
+	local resting: Color3? = nil
 	UiKit.track(button, button.MouseEnter:Connect(function()
 		if not button.Active then
 			return
 		end
 		Sfx.hover()
-		UiKit.tween(stroke, Theme.Duration.fast, { Thickness = Theme.Stroke.bold })
+		resting = button.BackgroundColor3
+		UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = resting:Lerp(Theme.Color.white, 0.09) })
 	end))
 
 	UiKit.track(button, button.MouseLeave:Connect(function()
-		if not button.Active then
+		local back = resting
+		resting = nil
+		if back == nil or not button.Active then
 			return
 		end
-		UiKit.tween(stroke, Theme.Duration.normal, { Thickness = Theme.Stroke.thick })
+		UiKit.tween(button, Theme.Duration.normal, { BackgroundColor3 = back })
 	end))
 
 	if opts.handler then
@@ -849,9 +790,10 @@ export type TabHandle = {
 	setActive: (active: boolean) -> (),
 }
 
---- A category pill. Active: solid accent gradient, white stroked face. Inactive:
---- flat slate, no lit face and no glow, so the selected tab is the only one that
---- carries colour — the reference's tab strip does exactly this.
+--- A category tab. Active: the label goes white and a 2px accent underline sits
+--- on the bottom edge. Inactive: no fill, faint label. The old pill-with-gradient
+--- shape made every filter row read as a row of buttons; an underline says "this
+--- is the current view" without adding another plate to the screen.
 function UiKit.tab(parent: Instance, opts: {
 	text: string,
 	accent: Color3,
@@ -861,30 +803,30 @@ function UiKit.tab(parent: Instance, opts: {
 }): TabHandle
 	local radius = Theme.Radius.sm
 	local button = UiKit.create("TextButton", {
-		BackgroundColor3 = Theme.Color.slate,
-		BackgroundTransparency = 0,
+		BackgroundColor3 = Theme.Color.card,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
 		Size = UDim2.fromOffset(opts.width or 88, opts.height or 34),
 	}) :: TextButton
 	UiKit.corner(button, radius)
-	local stroke = UiKit.stroke(button, Theme.Color.outline, Theme.Stroke.thick, 0)
 
-	local fill = UiKit.create("Frame", {
+	local underline = UiKit.create("Frame", {
+		Name = "Underline",
 		BackgroundColor3 = opts.accent,
 		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.new(0, 0, 1, -2),
+		Size = UDim2.new(1, 0, 0, 2),
 		Visible = false,
-		ZIndex = 1,
+		ZIndex = 2,
 	}) :: Frame
-	UiKit.corner(fill, radius)
-	UiKit.gradient(fill, { opts.accent:Lerp(Theme.Color.white, 0.2), opts.accent, opts.accent:Lerp(Theme.Color.ink, 0.22) }, 90)
-	fill.Parent = button
+	UiKit.corner(underline, 1)
+	underline.Parent = button
 
 	local label = UiKit.label(button, {
 		text = string.upper(opts.text),
-		size = 16,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.locked,
 		align = Enum.TextXAlignment.Center,
@@ -896,10 +838,9 @@ function UiKit.tab(parent: Instance, opts: {
 	local active = false
 	local function setActive(nextActive: boolean)
 		active = nextActive
-		fill.Visible = active
+		underline.Visible = active
 		label.TextColor3 = if active then Theme.Color.text else Theme.Color.locked
-		label.TextStrokeTransparency = if active then 0 else 1
-		UiKit.tween(stroke, Theme.Duration.fast, { Transparency = 0 })
+		label.TextStrokeTransparency = 1
 	end
 
 	UiKit.track(button, button.MouseEnter:Connect(function()
@@ -996,7 +937,7 @@ function UiKit.bar(parent: Instance, opts: {
 		Size = UDim2.new(1, 0, 0, o.height or 10),
 	}) :: Frame
 	UiKit.corner(track, radius)
-	UiKit.stroke(track, Theme.Color.outline, Theme.Stroke.thin, 0)
+	UiKit.stroke(track, Theme.Color.strokeFaint, Theme.Stroke.hair, 0)
 	track.Parent = parent
 
 	local fill = UiKit.create("Frame", {
@@ -1258,6 +1199,127 @@ function UiKit.dissolve(instance: GuiObject, duration: number?)
 	task.delay(d + 0.05, function()
 		instance:Destroy()
 	end)
+end
+
+--- A 1px divider. The new design separates with a line rather than a nested
+--- plate: a fourth surface in a stack is what turns a screen into card soup.
+function UiKit.rule(parent: Instance, opts: { color: Color3?, inset: number?, position: UDim2? }?): Frame
+	local o = opts or {}
+	local inset = o.inset or 0
+	local rule = UiKit.create("Frame", {
+		Name = "Rule",
+		BackgroundColor3 = o.color or Theme.Color.stroke,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, -inset * 2, 0, 1),
+		Position = o.position or UDim2.fromOffset(inset, 0),
+	}) :: Frame
+	rule.Parent = parent
+	return rule
+end
+
+--- The 13px uppercase label that opens a region. Faint by default: it is a
+--- signpost, not a heading, and it should never compete with the title under it.
+function UiKit.eyebrow(parent: Instance, text: string, opts: {
+	color: Color3?,
+	width: number?,
+	align: Enum.TextXAlignment?,
+}?): TextLabel
+	local o = opts or {}
+	local label = UiKit.label(parent, {
+		text = string.upper(text),
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = o.color or Theme.Color.textFaint,
+		align = o.align or Enum.TextXAlignment.Left,
+	})
+	label.Name = "Eyebrow"
+	if o.width then
+		label.Size = UDim2.fromOffset(o.width, 14)
+	else
+		label.Size = UDim2.new(1, 0, 0, 14)
+	end
+	return label
+end
+
+--- A large figure with an optional unit, in the numeric face. RichText carries
+--- the unit so a caller does not have to measure the number to place it.
+function UiKit.figure(parent: Instance, opts: {
+	text: string,
+	unit: string?,
+	size: number?,
+	color: Color3?,
+	unitColor: Color3?,
+	width: number?,
+}): TextLabel
+	local o = opts
+	local unit = ""
+	if o.unit and o.unit ~= "" then
+		unit = string.format(
+			' <font size="%d" color="#%s">%s</font>',
+			Theme.Text.Micro,
+			(o.unitColor or Theme.Color.textFaint):ToHex(),
+			o.unit
+		)
+	end
+	local label = UiKit.label(parent, {
+		text = o.text .. unit,
+		size = o.size or Theme.Text.Hero,
+		font = Theme.Font.Numeric,
+		color = o.color or Theme.Color.text,
+		align = Enum.TextXAlignment.Left,
+		rich = true,
+	})
+	label.Name = "Figure"
+	label.Size = UDim2.fromOffset(o.width or 240, (o.size or Theme.Text.Hero) + 8)
+	return label
+end
+
+--- A region header with no plate under it: eyebrow, title, and one fact pinned
+--- right. This replaces the old full-width banner on every section and modal.
+function UiKit.header(parent: Instance, opts: {
+	eyebrow: string,
+	title: string,
+	detail: string?,
+	titleColor: Color3?,
+	height: number?,
+}): Frame
+	local height = opts.height or 46
+	local box = UiKit.create("Frame", {
+		Name = "Header",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, height),
+	}) :: Frame
+	box.Parent = parent
+
+	local eyebrow = UiKit.eyebrow(box, opts.eyebrow)
+	eyebrow.Position = UDim2.fromOffset(0, 0)
+	eyebrow.Size = UDim2.new(1, -160, 0, 14)
+
+	local title = UiKit.label(box, {
+		text = opts.title,
+		size = Theme.Text.Title,
+		font = Theme.Font.Heading,
+		color = opts.titleColor or Theme.Color.text,
+	})
+	title.Name = "Title"
+	title.Position = UDim2.fromOffset(0, 14)
+	title.Size = UDim2.new(1, -160, 0, Theme.Text.Title + 4)
+
+	if opts.detail then
+		local detail = UiKit.label(box, {
+			text = opts.detail,
+			size = Theme.Text.Micro,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Right,
+		})
+		detail.Name = "Detail"
+		detail.Position = UDim2.new(1, -156, 0, 18)
+		detail.Size = UDim2.fromOffset(156, 18)
+	end
+
+	return box
 end
 
 return UiKit

@@ -44,20 +44,20 @@ local bladeName: TextLabel? = nil
 local bladeFlavor: TextLabel? = nil
 local multChip: TextLabel? = nil
 
-local heatFill: Frame? = nil
-local heatFillGradient: UIGradient? = nil
-local heatBand: Frame? = nil
-local heatVentTick: Frame? = nil
 local heatLabel: TextLabel? = nil
 local heatStatus: TextLabel? = nil
 local heatTrackStroke: UIStroke? = nil
+local heatBand: Frame? = nil
+local heatPenalty: Frame? = nil
+local heatFill: Frame? = nil
+local heatFillGradient: UIGradient? = nil
+local heatVentTick: Frame? = nil
 local heatNeedle: Frame? = nil
 local heatBandLabel: TextLabel? = nil
 
 local strikeButton: TextButton? = nil
 local strikeFlash: Frame? = nil
 local strikeHint: TextLabel? = nil
-local strikeGlow: UIStroke? = nil
 
 -- Roll column. `rolling` is the in-flight flag that keeps a second press from
 -- stacking a second sequence, and `pendingRoll` is where the server's answer
@@ -78,8 +78,6 @@ local crateChipLabel: TextLabel? = nil
 --- local selection so a crate picked in the browser survives until the sync
 --- confirms it, and so the Studio seam can drive it without a server round trip.
 local selectedCrate = ""
---- Set by `Main`: the crate browser is UI, and `ForgeView` does not own a modal.
-local openCrates: (() -> ())? = nil
 local crateViewport: ViewportFrame? = nil
 local crateHandle: CratePreview.Handle? = nil
 local crateStage: Frame? = nil
@@ -104,8 +102,6 @@ local lastOverdrive = 0
 -- The stage border. Warm when the gauge is near the band, gold while the rail
 -- is full, danger-red on a burn-out. Held as a handle so the breathe pass in
 -- `step` can pulse it without re-finding it every frame.
-local stageStroke: UIStroke? = nil
-local stageGlow = 0.45
 -- Thermal vent. It is a key on the right end of the heat rail, not a separate
 -- row: the threshold, the payout and the control all live on the gauge the
 -- player is already watching.
@@ -120,9 +116,14 @@ local ventDetailText: string? = nil
 
 -- Stage: the viewport itself is scale-punched on a hit, and a full-bleed frame
 -- on top of it flashes. Both are children of the clipped stage frame, so neither
--- can bleed onto the heat gauge.
+-- can bleed onto the control deck.
 local viewportScale: UIScale? = nil
 local viewportFlash: Frame? = nil
+
+-- The strike key on the deck. The whole stage is still a hit target; this is the
+-- affordance that says so, and it is the only element in the forge with a heavy
+-- outline and a saturated fill.
+local strikeKeyLabel: TextLabel? = nil
 
 -- The stage wash behind the blade. One handle: repainting a tier is two colours
 -- on the same layers, not a rebuild.
@@ -136,7 +137,6 @@ local previewOrbit: OrbitHandle? = nil
 -- Strike cadence, and the glow level the render pass asked for. `step` only
 -- breathes around that level; it never decides it.
 local strikeTimes: { number } = {}
-local glowBase = 0.92
 local comboTimer = 0
 
 -- Showcase window after a forge. While it is open, `ensureBlade` refuses to swap
@@ -193,20 +193,20 @@ end
 -- Construction
 -- ---------------------------------------------------------------------------
 
+local bladeSubtitle: TextLabel? = nil
+
 local function buildHeader(parent: Frame)
-	-- The blade name lives in the same overhanging wood banner the reference uses
-	-- for its section headers. Rarity tints the title; the hard black stroke keeps
-	-- it legible on wood at any hue.
-	--
-	-- The banner gives up 236px on the right: the roll column lives there, and a
-	-- banner running under it would put the blade name behind the ROLL button.
+	-- Title block: name over rarity, flush left on a flat plate. The roll column
+	-- lives to the right of it, so the plate stops 268px short rather than
+	-- running under the keys.
 	local banner = UiKit.banner(parent, {
 		text = "RUSTED CLEAVER",
+		subtitle = "SCRAP",
 		position = UDim2.fromOffset(0, 0),
-		width = UDim2.new(1, -236, 0, 46),
-		size = 22,
+		width = UDim2.new(1, 0, 0, 64),
+		height = 64,
+		size = Theme.Text.Title - 4,
 		accent = Theme.Color.gold,
-		icon = "★",
 	})
 	banner.Name = "BladeBanner"
 
@@ -214,16 +214,20 @@ local function buildHeader(parent: Frame)
 	if title and title:IsA("TextLabel") then
 		bladeName = title
 	end
+	local subtitle = banner:FindFirstChild("Subtitle")
+	if subtitle and subtitle:IsA("TextLabel") then
+		bladeSubtitle = subtitle
+	end
 
 	local chip = UiKit.badge(banner, {
 		text = "x1.00",
-		color = Theme.Color.gold,
-		width = 88,
+		color = Theme.Color.starMatter,
+		width = 92,
 		height = 26,
-		size = 12,
+		size = Theme.Text.Tiny,
 	})
 	chip.Name = "MultChip"
-	chip.Position = UDim2.new(1, -98, 0.5, -13)
+	chip.Position = UDim2.new(1, -104, 0.5, -13)
 	local chipFace = chip:FindFirstChild("Face")
 	if chipFace and chipFace:IsA("TextLabel") then
 		chipFace.Font = Theme.Font.Numeric
@@ -231,156 +235,6 @@ local function buildHeader(parent: Frame)
 	end
 end
 
---- The roll column: Scrap and pity readouts above a chunky ROLL plate.
----
---- Price and pity live next to the button rather than inside a tooltip, because
---- the whole decision is "can I afford this and how close am I to a guaranteed
---- Void". A player should not have to open a sheet to learn either.
-local function buildRollBar(parent: Frame)
-	-- 222 x 74. ROLL keeps the whole left half; the right half is a two-key stack:
-	-- x10 on top, the crate chip under it. Both are quick paths, not the gacha
-	-- page, so they stay 21px tall and read as secondary keys beside the one big
-	-- verb. The bottom 24px is the scrap/pity footer and its meter.
-	local column = UiKit.create("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(222, 74),
-		Position = UDim2.new(1, -222, 0, 0),
-	}) :: Frame
-	column.Parent = parent
-
-	local roll = UiKit.create("TextButton", {
-		Name = "RollButton",
-		BackgroundColor3 = Theme.Color.starMatterDeep,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.fromOffset(128, 46),
-	}) :: TextButton
-	UiKit.corner(roll, Theme.Radius.md)
-	UiKit.gradient(roll, { Theme.Color.starMatterDeep, Theme.Color.gold }, 90)
-	UiKit.stroke(roll, Theme.Color.outline, Theme.Stroke.thick, 0)
-	roll.Parent = column
-	rollButton = roll
-
-	local face = UiKit.label(roll, {
-		text = "ROLL",
-		size = 19,
-		font = Theme.Font.Black,
-		color = Theme.Color.white,
-		align = Enum.TextXAlignment.Center,
-		stroke = true,
-	})
-	face.Name = "Face"
-	face.Position = UDim2.fromOffset(0, 4)
-	face.Size = UDim2.new(1, 0, 0, 24)
-	face.ZIndex = 2
-
-	rollCostLabel = UiKit.label(roll, {
-		text = "50 SM",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.gold,
-		align = Enum.TextXAlignment.Center,
-	})
-	rollCostLabel.Name = "Cost"
-	rollCostLabel.Position = UDim2.fromOffset(0, 26)
-	rollCostLabel.Size = UDim2.new(1, 0, 0, 16)
-	rollCostLabel.ZIndex = 2
-
-	UiKit.track(roll, roll.MouseEnter:Connect(function()
-		Sfx.hover()
-		UiKit.tween(roll, Theme.Duration.fast, { BackgroundColor3 = Theme.Color.starMatterDeep:Lerp(Theme.Color.white, 0.12) })
-	end))
-	UiKit.track(roll, roll.MouseLeave:Connect(function()
-		UiKit.tween(roll, Theme.Duration.normal, { BackgroundColor3 = Theme.Color.starMatterDeep })
-	end))
-	UiKit.track(roll, roll.Activated:Connect(function()
-		ForgeView.roll(1)
-	end))
-
-	local function sideKey(name: string, y: number, handler: () -> ()): (TextButton, TextLabel)
-		local button = UiKit.create("TextButton", {
-			Name = name,
-			BackgroundColor3 = Theme.Color.panelSunken,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
-			Position = UDim2.fromOffset(134, y),
-			Size = UDim2.fromOffset(88, 21),
-		}) :: TextButton
-		UiKit.corner(button, Theme.Radius.sm)
-		local stroke = UiKit.stroke(button, Theme.Color.stroke, Theme.Stroke.hair, 0.1)
-		button.Parent = column
-
-		local label = UiKit.label(button, {
-			text = "",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.text,
-			align = Enum.TextXAlignment.Center,
-		})
-		label.Name = "Face"
-		label.Size = UDim2.fromScale(1, 1)
-		label.ZIndex = 2
-		label.TextTruncate = Enum.TextTruncate.AtEnd
-
-		UiKit.track(button, button.MouseEnter:Connect(function()
-			Sfx.hover()
-			stroke.Transparency = 0
-		end))
-		UiKit.track(button, button.MouseLeave:Connect(function()
-			stroke.Transparency = 0.1
-		end))
-		UiKit.track(button, button.Activated:Connect(handler))
-		return button, label
-	end
-
-	batchButton, batchLabel = sideKey("BatchButton", 0, function()
-		ForgeView.roll(10)
-	end)
-
-	crateChip, crateChipLabel = sideKey("CrateButton", 25, function()
-		if openCrates then
-			openCrates()
-		end
-	end)
-
-	-- Scrap and pity, as one footer line under the column and a hairline meter
-	-- beneath it. They lived on the stage's top-left corner for one pass, which is
-	-- where the equipped blade's condition line already prints: `Void-Touched ·
-	-- The core went somewhere else` ran straight through `SCRAP 6086`. The column
-	-- is the only block on this card that the render never paints on, and both
-	-- facts are about the roll, so they belong here.
-	rollFooter = UiKit.label(column, {
-		text = "SCRAP 0  ·  PITY 0/12",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Right,
-	})
-	rollFooter.Name = "RollFooter"
-	rollFooter.Position = UDim2.fromOffset(0, 50)
-	rollFooter.Size = UDim2.fromOffset(222, 16)
-	rollFooter.TextTruncate = Enum.TextTruncate.AtEnd
-
-	local track = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.void,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 68),
-		Size = UDim2.fromOffset(222, 4),
-	}) :: Frame
-	UiKit.corner(track, 2)
-	track.Parent = column
-
-	pityFill = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.quantum,
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(0, 1),
-	}) :: Frame
-	UiKit.corner(pityFill, 2)
-	pityFill.Parent = track
-end
 --- The roll stage: a single transparent viewport holding the real 3D crate.
 ---
 --- There used to be a sunken dais with three concentric halos underneath, which
@@ -425,13 +279,13 @@ local function buildViewport(parent: Frame)
 	local frame = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.void,
 		BorderSizePixel = 0,
-		-- Inner column is 540 tall. Banner 0..46, stage 54..540.
-		Size = UDim2.new(1, 0, 1, -54),
-		Position = UDim2.fromOffset(0, 54),
+		-- Title block 64, gap 8, stage to the bottom edge.
+		Size = UDim2.new(1, 0, 1, -72),
+		Position = UDim2.fromOffset(0, 72),
 		ClipsDescendants = true,
 	}) :: Frame
 	UiKit.corner(frame, Theme.Radius.md)
-	stageStroke = UiKit.stroke(frame, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.4)
+	UiKit.stroke(frame, Theme.Color.stroke, Theme.Stroke.hair, 0)
 	UiKit.gradient(frame, { Theme.Color.void, Theme.Color.panelSunken }, 90)
 	frame.Parent = parent
 
@@ -546,79 +400,85 @@ local function buildViewport(parent: Frame)
 end
 
 local function buildHeat(parent: Frame)
-	heatLabel = UiKit.label(parent, {
-		text = "CORE HEAT",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Heading,
-		color = Theme.Color.textSecondary,
-	})
-	heatLabel.Size = UDim2.new(0.5, -16, 0, 20)
-	heatLabel.Position = UDim2.new(0, 16, 1, -88)
-	heatLabel.ZIndex = 7
+	-- Heat dial. A number, a slim ruled bar and one caption, floating over the
+	-- render between the two keys. The bar is 12px: it shows the band and the
+	-- penalty edge, and it does not turn the stage into a form.
+	local block = UiKit.create("Frame", {
+		Name = "HeatBlock",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, -92),
+		Size = UDim2.fromOffset(380, 78),
+		ZIndex = 7,
+	}) :: Frame
+	block.Parent = parent
 
-	heatStatus = UiKit.label(parent, {
+	heatLabel = UiKit.label(block, {
+		text = "CORE HEAT",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
+	})
+	heatLabel.Size = UDim2.new(1, 0, 0, 14)
+
+	heatStatus = UiKit.label(block, {
 		text = "0%",
-		size = Theme.Text.Small,
+		size = Theme.Text.Title,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textDim,
-		align = Enum.TextXAlignment.Right,
+		align = Enum.TextXAlignment.Center,
 	})
-	heatStatus.Size = UDim2.new(1, -32, 0, 20)
-	heatStatus.Position = UDim2.new(0, 0, 1, -88)
-	heatStatus.ZIndex = 7
+	heatStatus.Size = UDim2.new(1, 0, 0, Theme.Text.Title + 4)
+	heatStatus.Position = UDim2.fromOffset(0, 12)
+
+	heatBandLabel = UiKit.label(block, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
+	})
+	heatBandLabel.Size = UDim2.new(1, 0, 0, 14)
+	heatBandLabel.Position = UDim2.fromOffset(0, 64)
 
 	local track = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.panelSunken,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		-- The rail stops 140px short so the vent key sits on the same row,
-		-- flush right. The gauge is the instrument; the key is the one control
-		-- on it, and they read as a single bar.
-		Size = UDim2.new(1, -168, 0, 40),
-		Position = UDim2.new(0, 14, 1, -64),
-		ZIndex = 7,
+		Size = UDim2.fromOffset(380, 12),
+		Position = UDim2.fromOffset(0, 50),
 	}) :: Frame
 	UiKit.corner(track, Theme.Radius.sm)
-	heatTrackStroke = UiKit.stroke(track, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.4)
-	track.Parent = parent
+	heatTrackStroke = UiKit.stroke(track, Theme.Color.stroke, Theme.Stroke.hair, 0)
+	track.Parent = block
 	track.Name = "HeatGauge"
 
-	-- Sweet-spot band. Drawn before the fill so the fill reads on top of it and
-	-- the band shows through wherever heat has not reached yet.
+	-- Sweet-spot band, drawn under the fill so it shows wherever heat has not
+	-- reached yet. Green is the one place on this screen where a colour means a
+	-- rule rather than a style.
 	heatBand = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.heatSweet,
-		BackgroundTransparency = 0.78,
+		BackgroundTransparency = 0.8,
 		BorderSizePixel = 0,
-		Size = UDim2.fromScale(0.2, 1),
-		Position = UDim2.fromScale(0.65, 0),
+		Size = UDim2.fromScale((Config.SweetSpotMax - Config.SweetSpotMin) / 100, 1),
+		Position = UDim2.fromScale(Config.SweetSpotMin / 100, 0),
 	}) :: Frame
 	heatBand.Parent = track
 
-	-- The band's own edge. Without it the zone is invisible against a full bar,
-	-- which is precisely the moment the player needs to see where the safe exit is.
-	local bandStroke = UiKit.create("UIStroke", {
-		Color = Theme.Color.heatSweet,
-		Thickness = 1,
-		Transparency = 0.55,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}) :: UIStroke
-	bandStroke.Parent = heatBand
-
-	-- "x2.5" printed inside the band so the reward is legible without hovering.
-	heatBandLabel = UiKit.label(heatBand, {
-		text = "x2.5",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.heatSweet,
-		align = Enum.TextXAlignment.Center,
-		transparency = 0.1,
-	})
-	heatBandLabel.Size = UDim2.fromScale(1, 1)
+	-- Penalty edge. Past this the core runs lean and every strike pays half, so
+	-- the last tenth of the bar is a red zone the player has to leave. It is a
+	-- rule they can see, not a lockout they have to wait out.
+	heatPenalty = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.danger,
+		BackgroundTransparency = 0.72,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale((100 - Config.PenaltyFrom) / 100, 1),
+		Position = UDim2.fromScale(Config.PenaltyFrom / 100, 0),
+	}) :: Frame
+	heatPenalty.Parent = track
 
 	heatFill = UiKit.create("Frame", {
-		-- Neutral: the hue lives in the gradient below, so the bar can ramp from
-		-- cold at its own left edge to the current state colour at the tip. A
-		-- tinted fill under a fixed hue ramp goes muddy above the band.
 		BackgroundColor3 = Theme.Color.white,
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(0, 1),
@@ -626,14 +486,14 @@ local function buildHeat(parent: Frame)
 	heatFillGradient = UiKit.gradient(heatFill, { Theme.Color.heatCool, Theme.Color.heatSweet }, 0)
 	heatFill.Parent = track
 
-	-- Decade ticks. An unmarked bar reads as "fill up"; a ruled bar reads as an
-	-- instrument, and 65/85 become positions instead of guesses.
+	-- Decade ticks. Unmarked bars read as "fill up"; a ruled bar reads as an
+	-- instrument, and 65/85/90 become positions instead of guesses.
 	for step = 1, 9 do
 		local tick = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.strokeBright,
-			BackgroundTransparency = if step % 5 == 0 then 0.55 else 0.8,
+			BackgroundTransparency = if step % 5 == 0 then 0.5 else 0.8,
 			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(1, if step % 5 == 0 then 10 else 6),
+			Size = UDim2.fromOffset(1, if step % 5 == 0 then 7 else 4),
 			Position = UDim2.fromScale(step / 10, 1),
 			AnchorPoint = Vector2.new(0, 1),
 			ZIndex = 2,
@@ -647,13 +507,12 @@ local function buildHeat(parent: Frame)
 		BackgroundTransparency = 0.15,
 		BorderSizePixel = 0,
 		Size = UDim2.new(0, 2, 1, 0),
-		Position = UDim2.fromScale(0.85, 0),
+		Position = UDim2.fromScale(Config.VentThreshold / 100, 0),
 		ZIndex = 4,
 	}) :: Frame
 	heatVentTick.Parent = track
 
-	-- Where the heat actually is this instant. The fill tells you how much; the
-	-- needle tells you which way it is moving, which is the thing a player acts on.
+	-- Where the heat actually is this instant.
 	heatNeedle = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.text,
 		BorderSizePixel = 0,
@@ -664,12 +523,12 @@ local function buildHeat(parent: Frame)
 	UiKit.corner(heatNeedle, 1)
 	heatNeedle.Parent = track
 
-	-- Thermal vent key, bolted to the right end of the rail.
+	-- Thermal vent key, bolted to the right end of the strip.
 	--
 	-- It has two jobs and they must not look alike. Below the threshold it is a
 	-- flat slate key that names the threshold; at 85% it turns into a solid
-	-- cyan→gold plate carrying the payout. Same footprint, so the row never
-	-- shifts and the player never has to hunt for it in a new place.
+	-- cyan plate carrying the payout. Same footprint, so the deck never shifts
+	-- and the player never has to hunt for it in a new place.
 	local vent = UiKit.create("TextButton", {
 		Name = "VentStrip",
 		BackgroundColor3 = Theme.Color.slate,
@@ -677,12 +536,12 @@ local function buildHeat(parent: Frame)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		Size = UDim2.fromOffset(132, 40),
-		Position = UDim2.new(1, -146, 1, -64),
+		Size = UDim2.fromOffset(136, 64),
+		Position = UDim2.new(1, -152, 1, -84),
 		ZIndex = 8,
 	}) :: TextButton
-	UiKit.corner(vent, Theme.Radius.sm)
-	ventPillStroke = UiKit.stroke(vent, Theme.Color.outline, Theme.Stroke.thick, 0)
+	UiKit.corner(vent, Theme.Radius.md)
+	ventPillStroke = UiKit.stroke(vent, Theme.Color.stroke, Theme.Stroke.thin, 0)
 	vent.Parent = parent
 	ventPill = vent
 
@@ -694,43 +553,30 @@ local function buildHeat(parent: Frame)
 		Visible = false,
 		ZIndex = 1,
 	}) :: Frame
-	UiKit.corner(ventPillFill, Theme.Radius.sm)
+	UiKit.corner(ventPillFill, Theme.Radius.md)
 	ventPillFill.Parent = vent
-
-	-- Lit edge on the plate. Child of the fill so it only shows in the live
-	-- state, and it never tints the label sitting above it.
-	local ventBevel = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.white,
-		BackgroundTransparency = 0.58,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, -14, 0, 2),
-		Position = UDim2.fromOffset(7, 1),
-		ZIndex = 2,
-	}) :: Frame
-	UiKit.corner(ventBevel, 2)
-	ventBevel.Parent = ventPillFill
 
 	ventPillLabel = UiKit.label(vent, {
 		text = "VENT",
-		size = 15,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.locked,
 		align = Enum.TextXAlignment.Center,
 	})
-	ventPillLabel.Position = UDim2.fromOffset(0, 4)
-	ventPillLabel.Size = UDim2.new(1, 0, 0, 18)
+	ventPillLabel.Position = UDim2.fromOffset(0, 12)
+	ventPillLabel.Size = UDim2.new(1, 0, 0, 16)
 	ventPillLabel.ZIndex = 3
 
 	ventPillDetail = UiKit.label(vent, {
 		text = string.format("%d%% TO UNLOCK", Config.VentThreshold),
-		size = 13,
-		font = Theme.Font.Black,
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
 		color = Theme.Color.locked,
 		align = Enum.TextXAlignment.Center,
-		transparency = 0.35,
+		wrap = true,
 	})
-	ventPillDetail.Position = UDim2.fromOffset(0, 23)
-	ventPillDetail.Size = UDim2.new(1, 0, 0, 15)
+	ventPillDetail.Position = UDim2.fromOffset(4, 30)
+	ventPillDetail.Size = UDim2.new(1, -8, 0, 32)
 	ventPillDetail.ZIndex = 3
 
 	vent.Activated:Connect(function()
@@ -738,7 +584,7 @@ local function buildHeat(parent: Frame)
 		if current == nil then
 			return
 		end
-		local canVent = current.locked or current.heat >= Config.VentThreshold
+		local canVent = current.heat >= Config.VentThreshold
 		if not canVent then
 			-- A tap on the locked key explains itself instead of doing nothing.
 			Notifications.push(
@@ -760,50 +606,107 @@ end
 --- Paints the instrument strip onto the 3D stage and turns the whole render into
 --- the strike target.
 ---
---- There is no plate under the viewport any more: the gauge, the streak rail and
---- the yield readout float on a soft scrim at the bottom of the render, and the
---- render itself is the button. A player who clicks the blade, the empty air
---- around it, or the scrim all get the same strike, which is the behaviour a
---- full-bleed viewport promises.
+--- Nothing sits on a plate: the render runs to the bottom edge, and the strike
+--- key, the heat dial and the purge key float over it. A solid deck across the
+--- bottom covered a fifth of the blade, which is the one thing on this screen
+--- worth looking at.
 local function buildHud(parent: Frame)
-	-- Bottom scrim. Fades from nothing at its top edge to near-opaque at the
-	-- bottom, so the instrument row reads over a bright blade without drawing a
-	-- hard box edge across the render.
-	local scrim = UiKit.create("Frame", {
-		Name = "HudScrim",
-		BackgroundColor3 = Theme.Color.void,
+	-- The strike key. Heavy outline, saturated fill, black legend: a stamped
+	-- industrial button rather than another dark plate. Its sublabel is the live
+	-- payout, so the key tells the player what it is worth before they press it.
+	local key = UiKit.create("TextButton", {
+		Name = "StrikeKey",
+		BackgroundColor3 = Theme.Color.actionOrange,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 148),
-		Position = UDim2.new(0, 0, 1, -148),
-		ZIndex = 5,
-	}) :: Frame
-	local fade = UiKit.gradient(scrim, { Theme.Color.void, Theme.Color.void }, 90)
-	fade.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.62, 0.58),
-		NumberSequenceKeypoint.new(1, 0.1),
-	})
-	scrim.Parent = parent
+		AutoButtonColor = false,
+		Text = "",
+		Position = UDim2.new(0, 16, 1, -84),
+		Size = UDim2.fromOffset(240, 64),
+		ZIndex = 9,
+	}) :: TextButton
+	UiKit.corner(key, Theme.Radius.md)
+	local keyStroke = UiKit.stroke(key, Theme.Color.outline, Theme.Stroke.bold, 0)
+	key.Parent = parent
 
-	-- Streak rail: ten pips and one line, directly above the gauge. A row of
-	-- pips rather than a bar because the question the player is asking is "how
-	-- many more", and a bar answers "how much" instead.
+	strikeKeyLabel = UiKit.label(key, {
+		text = "STRIKE",
+		size = Theme.Text.Heading,
+		font = Theme.Font.Display,
+		color = Theme.Color.ink,
+		align = Enum.TextXAlignment.Center,
+	})
+	strikeKeyLabel.Name = "Face"
+	strikeKeyLabel.Position = UDim2.fromOffset(0, 12)
+	strikeKeyLabel.Size = UDim2.new(1, 0, 0, 26)
+	strikeKeyLabel.ZIndex = 10
+
+	strikeHint = UiKit.label(key, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.ink,
+		align = Enum.TextXAlignment.Center,
+	})
+	strikeHint.Position = UDim2.fromOffset(0, 38)
+	strikeHint.Size = UDim2.new(1, 0, 0, 16)
+	strikeHint.TextTransparency = 0.25
+	strikeHint.ZIndex = 10
+
+	local function press()
+		ForgeView.strike()
+	end
+	key.InputBegan:Connect(function(input: InputObject)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
+			press()
+		end
+	end)
+
+	UiKit.track(key, key.MouseEnter:Connect(function()
+		UiKit.tween(key, Theme.Duration.fast, { BackgroundColor3 = Theme.Color.actionOrange:Lerp(Theme.Color.white, 0.12) })
+		UiKit.tween(keyStroke, Theme.Duration.fast, { Color = Theme.Color.text })
+	end))
+	UiKit.track(key, key.MouseLeave:Connect(function()
+		UiKit.tween(key, Theme.Duration.normal, { BackgroundColor3 = Theme.Color.actionOrange })
+		UiKit.tween(keyStroke, Theme.Duration.normal, { Color = Theme.Color.outline })
+	end))
+
+	-- Top-right readout stack: cadence, then the streak. Both are live numbers
+	-- and both are secondary to the blade, so they sit in the stage's empty
+	-- upper corner instead of on plates.
+	comboChip = UiKit.label(parent, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	comboChip.Size = UDim2.fromOffset(320, 16)
+	comboChip.Position = UDim2.new(1, -338, 0, 16)
+	comboChip.ZIndex = 7
+
+	-- Streak rail: ten pips and one line. A row of pips rather than a bar because
+	-- the question the player is asking is "how many more", and a bar answers
+	-- "how much" instead.
 	local rail = UiKit.create("Frame", {
 		Name = "StreakRail",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -32, 0, 20),
-		Position = UDim2.new(0, 16, 1, -116),
+		Size = UDim2.fromOffset(320, 20),
+		Position = UDim2.new(1, -338, 0, 40),
 		ZIndex = 7,
 	}) :: Frame
 	rail.Parent = parent
 
 	streakLabel = UiKit.label(rail, {
 		text = string.format("STREAK 0/%d", Config.StreakForOverdrive),
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Left,
 	})
-	streakLabel.Size = UDim2.fromOffset(176, 20)
+	streakLabel.Size = UDim2.fromOffset(150, 20)
 	streakLabel.ZIndex = 8
 
 	-- Right-aligned pip block: 10 * 14 + 9 * 4 = 176 wide.
@@ -824,44 +727,6 @@ local function buildHud(parent: Frame)
 		streakPips[index] = pip
 	end
 
-	-- The action prompt. It floats on the render above the instrument row rather
-	-- than sitting on a plate: the whole stage is the button now, and this is the
-	-- label on it.
-	local prompt = UiKit.label(parent, {
-		text = "STRIKE THE ANVIL",
-		size = Theme.Text.Subheading,
-		font = Theme.Font.Display,
-		color = Theme.Color.starMatter,
-		align = Enum.TextXAlignment.Center,
-		stroke = true,
-	})
-	prompt.Size = UDim2.fromOffset(260, 24)
-	prompt.Position = UDim2.new(0.5, -130, 1, -94)
-	prompt.ZIndex = 7
-
-	-- Yield readout and cadence, top right. Both are live numbers, not copy.
-	strikeHint = UiKit.label(parent, {
-		text = "",
-		size = Theme.Text.Small,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Right,
-	})
-	strikeHint.Size = UDim2.fromOffset(300, 20)
-	strikeHint.Position = UDim2.new(1, -318, 0, 14)
-	strikeHint.ZIndex = 7
-
-	comboChip = UiKit.label(parent, {
-		text = "",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Right,
-	})
-	comboChip.Size = UDim2.fromOffset(300, 18)
-	comboChip.Position = UDim2.new(1, -318, 0, 36)
-	comboChip.ZIndex = 7
-
 	-- Press flash: a white wash that fires and immediately fades. Full bleed and
 	-- rounded to the stage, so it reads as the render reacting rather than as a
 	-- square appearing.
@@ -870,7 +735,7 @@ local function buildHud(parent: Frame)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
-		ZIndex = 6,
+		ZIndex = 5,
 	}) :: Frame
 	UiKit.corner(strikeFlash, Theme.Radius.md)
 	strikeFlash.Parent = parent
@@ -888,16 +753,6 @@ local function buildHud(parent: Frame)
 	}) :: TextButton
 	button.Parent = parent
 	strikeButton = button
-
-	-- The stage border is the anvil's face: cold at rest, hot as the gauge nears
-	-- the band, danger-red on a burn-out.
-	strikeGlow = UiKit.create("UIStroke", {
-		Color = Theme.Color.heatCool,
-		Thickness = 2,
-		Transparency = 0.92,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}) :: UIStroke
-	strikeGlow.Parent = button
 
 	-- InputBegan rather than Activated: Activated fires on release, which adds
 	-- up to a full click of latency on every strike. This feels instant.
@@ -1090,10 +945,18 @@ local function paintHeader(blade: BladeRegistry.Blade, variantId: string?)
 		bladeName.Text = blade.name
 		bladeName.TextColor3 = Theme.rarityColor(blade.tier)
 	end
+	local variant = if variantId then ForgeConfig.variant(variantId) else nil
+	local variantName = if variant and variant.id ~= ForgeConfig.StandardVariant then variant.name else nil
+	if bladeSubtitle then
+		bladeSubtitle.Text = string.upper(blade.rarity)
+		bladeSubtitle.TextColor3 = Theme.rarityColor(blade.tier)
+		if variantName then
+			bladeSubtitle.Text = string.format("%s  ·  %s", string.upper(blade.rarity), string.upper(variantName))
+		end
+	end
 	if bladeFlavor then
-		local variant = if variantId then ForgeConfig.variant(variantId) else nil
-		if variant and variant.id ~= ForgeConfig.StandardVariant then
-			bladeFlavor.Text = string.format("%s  ·  %s", variant.name, variant.text)
+		if variantName then
+			bladeFlavor.Text = string.format("%s  ·  %s", variantName, variant.text)
 		else
 			bladeFlavor.Text = blade.flavor
 		end
@@ -1293,101 +1156,72 @@ function ForgeView.render(payload: Types.SyncPayload)
 		end
 	end
 
-	-- Heat gauge
+	-- Heat readout
 	local heat = math.clamp(payload.heat, 0, 100)
 	local bandMin = payload.bandMin
 	local bandMax = payload.bandMax
+	local overhot = heat >= Config.PenaltyFrom
 
 	if heatFill then
 		heatFill.Size = UDim2.fromScale(heat / 100, 1)
 		if heatFillGradient then
-			-- Ramp from cold to the colour heat is worth right now, measured
-			-- across the filled portion only. The act of filling is what heats
-			-- the colour; there is no separate animation to keep in sync.
+			-- The ramp is measured across the filled portion: the act of filling
+			-- is what heats the colour, so there is no second animation to sync.
 			heatFillGradient.Color = ColorSequence.new(Theme.Color.heatCool, heatColor(heat, bandMin, bandMax))
-		end
-	end
-	if heatBand then
-		heatBand.Position = UDim2.fromScale(bandMin / 100, 0)
-		heatBand.Size = UDim2.fromScale((bandMax - bandMin) / 100, 1)
-	end
-	if heatStatus then
-		if payload.locked then
-			heatStatus.Text = string.format("OVERHEATED   %.1fs", payload.lockRemaining)
-			heatStatus.TextColor3 = Theme.Color.danger
-		elseif payload.inSweetSpot then
-			-- Name the multiplier here rather than in a legend: this is the one
-			-- moment the player needs to know what the zone is worth.
-			heatStatus.Text = string.format("%d%%   x%.2g BONUS", math.floor(heat), payload.bandMult)
-			heatStatus.TextColor3 = Theme.Color.heatSweet
-		else
-			heatStatus.Text = string.format("%d%%", math.floor(heat))
-			heatStatus.TextColor3 = if heat >= 85 then Theme.Color.warn else Theme.Color.textDim
 		end
 	end
 	if heatNeedle then
 		heatNeedle.Position = UDim2.new(heat / 100, -1, 0, -2)
-		heatNeedle.BackgroundColor3 = if payload.locked then Theme.Color.danger else Theme.Color.text
-		heatNeedle.BackgroundTransparency = if payload.locked then 0.2 else 0
+		heatNeedle.BackgroundColor3 = if overhot then Theme.Color.danger else Theme.Color.text
 	end
 	if heatTrackStroke then
-		-- The rail changes colour before the fill does, which gives the player a
-		-- half-second of warning while they are still looking at the button.
 		heatTrackStroke.Color = heatColor(heat, bandMin, bandMax)
-		heatTrackStroke.Transparency = if payload.locked then 0.15 else 0.45
 		heatTrackStroke.Thickness = if payload.inSweetSpot then Theme.Stroke.thin else Theme.Stroke.hair
+		heatTrackStroke.Transparency = 0
+	end
+	if heatStatus then
+		heatStatus.Text = string.format("%d%%", math.floor(heat))
+		heatStatus.TextColor3 = if overhot then Theme.Color.danger else heatColor(heat, bandMin, bandMax)
 	end
 	if heatBandLabel then
-		heatBandLabel.Text = string.format("x%.2g", payload.bandMult)
-		heatBandLabel.TextColor3 = if payload.inSweetSpot then Theme.Color.heatSweet else Theme.Color.textDim
+		-- One caption, and it changes with the state the player is in. A
+		-- permanent "x2.5 legend" is a rulebook; this is a machine face.
+		if overhot then
+			heatBandLabel.Text = string.format("OVERHOT  YIELD x%.2g", Config.PenaltyMult)
+			heatBandLabel.TextColor3 = Theme.Color.danger
+		elseif payload.inSweetSpot then
+			heatBandLabel.Text = string.format("SWEET SPOT  x%.2g", payload.bandMult)
+			heatBandLabel.TextColor3 = Theme.Color.heatSweet
+		elseif heat >= Config.VentThreshold then
+			heatBandLabel.Text = "PURGE TO COOL"
+			heatBandLabel.TextColor3 = Theme.Color.cyan
+		else
+			heatBandLabel.Text = string.format("BAND %d-%d", math.ceil(bandMin), math.floor(bandMax))
+			heatBandLabel.TextColor3 = Theme.Color.textFaint
+		end
 	end
-
 	-- Strike affordance
 	if strikeButton then
-		local locked = payload.locked
-		strikeButton.Active = not locked
-		local stroke = strikeButton:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if locked then Theme.Color.danger else Theme.Color.starMatter
-			stroke.Transparency = if locked then 0.15 else 0.45
-		end
-	end
-	if strikeGlow then
-		-- Glow intensity is distance to the band, not absolute heat: the last
-		-- ten points before 65% should be the brightest part of the ramp.
-		local span = math.max(1, bandMax - bandMin)
-		local closeness = math.clamp((heat - bandMin) / span, 0, 1)
-		glowBase = 0.92 - 0.8 * closeness
-		strikeGlow.Color = heatColor(heat, bandMin, bandMax)
-		strikeGlow.Thickness = 2 + 3 * closeness
-		if payload.locked then
-			strikeGlow.Color = Theme.Color.danger
-			glowBase = 0.3
-		end
+		strikeButton.Active = true
 	end
 	if strikeHint then
-		if payload.locked then
-			strikeHint.Text = "cooling down"
-			strikeHint.TextColor3 = Theme.Color.danger
-		elseif payload.inSweetSpot then
-			-- Show the *bonus* number, not the base. The player is in the band
-			-- right now; tell them what that is worth.
-			strikeHint.Text = string.format("%s   SWEET SPOT BONUS", NumberUtil.abbreviateRate(payload.clickYield))
-			strikeHint.TextColor3 = Theme.Color.heatSweet
-		else
-			strikeHint.Text = NumberUtil.abbreviateRate(payload.clickYield)
-			strikeHint.TextColor3 = Theme.Color.textFaint
-		end
+		-- The key's sublabel is the live payout. In the band it prints the
+		-- doubled number, because that is what the next press is worth.
+		strikeHint.Text = NumberUtil.abbreviateRate(payload.clickYield)
+		strikeHint.TextColor3 = Theme.Color.ink
+		strikeHint.TextTransparency = 0.3
 	end
-
+	if strikeKeyLabel and payload.inSweetSpot then
+		strikeKeyLabel.Text = "STRIKE"
+	end
 	-- Thermal vent key, on the right end of the heat rail. Two states, never
 	-- ambiguous: a flat slate key that names the gap while locked, and a solid
 	-- saturated plate carrying the payout once the threshold is crossed.
-	local canVent = payload.locked or heat >= Config.VentThreshold
+	local canVent = heat >= Config.VentThreshold
 	-- Cyan means "dump heat now"; molten orange means "you burned out, purge".
 	-- Solid fills only: at 132x34 a multi-stop gradient reads as mud, and the
 	-- old cyan-to-gold ramp turned the payout line brown at the midpoint.
-	local ventAccent = if payload.locked then Theme.Color.actionOrange else Theme.Color.actionCyan
+	local ventAccent = Theme.Color.actionCyan
 	local ventInk = Color3.fromRGB(11, 14, 20)
 
 	if ventReady ~= canVent then
@@ -1411,26 +1245,19 @@ function ForgeView.render(payload: Types.SyncPayload)
 		ventPillStroke.Thickness = if canVent then 2.5 else Theme.Stroke.thick
 		ventPillStroke.Transparency = 0
 	end
-	if heatVentTick then
-		heatVentTick.BackgroundColor3 = if canVent then ventAccent else Theme.Color.warn
-		heatVentTick.BackgroundTransparency = if canVent then 0 else 0.15
-	end
 
 	local labelText: string
 	local detailText: string
-	if payload.locked then
-		labelText = "PURGE HEAT"
-		detailText = string.format("%.1fs LOCKOUT", payload.lockRemaining)
-	elseif canVent then
+	if canVent then
 		-- Lower bound: tech multipliers are applied server-side, so the payout is
 		-- never less than this.
 		local payout = math.floor(heat * Config.AetherPerHeat)
-		-- No emoji. The bolt glyph ate a fifth of a 132px key and rendered as a
-		-- grey tofu box wherever the emoji font was missing.
-		labelText = "VENT HEAT"
+		-- No emoji. A bolt glyph renders as a grey tofu box wherever the emoji
+		-- font is missing, and it ate a fifth of the key.
+		labelText = "PURGE HEAT"
 		detailText = string.format("+%s AETHER", NumberUtil.abbreviate(payout))
 	else
-		labelText = "VENT"
+		labelText = "PURGE"
 		detailText = string.format("REACH %d%%", Config.VentThreshold)
 	end
 
@@ -1461,30 +1288,6 @@ function ForgeView.render(payload: Types.SyncPayload)
 	-- window is, and whether it is open right now.
 	local goal = math.max(1, payload.streakGoal)
 	local overdrive = payload.overdriveRemaining
-
-	-- Stage border follows the gauge. This is the one piece of feedback that is
-	-- always on screen while the player looks at the blade, so it carries the
-	-- "you are close / you are in / you are hot" read without a label.
-	if stageStroke then
-		local span = math.max(1, bandMax - bandMin)
-		local closeness = math.clamp((heat - bandMin) / span, 0, 1)
-		if payload.locked then
-			stageStroke.Color = Theme.Color.danger
-			stageStroke.Thickness = 2.5
-			stageStroke.Transparency = 0.1
-			stageGlow = 0.1
-		elseif payload.streak >= goal then
-			stageStroke.Color = Theme.Color.starMatter
-			stageStroke.Thickness = 3.5
-			stageStroke.Transparency = 0
-			stageGlow = 0
-		else
-			stageStroke.Color = heatColor(heat, bandMin, bandMax)
-			stageStroke.Thickness = Theme.Stroke.hair + 2.4 * closeness
-			stageStroke.Transparency = 0.55 - 0.42 * closeness
-			stageGlow = 0.55 - 0.42 * closeness
-		end
-	end
 
 	-- Overdrive opened. Fired on the transition, never on every sync inside the
 	-- window, or a 15-second buff would flash fifteen times.
@@ -1851,19 +1654,7 @@ end
 function ForgeView.step(dt: number)
 	comboTimer += dt
 
-	if strikeGlow then
-		local breathe = 0.5 + 0.5 * math.sin(comboTimer * 3.4)
-		strikeGlow.Transparency = math.clamp(glowBase - breathe * 0.08 * (1 - glowBase), 0, 1)
-	end
-
-	-- The stage edge breathes against its own baseline. `stageGlow` is the
-	-- resting transparency the render pass chose; the breath never overrides it.
-	if stageStroke then
-		local breathe = 0.5 + 0.5 * math.sin(comboTimer * 2.6)
-		stageStroke.Transparency = math.clamp(stageGlow - breathe * 0.12 * (1 - stageGlow), 0, 1)
-	end
-
-	-- The live vent key pulses so it reads as "press me" from the corner of an
+	-- The live purge key pulses so it reads as "press me" from the corner of an
 	-- eye that is watching the blade, not the gauge. The stroke only breathes a
 	-- little: it is the contrast anchor for white type, so fading it out would
 	-- undo the readability the plate exists for.
@@ -1995,7 +1786,9 @@ function ForgeView.init(canvas: Frame, x: number, y: number, width: number, heig
 	inner.Position = UDim2.fromOffset(18, 18)
 
 	buildHeader(inner)
-	buildRollBar(inner)
+	-- No roll column on this screen. Rolling lives on the CRATES page, where the
+	-- pools, odds and both keys already are; a second copy here put two gacha
+	-- verbs two inches apart and made the anvil look like a form footer.
 	local stageFrame = buildViewport(inner)
 	buildHeat(stageFrame)
 	buildHud(stageFrame)
@@ -2005,7 +1798,6 @@ function ForgeView.init(canvas: Frame, x: number, y: number, width: number, heig
 	-- reading a rate from the previous session.
 	table.clear(strikeTimes)
 	comboText = nil
-	glowBase = 0.92
 	comboTimer = 0
 	showcaseToken = 0
 	showcaseUntil = 0
@@ -2079,8 +1871,6 @@ function ForgeView.destroy()
 		root:Destroy()
 		root = nil
 	end
-	strikeGlow = nil
-	stageStroke = nil
 	lastOverdrive = 0
 	comboChip = nil
 	viewportScale = nil

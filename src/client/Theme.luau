@@ -18,106 +18,98 @@ local function rgb(r: number, g: number, b: number): Color3
 end
 
 Theme.Color = {
-	-- Surfaces, back to front
-	void = rgb(9, 8, 10),
-	backdrop = rgb(18, 15, 13),
-	panel = rgb(32, 24, 19),
-	panelRaised = rgb(44, 33, 25),
-	panelSunken = rgb(20, 14, 10),
+	-- Surfaces, back to front. Depth is value, not bevel: four values are enough
+	-- to read a stack, and a fifth turns into mud on a dark display.
+	void = rgb(6, 7, 10),
+	backdrop = rgb(10, 12, 16),
+	panel = rgb(19, 23, 29),
+	panelRaised = rgb(29, 35, 44),
+	panelSunken = rgb(11, 14, 19),
 	-- Multiply identity. Used where a UIGradient owns the hue: the frame behind
 	-- it has to be neutral or the two tints compound into mud.
 	white = rgb(255, 255, 255),
 
-	-- Muted fill for a control that cannot be used yet. Explicitly darker and
-	-- bluer than `panelRaised`: a locked button has to read as a *different kind
-	-- of object* from a live one, not as the same button at lower opacity.
-	slate = rgb(24, 28, 38),
-	-- Lit cap for a slate plate. The warm panels get their bevel from the wood
-	-- gradient, so a navy currency capsule needs its own lighter stop or it sits
-	-- in the top bar as a flat hole.
-	slateLift = rgb(40, 48, 66),
-	-- Full-bleed wallpaper. The screen used to sit on a near-black bed, which
-	-- read as a web page letterboxed inside the game: the chrome floated on
-	-- nothing and every gap between panels was a black hole. This is the same
-	-- navy the currency capsules already wear, run across the entire display so
-	-- the surround and the chrome read as one surface.
-	sky = rgb(23, 31, 49),
-	skyLift = rgb(38, 50, 78),
-	skyDeep = rgb(13, 18, 29),
+	-- Muted fill for a control that cannot be used yet. A locked control is a
+	-- different object, not the same object at lower opacity: it drops the accent
+	-- and keeps a flat, cold fill.
+	slate = rgb(18, 22, 29),
+	-- Lit cap for a slate plate, kept so a currency capsule can carry one step of
+	-- lift without a gradient.
+	slateLift = rgb(34, 41, 53),
+	-- Full-bleed wallpaper. The screen sits on a near-black bed, and the chrome
+	-- carries the only two values above it.
+	sky = rgb(10, 13, 18),
+	skyLift = rgb(26, 32, 41),
+	skyDeep = rgb(5, 7, 10),
 
-	-- The outline. Every panel, plate, pill and chip in the reference carries a
-	-- hard near-black border; this is the single token for all of them.
-	outline = rgb(15, 17, 23),
+	-- The outline. Reserved for the one primary key per screen and for glyph
+	-- lockups; every container uses `stroke` at 1px.
+	outline = rgb(5, 7, 11),
 
-	-- Wood chrome. Banners, header bars and the frame around a modal card.
-	wood = rgb(206, 141, 74),
-	woodLight = rgb(232, 173, 108),
-	woodDeep = rgb(140, 86, 40),
-	tan = rgb(216, 169, 111),
-	tanDeep = rgb(160, 108, 55),
-	-- Fill for a content row: warm dark wood, dark enough that 11px captions
-	-- still hold contrast without a stroke.
-	card = rgb(58, 42, 29),
-	cardDeep = rgb(38, 26, 17),
+	-- Chrome plate. Banners, the top bar and the rail wear this, flat.
+	wood = rgb(35, 42, 53),
+	woodLight = rgb(46, 54, 68),
+	woodDeep = rgb(23, 28, 36),
+	tan = rgb(38, 46, 58),
+	tanDeep = rgb(26, 32, 40),
+	-- Fill for a content row: one step above the shell, flat.
+	card = rgb(26, 31, 39),
+	cardDeep = rgb(18, 22, 29),
 
-	-- Lines. `stroke` survives as the "quiet line" token for dividers inside a
-	-- dark surface; everything structural uses `outline`.
-	stroke = rgb(74, 56, 40),
-	strokeBright = rgb(128, 96, 66),
-	strokeFaint = rgb(48, 35, 25),
+	-- Lines. `stroke` is the 1px container border; `strokeBright` is the same line
+	-- under the pointer. `strokeFaint` is a divider inside a dark surface.
+	stroke = rgb(38, 46, 58),
+	strokeBright = rgb(58, 68, 84),
+	strokeFaint = rgb(30, 36, 46),
 
-	-- Text. White with a black stroke is the reference's house style; keep the
-	-- ladder warm so it also sits on wood without going pink.
-	text = rgb(255, 255, 255),
-	textDim = rgb(242, 228, 208),
-	textFaint = rgb(205, 184, 158),
-	-- Cool secondary copy for dark slate and card interiors. The warm faint tone
-	-- above disappears into brown card stock; this one holds a 7:1 contrast ratio
-	-- against `slate` and `cardDeep`, which is what a 13px description needs.
-	textSecondary = rgb(184, 194, 214),
+	-- Text. One warm-free ladder: white, then two greys that both hold contrast
+	-- on `shell`, so a 13px caption never needs a stroke to survive.
+	text = rgb(244, 247, 251),
+	textDim = rgb(200, 208, 220),
+	textFaint = rgb(142, 153, 169),
+	textSecondary = rgb(174, 184, 199),
 
 	-- Currency / category accents
-	gold = rgb(255, 194, 60),
-	goldDeep = rgb(224, 138, 18),
-	cyan = rgb(67, 215, 245),
-	cyanDeep = rgb(27, 156, 196),
-	magenta = rgb(232, 91, 224),
-	magentaDeep = rgb(163, 43, 176),
-	emerald = rgb(75, 227, 138),
-	emeraldDeep = rgb(31, 163, 92),
-	red = rgb(226, 59, 59),
-	redDeep = rgb(161, 30, 30),
+	gold = rgb(255, 193, 61),
+	goldDeep = rgb(184, 128, 26),
+	cyan = rgb(123, 228, 255),
+	cyanDeep = rgb(31, 148, 174),
+	magenta = rgb(199, 125, 255),
+	magentaDeep = rgb(122, 70, 196),
+	emerald = rgb(91, 227, 154),
+	emeraldDeep = rgb(28, 154, 99),
+	red = rgb(255, 107, 107),
+	redDeep = rgb(176, 52, 52),
 
 	-- Legacy names kept as aliases: the currency accents are the same hues, and
 	-- renaming every call site would churn 20 files for no pixel.
-	starMatter = rgb(255, 194, 60),
-	starMatterDeep = rgb(224, 138, 18),
-	aether = rgb(67, 215, 245),
-	aetherDeep = rgb(27, 156, 196),
-	quantum = rgb(199, 125, 255),
-	quantumDeep = rgb(124, 70, 200),
+	starMatter = rgb(255, 193, 61),
+	starMatterDeep = rgb(184, 128, 26),
+	aether = rgb(123, 228, 255),
+	aetherDeep = rgb(31, 148, 174),
+	quantum = rgb(167, 139, 250),
+	quantumDeep = rgb(94, 66, 178),
 
 	-- State
-	good = rgb(75, 227, 138),
-	warn = rgb(255, 176, 64),
-	danger = rgb(255, 92, 92),
-	locked = rgb(139, 149, 165),
+	good = rgb(91, 227, 154),
+	warn = rgb(255, 180, 84),
+	danger = rgb(255, 107, 107),
+	locked = rgb(111, 122, 138),
 
-	-- Saturated action fills. These are deliberately outside the warm palette:
-	-- a live control has to out-shout the wood chrome around it, and a solid
-	-- mid-tone with dark type is the only way to do that without a gradient.
-	actionCyan = rgb(0, 210, 255),
-	actionOrange = rgb(255, 107, 0),
-	deepBlue = rgb(22, 58, 104),
+	-- Action fills. One ember for the verb, one cool for information. Both are
+	-- used flat; a gradient on a key is chrome pretending to be light.
+	actionCyan = rgb(123, 228, 255),
+	actionOrange = rgb(255, 122, 47),
+	deepBlue = rgb(22, 35, 58),
 
-	-- Absolute black, for the modal scrim and text strokes.
+	-- Absolute black, for the modal scrim and glyph strokes.
 	ink = rgb(0, 0, 0),
 
 	-- Heat gauge ramp
-	heatCool = rgb(78, 156, 255),
+	heatCool = rgb(79, 156, 255),
 	heatSweet = rgb(112, 240, 168),
-	heatHot = rgb(255, 118, 72),
-	heatCritical = rgb(255, 52, 68),
+	heatHot = rgb(255, 138, 76),
+	heatCritical = rgb(255, 61, 77),
 }
 
 --- Rarity colours, indexed by tier. Mirrors BladeRegistry.rarityInfo so the UI
@@ -180,28 +172,24 @@ Theme.Font = {
 	Numeric = Enum.Font.Code,
 	-- Button faces and tab labels. Heading weights are too shouty at 13px.
 	Label = Enum.Font.GothamBold,
-	-- Chunky banner titles and the big numbers on a modal.
-	Black = Enum.Font.GothamBlack,
+	-- Small-caps labels and button faces. Not GothamBlack: at 13px the heaviest
+	-- weight closes the counters and the face turns to mush.
+	Black = Enum.Font.GothamBold,
 }
 
 --- Size ladder. Everything in the UI picks from here; no ad-hoc pixel values.
 ---
---- The whole ladder moved up ~13% for the "chunky simulator" pass. These are
---- design-space pixels inside a 1280x720 canvas that is fit-scaled to the
---- viewport, so a bigger number here is genuinely bigger on screen at every
---- resolution — it is not a zoom that crops.
+--- The ladder is unchanged at the top (a hero figure still has to dominate a
+--- 720px canvas) and unchanged at the floor: 13 design px is the readable limit
+--- once the canvas is fit-scaled onto a laptop, and nothing interactive goes
+--- below it.
 Theme.Text = {
-	Hero = 50,
-	Title = 32,
-	Heading = 23,
-	Subheading = 19,
-	Body = 17,
+	Hero = 46,
+	Title = 30,
+	Heading = 22,
+	Subheading = 18,
+	Body = 16,
 	Small = 15,
-	-- Caption rung. These two used to be 12 and 10, which is below the readable
-	-- floor once the canvas is fit-scaled onto a 1366px laptop: 10 design px lands
-	-- at 7 screen px at 0.72 scale. Nothing on an interactive card is allowed
-	-- under 13 design px now, and `Tiny` is the dense-row rung rather than a
-	-- licence to shrink.
 	Micro = 14,
 	Tiny = 13,
 }
@@ -219,23 +207,35 @@ Theme.Space = {
 	xxl = 38,
 }
 
--- 12 is the house radius: every panel, plate and card in the reference sits
--- somewhere between 8 and 14, and 12 reads as "moulded" at both 720p and 4K.
+-- 4 on controls, 6 on panels, 0 on rules. The old 10-16px corners were half of
+-- the "mobile app" read: a moulded radius says toy, a near-square corner says
+-- instrument.
 Theme.Radius = {
-	sm = 6,
-	md = 10,
-	card = 12,
-	lg = 12,
-	xl = 16,
+	sm = 3,
+	md = 4,
+	card = 6,
+	lg = 6,
+	xl = 8,
 	round = 999,
 }
 
 Theme.Stroke = {
 	hair = 1,
-	thin = 2,
-	thick = 3,
-	bold = 4,
+	thin = 1,
+	thick = 2,
+	bold = 3,
 }
+
+--- Whether type should be ink or white on `background`.
+---
+--- Every accent in the palette is light enough that white type on it is a
+--- contrast failure (gold, cool, emerald), which is why so much of the old UI
+--- needed a black stroke to survive. Picking the face colour from the fill
+--- removes the stroke rather than compensating for it.
+function Theme.onColor(background: Color3): Color3
+	local luma = 0.2126 * background.R + 0.7152 * background.G + 0.0722 * background.B
+	return if luma > 0.55 then Theme.Color.ink else Theme.Color.text
+end
 
 -- ---------------------------------------------------------------------------
 -- Elevation

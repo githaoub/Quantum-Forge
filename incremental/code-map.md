@@ -1,3 +1,14 @@
+---
+type: reference
+status: live
+updated: 2026-11-11
+aliases:
+  - code-map
+tags:
+  - code-map
+  - architecture
+---
+
 # Code map
 
 A working map of `src/`, written so a fresh session can find the right file

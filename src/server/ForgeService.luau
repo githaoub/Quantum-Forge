@@ -30,19 +30,6 @@ local playtimeAccumulators: { [Player]: number } = {}
 -- Heat helpers
 -- ---------------------------------------------------------------------------
 
-local function isLocked(state: Types.ProfileState): boolean
-	return os.time() < state.lockUntil
-end
-
---- True while a vent would still cancel the lockout rather than merely wait it
---- out. Derived from lockUntil so no extra field is needed in the save.
-local function withinGrace(state: Types.ProfileState): boolean
-	if not isLocked(state) then
-		return false
-	end
-	local lockStarted = state.lockUntil - Config.OverheatLockout
-	return os.time() - lockStarted <= Config.OverheatGrace
-end
 
 local function clickBudget(state: Types.ProfileState): number
 	local budget = Config.ClickRateLimit
@@ -120,10 +107,6 @@ local function strike(state: Types.ProfileState): (number, boolean, number, bool
 	end
 
 	state.heat = math.min(state.heat + Config.HeatPerClick, Config.OverheatAt)
-	if state.heat >= Config.OverheatAt and not isLocked(state) then
-		state.lockUntil = os.time() + Config.OverheatLockout
-		state.streak = 0
-	end
 
 	-- Salvage meter last, so the strike that drops a cache is also the strike
 	-- that paid out. One cache per strike at most by construction.
@@ -142,10 +125,6 @@ function ForgeService.click(player: Player): boolean
 	if not state then
 		return false
 	end
-	if isLocked(state) then
-		Net.sendEvent(player, { kind = "locked" })
-		return false
-	end
 
 	-- Sliding one-second window. A player cannot spend budget they do not have,
 	-- which caps both honest fast clicking and macro abuse at the same ceiling.
@@ -162,11 +141,7 @@ function ForgeService.click(player: Player): boolean
 
 	local amount, crit, shards, overdriveStarted, masteryUp, inSweetSpot, dropped = strike(state)
 
-	if state.lockUntil > os.time() then
-		Net.sendEvent(player, { kind = "overheat" })
-	else
-		Net.sendEvent(player, { kind = if crit then "crit" else "forge", amount = amount, crit = crit })
-	end
+	Net.sendEvent(player, { kind = if crit then "crit" else "forge", amount = amount, crit = crit })
 
 	if overdriveStarted then
 		Net.sendEvent(player, {
@@ -209,7 +184,7 @@ function ForgeService.click(player: Player): boolean
 	end
 
 	-- Auto-Vent pass: release the heat before it becomes a problem.
-	if state.passes.autoVent and state.heat >= Config.VentThreshold and not isLocked(state) then
+	if state.passes.autoVent and state.heat >= Config.VentThreshold then
 		ForgeService.vent(player, true)
 	end
 
@@ -229,11 +204,7 @@ function ForgeService.vent(player: Player, automatic: boolean?): (boolean, strin
 		return false, "Profile not loaded"
 	end
 
-	local locked = isLocked(state)
-	if locked and not withinGrace(state) then
-		return false, "Locked out"
-	end
-	if not locked and state.heat < Config.VentThreshold then
+	if state.heat < Config.VentThreshold then
 		return false, "Heat too low to vent"
 	end
 
@@ -241,7 +212,6 @@ function ForgeService.vent(player: Player, automatic: boolean?): (boolean, strin
 	local bonus = ProgressionService.runeBonus(state)
 	local salvage = ProgressionService.salvageBonus(state)
 	local variant = ProgressionService.variantBonus(state)
-	local efficiency = if locked then 0.25 else 1
 	local gained = math.floor(
 		state.heat
 			* Config.AetherPerHeat
@@ -249,14 +219,10 @@ function ForgeService.vent(player: Player, automatic: boolean?): (boolean, strin
 			* bonus.ventMult
 			* salvage.ventMult
 			* variant.ventMult
-			* efficiency
 	)
 
 	ProgressionService.addAether(state, gained)
 	state.heat = 0
-	if locked then
-		state.lockUntil = 0
-	end
 
 	if not automatic then
 		Net.sendEvent(player, {
@@ -286,9 +252,8 @@ function ForgeService.step(dt: number)
 			continue
 		end
 
-		-- Heat always decays, including during a lockout, so the gauge empties
-		-- while the player is punished. Progress, not a frozen screen. Tempo
-		-- runes speed the cooling, which is what makes them worth a socket.
+		-- Heat always decays, so the gauge settles between bursts. Tempo runes
+		-- speed the cooling, which is what makes them worth a socket.
 		if state.heat > 0 then
 			local bonus = ProgressionService.runeBonus(state)
 			local salvage = ProgressionService.salvageBonus(state)
@@ -298,9 +263,6 @@ function ForgeService.step(dt: number)
 				state.heat
 					- Config.HeatDecayPerSec * bonus.coolMult * salvage.coolMult * variant.coolMult * dt
 			)
-		end
-		if state.lockUntil > 0 and state.lockUntil <= now then
-			state.lockUntil = 0
 		end
 
 		-- Landed expeditions pay out before passive income is measured, so the
@@ -330,7 +292,7 @@ function ForgeService.step(dt: number)
 
 		-- Tech-granted auto-clicks, accumulated fractionally so 0.5/s works.
 		local stats = ProgressionService.stats(state)
-		if stats.autoClicksPerSec > 0 and not isLocked(state) then
+		if stats.autoClicksPerSec > 0 then
 			local acc = (autoClickAccumulators[player] or 0) + stats.autoClicksPerSec * dt
 			local whole = math.floor(acc)
 			autoClickAccumulators[player] = acc - whole

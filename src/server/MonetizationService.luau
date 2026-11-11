@@ -95,8 +95,7 @@ local function grantProduct(player: Player, key: string): boolean
 		local base = math.max(now, state.boostX2Until)
 		state.boostX2Until = base + MonetizationConfig.StarterSeconds
 	elseif key == "instantVent" then
-		state.lockUntil = 0
-		state.heat = 0
+			state.heat = 0
 		state.streak = 0
 	elseif key == "expressSalvage" then
 		-- Only meaningful with a mission out; the clock is moved, not the payout,

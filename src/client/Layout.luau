@@ -41,15 +41,26 @@ Layout.MIN_WIDTH = 1320
 Layout.TOPBAR_Y = 6
 Layout.TOPBAR_H = 76
 
---- Nav strip: section tabs on the left, the rate readout in the middle, and the
---- utilities and chrome keys on the right. Full width, one row.
+--- Geometry.
+---
+--- The horizontal tab strip is gone. Sections live in a left rail, which frees
+--- the 52px the strip used to take and gives every screen that much more canvas.
 Layout.NAV_Y = Layout.TOPBAR_Y + Layout.TOPBAR_H + 6
-Layout.NAV_H = 46
+Layout.NAV_H = 0
+
+--- The rail that carries the section list, and the content rect beside it.
+Layout.RAIL_W = 92
+Layout.RAIL_GAP = 14
+Layout.RAIL_X = Layout.MARGIN
+Layout.RAIL_Y = Layout.NAV_Y + 4
+Layout.RAIL_ITEM_H = 56
+Layout.RAIL_ITEM_GAP = 4
+Layout.RAIL_FOOT_H = 108
 
 --- The content rect. The forge card and every section panel are built at
 --- exactly this size, so switching sections never moves the frame around them.
-Layout.CONTENT_X = Layout.MARGIN
-Layout.CONTENT_Y = Layout.NAV_Y + Layout.NAV_H + 6
+Layout.CONTENT_Y = Layout.RAIL_Y
+Layout.CONTENT_X = Layout.RAIL_X + Layout.RAIL_W + Layout.RAIL_GAP
 
 --- Chrome keys: the top-bar utility bank. 50 wide, 62 tall, icon over label.
 Layout.KEY_W = 50
@@ -96,12 +107,19 @@ function Layout.init(width: number)
 	Layout.CONTENT_W = width - Layout.MARGIN * 2
 	Layout.CONTENT_H = Theme.DesignHeight - Layout.CONTENT_Y - Layout.MARGIN
 
+	Layout.CONTENT_X = Layout.RAIL_X + Layout.RAIL_W + Layout.RAIL_GAP
+	Layout.CONTENT_W = width - Layout.CONTENT_X - Layout.MARGIN
+
 	Layout.NAV_RIGHT = Layout.CONTENT_X + Layout.CONTENT_W - Layout.NAV_PAD
 
-	-- Tabs left, instrument right, air in the middle. The strip plate runs the
-	-- full width, so the gap reads as a tab bar's trailing space rather than as a
-	-- missing panel. Growing the tabs to fill it instead would put five 260px
-	-- buttons across the screen, which is a menu pretending to be a toolbar.
+	-- The top bar runs the full width, including above the rail: it is the app's
+	-- masthead, not a section surface.
+	Layout.BAR_X = Layout.MARGIN
+	Layout.BAR_W = width - Layout.MARGIN * 2
+
+	-- Kept assigned even though the strip is gone: `HudController` and the old
+	-- call sites still read these fields, and a nil here crashes at runtime
+	-- rather than at selene.
 	local count = math.max(Layout.TAB_COUNT, 1)
 	local gaps = Layout.TAB_GAP * (count - 1)
 	local room = Layout.NAV_RIGHT - 12 - Layout.TAB_X - gaps - Layout.RATE_MIN

@@ -118,7 +118,6 @@ export type ProfileState = {
 
 	-- Forge
 	heat: number,
-	lockUntil: number, -- os.clock() domain is local; stored as a timestamp offset
 	--- Every forged copy, keyed by uid. Two copies of the same blade coexist.
 	blades: { [string]: BladeInstance },
 	equippedBlade: string,
@@ -221,8 +220,6 @@ export type SyncPayload = {
 	as: number,
 	qc: number,
 	heat: number,
-	locked: boolean,
-	lockRemaining: number,
 	drones: number,
 	--- The whole ladder this tick: one entry per tier, ordered, counts and
 	--- prices included. Five small tables at 10Hz, which costs less than the

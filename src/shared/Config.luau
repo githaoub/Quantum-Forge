@@ -28,11 +28,17 @@ Config.SweetSpotMin = 65
 Config.SweetSpotMax = 85
 Config.SweetSpotMultiplier = 2.5
 
--- Above this the gauge turns hostile and venting becomes legal.
+-- Above this the gauge turns hostile and venting becomes legal. The core caps
+-- here; it never locks the anvil. A clicker that stops accepting clicks is the
+-- fastest way to lose a player who was enjoying the loop.
 Config.VentThreshold = 85
 Config.OverheatAt = 100
-Config.OverheatLockout = 5 -- seconds of no clicking after a burn-out
-Config.OverheatGrace = 1.5 -- window to vent instead of eating the lockout
+
+-- The lean point. Past this the core runs hot and every strike pays half until
+-- the player purges. A yield penalty keeps heat relevant without ever taking the
+-- anvil away, which is what a lockout did.
+Config.PenaltyFrom = 90
+Config.PenaltyMult = 0.5
 
 -- Aether Shards paid out when venting, per point of heat released.
 Config.AetherPerHeat = 0.08

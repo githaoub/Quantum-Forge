@@ -193,6 +193,12 @@ function ProgressionService.clickYield(state: Types.ProfileState): number
 	if state.lifetimeStarMatter < Config.WowMomentCap then
 		mult *= Config.WowMomentMultiplier
 	end
+	-- The lean point. Past `PenaltyFrom` the core is running hot and every strike
+	-- pays half until the player purges. This is the whole reason heat matters:
+	-- the band pays 2.5x, the top edge pays 0.5x, and venting is the way back.
+	if state.heat >= Config.PenaltyFrom then
+		mult *= Config.PenaltyMult
+	end
 	return mult
 end
 
@@ -1275,7 +1281,6 @@ function ProgressionService.ascend(player: Player): (boolean, string?)
 	state.aether = 0
 	state.fleet = {}
 	state.heat = 0
-	state.lockUntil = 0
 	state.streak = 0
 	state.forgeOverdriveUntil = 0
 	-- A mission in flight is forfeit: the drones it carried are part of the run
@@ -1343,7 +1348,6 @@ end
 --- client.
 function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncPayload
 	local band = ProgressionService.heatBand(state)
-	local lockRemaining = math.max(0, state.lockUntil - now())
 	local tier = ForgeConfig.crate(state.forgeCrate) or ProgressionService.bannerTier(state)
 	local distinct = ProgressionService.distinctIds(state)
 	local copies = 0
@@ -1416,8 +1420,6 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		as = state.aether,
 		qc = state.quantumCores,
 		heat = state.heat,
-		locked = lockRemaining > 0,
-		lockRemaining = lockRemaining,
 		drones = fleetTotal,
 		fleet = fleetEntries,
 		equipped = equipped,

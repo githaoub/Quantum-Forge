@@ -210,6 +210,120 @@ local function trade(root: Frame, color: Color3)
 	outline(bottomHead, Theme.Color.outline, 1.5)
 end
 
+-- ---------------------------------------------------------------------------
+-- Section marks
+-- ---------------------------------------------------------------------------
+--
+-- The rail used to render section names as text glyphs, and half of them were
+-- tofu boxes on this client. Six drawn silhouettes instead: at 22px a mark has
+-- to be one shape with one notch, not an illustration.
+
+--- Forge: an anvil. Wide face, narrow waist, wide foot. The horn is the notch
+--- that separates it from "a stack of bars".
+local function forgeMark(root: Frame, color: Color3)
+	local face = plate(root, 3, 6, 18, 5, color)
+	round(face, 1)
+	outline(face, Theme.Color.outline, 2)
+
+	local horn = plate(root, 0, 7, 4, 3, color)
+	round(horn, 1)
+	outline(horn, Theme.Color.outline, 1.5)
+
+	local waist = plate(root, 9, 11, 6, 5, color)
+	round(waist, 1)
+	outline(waist, Theme.Color.outline, 1.5)
+
+	local base = plate(root, 5, 16, 14, 4, color)
+	round(base, 1)
+	outline(base, Theme.Color.outline, 2)
+end
+
+--- Crates: a box with one band across and one down, and a lid lip so the top
+--- edge reads as a lid rather than as a second rectangle.
+local function crateMark(root: Frame, color: Color3)
+	local body = plate(root, 3, 6, 18, 15, color)
+	round(body, 1)
+	outline(body, Theme.Color.outline, 2)
+
+	local bandH = plate(body, 0, 5, 18, 3, color:Lerp(Theme.Color.outline, 0.4))
+	local bandV = plate(body, 7, 0, 4, 15, color:Lerp(Theme.Color.outline, 0.4))
+	round(bandH, 0)
+	round(bandV, 0)
+
+	local lid = plate(root, 2, 3, 20, 4, color)
+	round(lid, 1)
+	outline(lid, Theme.Color.outline, 1.5)
+end
+
+--- Fleet: a drone. A diamond hull, two rotor bars, one skid.
+local function fleetMark(root: Frame, color: Color3)
+	local hull = plate(root, 8, 8, 8, 8, color)
+	hull.Rotation = 45
+	round(hull, 2)
+	outline(hull, Theme.Color.outline, 2)
+
+	local left = plate(root, 1, 4, 8, 3, color)
+	round(left, 1)
+	outline(left, Theme.Color.outline, 1.5)
+	local right = plate(root, 15, 4, 8, 3, color)
+	round(right, 1)
+	outline(right, Theme.Color.outline, 1.5)
+
+	local skid = plate(root, 7, 18, 10, 3, color)
+	round(skid, 1)
+	outline(skid, Theme.Color.outline, 1.5)
+end
+
+--- Runes: a hollow diamond. Drawn as four rotated edges, because a filled
+--- diamond with a hole punched in it needs a backdrop colour and there is none
+--- on a transparent rail.
+local function runeMark(root: Frame, color: Color3)
+	local edges = {
+		{ 2.5, 6.5, -45 },
+		{ 7.5, 6.5, 45 },
+		{ 2.5, 14.5, 45 },
+		{ 7.5, 14.5, -45 },
+	}
+	for _, edge in edges do
+		local bar = plate(root, edge[1], edge[2], 11, 3, color)
+		bar.Rotation = edge[3]
+		round(bar, 1)
+		outline(bar, Theme.Color.outline, 1.2)
+	end
+end
+
+--- Tech: three nodes on a trunk and a branch.
+local function techMark(root: Frame, color: Color3)
+	local trunk = plate(root, 11, 5, 2, 13, color)
+	local branch = plate(root, 5, 12, 14, 2, color)
+
+	for _, node in { { 9, 1 }, { 2, 14 }, { 16, 14 } } do
+		local cell = plate(root, node[1], node[2], 6, 6, color)
+		round(cell, 1)
+		outline(cell, Theme.Color.outline, 2)
+	end
+	_ = trunk
+	_ = branch
+end
+
+--- Store: a cart. Basket, angled handle, two wheels.
+local function storeMark(root: Frame, color: Color3)
+	local basket = plate(root, 5, 8, 13, 8, color)
+	round(basket, 1)
+	outline(basket, Theme.Color.outline, 2)
+
+	local handle = plate(root, 2, 6, 8, 3, color)
+	handle.Rotation = -32
+	round(handle, 1)
+	outline(handle, Theme.Color.outline, 1.5)
+
+	for _, x in { 7, 14 } do
+		local wheel = plate(root, x, 17, 4, 4, color)
+		round(wheel, 2)
+		outline(wheel, Theme.Color.outline, 1.5)
+	end
+end
+
 --- Builds one icon onto `parent` and returns the scaled canvas. Caller positions
 --- it; the canvas is 24x24 in its own space and `size` after the UIScale.
 function Icons.build(parent: GuiObject, kind: string, size: number, color: Color3): Frame
@@ -232,6 +346,18 @@ function Icons.build(parent: GuiObject, kind: string, size: number, color: Color
 		daily(root, color)
 	elseif kind == "trade" then
 		trade(root, color)
+	elseif kind == "forge" then
+		forgeMark(root, color)
+	elseif kind == "crates" then
+		crateMark(root, color)
+	elseif kind == "fleet" then
+		fleetMark(root, color)
+	elseif kind == "runes" then
+		runeMark(root, color)
+	elseif kind == "tech" then
+		techMark(root, color)
+	elseif kind == "store" then
+		storeMark(root, color)
 	end
 	return root
 end

@@ -1,3 +1,14 @@
+---
+type: reference
+status: live
+updated: 2026-11-11
+aliases:
+  - game-design-math
+tags:
+  - economy
+  - math
+---
+
 # Quantum Forge — Game Design & Math
 
 Every number in this document is derived from the shipped config, not aspirational.
