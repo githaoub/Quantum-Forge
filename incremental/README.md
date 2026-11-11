@@ -46,6 +46,8 @@ with an audit and a ranked action list, and says what was actually read.
 | `build-log-forge-13.md` | shipped work | What the Foundry section rebuilds (crates, fleet, runes, store) and the heat lean point changed, measured. |
 | `build-log-forge-14.md` | shipped work | What the staged crate reveal, the every-copy ribbon, pity progress and the band clamp changed, measured. |
 | `build-log-forge-15.md` | shipped work | What the full-screen ceremony, the 1/3/10 crate racks, the scroll-canvas fix, the store heroes and the VIP bundle changed, measured. |
+| `build-log-forge-16.md` | shipped work | What the copy rail, the sealed hold, the claim curtain, the panel click guard and the live Marketplace listings changed, measured. |
+| `research-nintendo-suspense.md` | research | The five-beat reward grammar, layered sound, haptics, and what of it shipped in the crate ceremony. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
 | `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
 | `game-design-brief.md` | founding document | The game as designed, including what the first plan got wrong. |
@@ -62,7 +64,7 @@ Salvage rack in `ADR-042`: caches drop on a strike meter with their rarity alrea
 rolled, cracking runs on the unix clock, and twelve sigils across four sets pay
 permanent multipliers.
 
-**07:** The blade ladder became a forge. Five banners roll by lifetime
+**07:** The blade ladder became a forge. Five banners roll by run
 Star-Matter, rarity and variant roll on separate weights, every copy is kept, and
 duplicates pay the Scrap that rerolls a variant. The button count, sound kit and
 screen effects grew to match; the settings sheet persists all three preferences.
@@ -122,18 +124,29 @@ copy it paid for, pity reads as progress, `BACK TO POOL` exits a result, and two
 visible rules now match what the server pays (the band clamps at 90, the gauge
 repaints from the payload).
 
+**15:** The ceremony left the card and took the screen. The scrim is sized to the
+viewport plus the GUI inset, the wash is full-bleed, the store and fleet canvases
+are measured in canvas units, and the store leads with VIP and Starter Forge.
+
+**16:** The result got an afterglow. A batch lists every copy on a rail, the
+`COLLECT` key is locked for half a second and then closes behind a claim flash,
+the sealed beat holds for 0.62 s with a beam, a vignette, a riser and two
+heartbeats, and clicking inside a panel no longer closes the vault. The store's
+nine listings are live, with VIP above Eternal Forge and below the sum.
+
 ## Reading order for a fresh session
 
 1. `code-map.md` - what every module owns, so you can jump straight to the file.
 2. `game-design-brief.md` - what the game is.
 3. `game-design-research.md` - the five fun levers and the audit of this build.
 4. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
-5. `build-log-forge-15.md` - the full-screen ceremony, the racks, the scroll fix and the store heroes.
-6. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
-7. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
-8. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
-9. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
-10. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
+5. `build-log-forge-16.md` - the afterglow, the claim curtain, the click guard and the live store.
+6. `build-log-forge-15.md` - the full-screen ceremony, the racks, the scroll fix and the store heroes.
+7. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
+8. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
+9. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
+10. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
+11. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
 10. `build-log-forge-09.md` - the vault split view and the one-card guide.
 11. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
 12. `build-log-forge-07.md` - what the RNG forge pass shipped.

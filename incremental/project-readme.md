@@ -195,7 +195,7 @@ Three layers sit on top of the heat loop:
 ### Progression
 
 - **25 blade patterns** across 5 rarities, forged from five weighted banners. A
-  roll picks the banner from lifetime Star-Matter, the rarity from its pool, and a
+  roll picks the banner from run Star-Matter, the rarity from its pool, and a
   variant (Standard, Tempered, Overclocked, Void-Touched, Prismatic) from its own
   table. The same blade can come out five ways, and every roll is kept as a copy.
   Duplicates melt into Scrap, which pays for variant rerolls. A pity counter forces

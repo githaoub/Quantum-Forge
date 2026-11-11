@@ -3906,3 +3906,99 @@ back with it.
 against R$1499 for Eternal Forge alone, so the bundle is the cheaper path on
 purpose: one purchase beats five prompts.
 
+## ADR-087 - A batch reward has an afterglow, and the claim is a curtain
+
+**Context.** The full-screen ceremony fixed the reveal but spent its whole budget
+on the payoff. A x3 or x10 still ended on one blade and a `COLLECT 3` key, so
+nine of the ten swords the player paid for were invisible. The key also closed
+the overlay on the same frame it was pressed, which read as the screen being
+yanked away. And the blade turntable could catch the hero shot edge-on, so a
+still looked like a stick.
+
+**Decision.**
+
+- The result state gives 64 px of the viewport back to a copy rail. Every copy in
+  the transaction gets a chip: dice name, rarity, and a gold `BEST` tag on the
+  copy the server marked. Chips stagger in left to right so the row is read.
+- `COLLECT` is locked for 0.55 s after the reveal. The key is a dismissal, not a
+  skip: a press before the player has seen the result is ignored.
+- The claim plays its own beat (white wash, shockwave, sparks, claim stinger,
+  rumble) and closes 0.14 s later, behind a VFX flash that lives above the scrim.
+  The cut is hidden by the celebration instead of being the celebration.
+- `BladePreview.mount` accepts `spin`. The ceremony passes `spin = 0`, so the
+  reward holds the hero yaw and the player can orbit it by drag. The forge and
+  vault keep their turntables.
+
+**What it costs.** The rail costs 64 px of blade height and ten labels on a
+ten-pull. The claim costs 0.14 s of dead time that is covered by the flash.
+
+## ADR-088 - A click inside a panel is not a dismiss
+
+**Context.** The vault, codex, leaderboard, handbook and trade desk all sit on a
+`TextButton` dimmer. The panel itself is a `Frame`, and a Frame does not sink
+pointer input. A click on a gap between cards, under the inspector, or on the
+banner's empty space fell through to the dimmer and closed the whole sheet. To a
+player that is the UI randomly disappearing while they are reading it.
+
+**Decision.** The dimmer checks the pointer against the panel's `AbsolutePosition`
+and `AbsoluteSize` and ignores the click when it lands inside the panel. The
+gutter around the sheet remains a close target. `ModalShell` and the vault's
+private overlay both implement the guard; a future modal that uses either gets
+it for free.
+
+**What it costs.** One `GetMouseLocation` and two rectangle reads per close
+attempt. A panel that covers the whole screen has no dismiss-by-click path and
+must keep its close key; every current panel does.
+
+## ADR-089 - The store is a price ladder, and VIP is the bundle
+
+**Context.** ADR-086 priced VIP at R$499, below Eternal Forge, and put Fast Forge
+above Eternal Forge in the storefront. Every listing was still a placeholder id,
+so the store read `SOON` and could not sell anything. The starter pack also
+advertised 25 Aether, which is not a starter pack.
+
+**Decision.**
+
+- Prices are a ladder: Fast Forge 99, Auto-Vent 149, 2x Star-Matter 199, Eternal
+  Forge 1499, VIP 1699. Eternal Forge is the strongest permanent and is priced
+  above every other item except the bundle; it is listed directly under VIP.
+- VIP is cheaper than the sum of the other four passes (1946), and grants every
+  other pass on purchase, not only on the next join.
+- The Open Cloud script is idempotent: it lists existing passes and developer
+  products by name, creates only what is missing, and patches the ids back into
+  `MonetizationConfig`. Creating a listing does not charge Robux; only a
+  purchase does.
+- The starter pack pays 500K Aether and 20 minutes of double income.
+
+**What it costs.** VIP saves the player 247 Robux and cannibalises four smaller
+passes. The ladder is tuned to make the bundle the obvious second purchase, not
+the first: a player who only wants one convenience still has a 99 Robux door.
+
+## ADR-090 - A crate unlocks on the run, and a locked pool is still a window
+
+**Context.** The crate ladder was written against lifetime Star-Matter and later
+moved to run Star-Matter (`ProgressionService` gates both the quote and the roll
+on `state.runStarMatter` and refuses with "unlocks at N run Star-Matter"). The
+crates page, the build log and the project readme still said lifetime, and
+`ForgeConfig.crateUnlocked(tier, lifetime)` survived as a second, wrong definition
+of "unlocked" that nothing called.
+
+**Decision.**
+
+- One authority: a pool is unlocked when `StateStore` carries a quote for it.
+  The server only prices pools whose `unlock` the run has passed, so the client
+  never re-derives the gate. `ForgeConfig.crateUnlocked` is deleted.
+- A locked pool is browsable. Clicking its rail row still selects it, the 3D
+  silhouette still mounts, and the info column still prints the name, blurb and
+  odds. The player can inspect what they are climbing toward.
+- A locked pool is not rollable. All three keys read `LOCKED` with no price, the
+  stage swaps the pity row for an `OPEN AT N` bar and a run-percentage caption,
+  and `roll` returns before it opens the ceremony or sends `forge`.
+- The gates themselves did not move: 0 / 60K / 8M / 600M / 400B, now read against
+  the run so an ascension re-opens the climb.
+
+**What it costs.** A locked pool has no pity readout and no stage action, so the
+page is honest about being locked without offering a shortcut. A player who
+ascends loses access to the top pools they were browsing, which is the point of
+the run gate but will read as a demotion unless the rail's percentage makes the
+next climb obvious.

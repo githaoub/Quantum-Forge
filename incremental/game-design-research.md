@@ -299,9 +299,11 @@ That is the balance version of "a feature that serves no aesthetic is a chore."
    payload, a full-height 90% tick marks the lean point, and `sweetSpotMax` clamps
    to `PenaltyFrom` so the top of a maxed band cannot pay `0.5x` under a `2.5x`
    caption (see `game-design-math.md` §7).
-3. **One `NEXT` line in the rail foot** (`M`). Cheapest available unlock: next
-   blade, next drone, next tech node, or the daily. This is the return-player
-   answer to "what now?" and the antidote to goal smog.
+3. **One `NEXT` line in the rail foot** (`M`, shipped 2026-11-11). Cheapest
+   available unlock: next blade, next drone, next tech node, or the daily. This is
+   the return-player answer to "what now?" and the antidote to goal smog. The rail
+   foot now prints `NEXT / CRATE / 44%` and resolves the cheapest gate from the
+   same payload the sections use (ADR-084).
 4. **Offline card names the best thing and the next goal** (`S`). The card
    already pays the fleet; add one line of context. This is the peak-end fix for
    the session boundary.

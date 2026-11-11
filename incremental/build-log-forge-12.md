@@ -400,6 +400,9 @@ longer in every pool, not only the starter one.
 | Celestial Core | 6,000,000 | 600,000,000 | 9 | core |
 | Singularity Vault | 400,000,000 | 400,000,000,000 | 8 | vault |
 
+> **Superseded.** These gates now read run Star-Matter, not lifetime, so an
+> ascension re-opens the climb (ADR-090). The numbers did not change.
+
 `ForgeConfig` gained `crate(id)`, `tierAt(n)`, `crateUnlocked`, `odds(tier)`,
 `rollRarity(forcePity, tier)`, `floorStrikes(tier)` and `bulkRollCost`. Pity is
 still Void-or-better, drawn from the crate's own column.
