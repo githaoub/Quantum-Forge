@@ -55,7 +55,10 @@ Layout.RAIL_X = Layout.MARGIN
 Layout.RAIL_Y = Layout.NAV_Y + 4
 Layout.RAIL_ITEM_H = 56
 Layout.RAIL_ITEM_GAP = 4
-Layout.RAIL_FOOT_H = 108
+--- The foot carries three readouts now: connection, rate, and the next goal.
+--- 128 keeps a clear 8px gap between the goal text and its progress rule; at 108
+--- the bar sat on the text's last row.
+Layout.RAIL_FOOT_H = 128
 
 --- The content rect. The forge card and every section panel are built at
 --- exactly this size, so switching sections never moves the frame around them.

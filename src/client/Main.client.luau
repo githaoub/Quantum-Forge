@@ -271,6 +271,20 @@ local function boot()
 		DailyView.open()
 	end
 
+	-- The rail-foot NEXT line is a key, not a caption. It opens the section it
+	-- names; the daily is an overlay, so it takes the same path as the DAILY key.
+	HudController.nextGoalHandler = function(key: string)
+		if key == "daily" then
+			DailyView.open()
+		elseif key == "crate" then
+			Sections.select("crates")
+		elseif key == "drone" then
+			Sections.select("fleet")
+		elseif key == "tech" then
+			Sections.select("tech")
+		end
+	end
+
 
 	-- Picking a pool on the roll page moves the anvil with it. Both surfaces price
 	-- the same crate, and a player who picked Void here should not find the forge

@@ -20,6 +20,7 @@ local UiKit = require(script.Parent.UiKit)
 local Icons = require(script.Parent.Icons)
 local ProfilePlate = require(script.Parent.ProfilePlate)
 local StateStore = require(script.Parent.StateStore)
+local NextGoal = require(script.Parent.NextGoal)
 
 local HudController = {}
 
@@ -39,6 +40,8 @@ HudController.tradeHandler = nil :: (() -> ())?
 HudController.feedbackHandler = nil :: (() -> ())?
 HudController.settingsHandler = nil :: (() -> ())?
 HudController.dailyHandler = nil :: (() -> ())?
+--- Set by Main: the rail-foot NEXT line opens the section it names.
+HudController.nextGoalHandler = nil :: ((string) -> ())?
 
 type Pill = {
 	root: Frame,
@@ -52,6 +55,10 @@ type Pill = {
 local pills: { [string]: Pill } = {}
 local topBar: Frame? = nil
 local rateStrip: Frame? = nil
+local nextGoalLabel: TextLabel? = nil
+local nextGoalPercent: TextLabel? = nil
+local nextGoalFill: Frame? = nil
+local nextGoal: NextGoal.Goal? = nil
 local profileHandle: ProfilePlate.Handle? = nil
 local ascendButton: TextButton? = nil
 local ascendLabel: TextLabel? = nil
@@ -680,7 +687,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		wrap = true,
 	})
 	rateLabel.Position = UDim2.fromOffset(0, 0)
-	rateLabel.Size = UDim2.new(1, 0, 0, 32)
+	rateLabel.Size = UDim2.new(1, 0, 0, 30)
 	rateLabel.Name = "Rate"
 
 	-- The steady number gets its own field under the status line, in the
@@ -692,7 +699,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		color = Theme.Color.starMatter,
 		align = Enum.TextXAlignment.Left,
 	})
-	rateValueLabel.Position = UDim2.fromOffset(0, 34)
+	rateValueLabel.Position = UDim2.fromOffset(0, 32)
 	rateValueLabel.Size = UDim2.new(1, 0, 0, 24)
 	rateValueLabel.Name = "RateValue"
 	rateValueLabel.Visible = false
@@ -705,6 +712,77 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		target = 0,
 		format = NumberUtil.abbreviateRate,
 	}
+
+	-- The one answer to "what now?". It sits under the rate because that is the
+	-- only block on screen a returning player already reads; putting the goal
+	-- anywhere else would make it a seventh thing competing for attention.
+	-- Read-only telemetry, except the whole block is a key into its section.
+	local nextCaption = UiKit.label(strip, {
+		text = "NEXT",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	nextCaption.Position = UDim2.fromOffset(0, 66)
+	nextCaption.Size = UDim2.new(1, 0, 0, 14)
+	nextCaption.Name = "NextCaption"
+
+	nextGoalLabel = UiKit.label(strip, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.text,
+	})
+	nextGoalLabel.Position = UDim2.fromOffset(0, 82)
+	nextGoalLabel.Size = UDim2.new(1, -34, 0, 16)
+	nextGoalLabel.Name = "NextGoal"
+
+	nextGoalPercent = UiKit.label(strip, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.cyan,
+		align = Enum.TextXAlignment.Right,
+	})
+	nextGoalPercent.Position = UDim2.new(1, -32, 0, 82)
+	nextGoalPercent.Size = UDim2.fromOffset(32, 16)
+	nextGoalPercent.Name = "NextPercent"
+
+	-- A 3px track, not a ring or a gauge: the rail already carries one meter
+	-- (heat lives on the forge). This is a plan, so it reads as a line.
+	local track = UiKit.create("Frame", {
+		Name = "NextTrack",
+		BackgroundColor3 = Theme.Color.strokeBright,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, 106),
+		Size = UDim2.new(1, 0, 0, 4),
+	}) :: Frame
+	track.Parent = strip
+
+	nextGoalFill = UiKit.create("Frame", {
+		Name = "NextFill",
+		BackgroundColor3 = Theme.Color.cyan,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(0, 1),
+	}) :: Frame
+	nextGoalFill.Parent = track
+
+	local nextKey = UiKit.create("TextButton", {
+		Name = "NextKey",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Position = UDim2.fromOffset(0, 62),
+		Size = UDim2.new(1, 0, 0, 54),
+		ZIndex = 3,
+	}) :: TextButton
+	nextKey.Parent = strip
+	UiKit.track(nextKey, nextKey.Activated:Connect(function()
+		if nextGoal and HudController.nextGoalHandler then
+			HudController.nextGoalHandler(nextGoal.key)
+		end
+	end))
 
 	unsubscribe = StateStore.onSync(function(state: Types.SyncPayload)
 		HudController.apply(state)
@@ -788,6 +866,24 @@ function HudController.apply(state: Types.SyncPayload)
 		then string.format("x2 BOOST  %s", NumberUtil.abbreviateTime(state.boostRemaining))
 		elseif state.drones > 0 then string.format("%s DRONES", NumberUtil.abbreviate(state.drones))
 		else "NO DRONES"
+
+	-- The rail-foot goal. `NextGoal` owns the rule; this only paints it. A goal
+	-- at or past its gate is shown as a full bar and no percentage, because a
+	-- daily that is ready has no meaningful number to print.
+	nextGoal = NextGoal.compute(state)
+	if nextGoalLabel and nextGoalPercent and nextGoalFill then
+		if nextGoal then
+			nextGoalLabel.Text = nextGoal.label
+			nextGoalPercent.Text = if nextGoal.fraction >= 1
+				then ""
+				else string.format("%d%%", math.floor(nextGoal.fraction * 100))
+			nextGoalFill.Size = UDim2.fromScale(math.clamp(nextGoal.fraction, 0, 1), 1)
+		else
+			nextGoalLabel.Text = "MAXED"
+			nextGoalPercent.Text = ""
+			nextGoalFill.Size = UDim2.fromScale(1, 1)
+		end
+	end
 
 	-- Ascension: show the payout, not the raw total. The player cares about
 	-- what the button will give them.
