@@ -213,6 +213,9 @@ function BladePreview.mount(
 	opts: {
 		frameFill: number?,
 		aimBias: number?,
+		--- Idle turntable rate in rad/s. Nil keeps the hero spin (0.9); 0 holds
+		--- the pose so a reward still cannot catch the blade edge-on.
+		spin: number?,
 		--- Control that receives the drag press. Passed straight through to the
 		--- orbit controller; see `ViewportOrbitController.Options.surface`.
 		surface: GuiObject?,
@@ -277,6 +280,7 @@ function BladePreview.mount(
 		cameraYaw = math.pi - AZIMUTH,
 		cameraPitch = -ELEVATION,
 		surface = if opts then opts.surface else nil,
+		modelSpinSpeed = if opts then opts.spin else nil,
 		offset = function()
 			return CFrame.new(0, math.sin(clock * 1.15) * bobAmplitude, 0)
 		end,

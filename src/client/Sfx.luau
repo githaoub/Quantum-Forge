@@ -286,6 +286,19 @@ function Sfx.crateLand()
 	play(WATER, jitter(0.9, 0.06), 0.05, 0.02)
 end
 
+--- One crate taking the hit. This is the per-click payoff, not the reveal: a
+--- short crack and a wooden knock, with a heavier body only on the last crate.
+--- Without it the rattle ticks are the only sound the player hears while they
+--- are doing the work, and the final reveal has to carry ten hits on its own.
+function Sfx.crateBreak(final: boolean?)
+	play(SNAP, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.2 else 0.12)
+	play(SMACK, jitter(0.82, 0.05), if final then 0.16 else 0.085, 0.005)
+	if final then
+		play(IMPACT, jitter(0.55, 0.03), 0.2, 0.03)
+		play(RING, jitter(0.92, 0.02), 0.09, 0.05)
+	end
+end
+
 --- The crate splitting. A hard crack over the same body as the landing, so the
 --- two read as the same object at two moments.
 function Sfx.crateShatter()
@@ -306,6 +319,34 @@ function Sfx.rollTick(index: number)
 	if index >= 5 then
 		play(IMPACT, jitter(0.48 + step * 0.03, 0.03), 0.1, 0)
 	end
+end
+
+--- A single heartbeat under the sealed hold. Low, soft and deliberately not a
+--- tick: the rattle is over, and what is left is the player waiting.
+function Sfx.heartbeat()
+	play(IMPACT, jitter(0.38, 0.03), 0.18)
+	play(PING, jitter(0.55, 0.02), 0.055, 0.03)
+end
+
+--- The last half-second before a reveal. Six notes climb the same pentatonic
+--- ladder the strike uses, under a low air layer, so the ear knows the answer is
+--- coming before the eye does.
+function Sfx.riser(steps: number?)
+	local count = math.clamp(steps or 5, 1, 8)
+	for index = 1, count do
+		play(PING, jitter(1.15 * note(index + 3), 0.012), 0.055 + index * 0.006, (index - 1) * 0.06)
+	end
+	play(WATER, jitter(0.88, 0.04), 0.07, 0.02)
+	play(IMPACT, jitter(0.5, 0.03), 0.12, count * 0.06)
+end
+
+--- The claim. A short rising pair over a soft body, then a swish as the card
+--- leaves. Distinct from the reveal fanfare so the two beats never blur.
+function Sfx.claim()
+	play(PING, jitter(2.4, 0.02), 0.1)
+	play(PING, jitter(3.05, 0.02), 0.085, 0.05)
+	play(SWISH, jitter(1.15, 0.04), 0.07, 0.015)
+	play(IMPACT, jitter(0.8, 0.03), 0.11, 0.02)
 end
 
 --- Forge celebration: a legendary blade drawn from the quench. Heavy low thud,

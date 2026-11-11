@@ -1258,8 +1258,10 @@ function CratesView.roll(count: number?)
 	end
 	-- The server caps a pull at the free slots. Spawn and charge the same number
 	-- here, or a ten-pull with three slots shows ten crates and pays for three.
+	-- The price tier follows `actual`, not `batch`: a x10 key with three free
+	-- slots is a x3 purchase and must quote the x3 price.
 	local actual = math.min(batch, free)
-	local price = if batch >= 10 then q.ten elseif batch >= 3 then q.three else q.one
+	local price = if actual >= 10 then q.ten elseif actual >= 3 then q.three else q.one
 	if state.sm < price then
 		Sfx.error()
 		if noteLabel then
@@ -1267,6 +1269,10 @@ function CratesView.roll(count: number?)
 			noteLabel.TextColor3 = Theme.Color.red
 		end
 		return false
+	end
+	if actual < batch and noteLabel then
+		noteLabel.Text = string.format("Vault space: rolling %d of %d.", actual, batch)
+		noteLabel.TextColor3 = Theme.Color.warn
 	end
 
 	local _, _, remaining = pityProgress(crate)
@@ -2320,18 +2326,41 @@ function CratesView.stagePreview(batch: number?): boolean
 	if not opened then
 		return false
 	end
-	local rarity = ForgeConfig.rollRarity(false, crate)
-	local blade = ForgeConfig.pickBlade(crate.tier, rarity)
-	if blade == nil then
+	local copies: { Types.ForgedCopy } = {}
+	local best: Types.ForgedCopy? = nil
+	local bestScore = -1
+	for index = 1, count do
+		local rarity = ForgeConfig.rollRarity(false, crate)
+		local blade = ForgeConfig.pickBlade(crate.tier, rarity)
+		if blade then
+			local variant = if index == count then "prismatic" elseif index % 3 == 0 then "void" else "standard"
+			local copy: Types.ForgedCopy = {
+				blade = blade.id,
+				variant = variant,
+				power = index * 1000 + (RARITY_RANK[blade.rarity] or 1),
+				newBlade = false,
+				newVariant = false,
+			}
+			copies[#copies + 1] = copy
+			local score = (RARITY_RANK[blade.rarity] or 1) * 10 + (VARIANT_RANK[variant] or 1)
+			if score >= bestScore then
+				bestScore = score
+				best = copy
+			end
+		end
+	end
+	if best == nil then
 		return false
 	end
 	CrateReveal.deliver({
 		kind = "forged",
-		blade = blade.id,
-		variant = "prismatic",
-		batch = count,
+		blade = best.blade,
+		variant = best.variant,
+		power = best.power,
+		batch = #copies,
 		crate = crate.id,
 		newBlade = true,
+		results = copies,
 	})
 	return true
 end

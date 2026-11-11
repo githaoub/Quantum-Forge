@@ -14,6 +14,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
@@ -27,6 +28,7 @@ local UiKit = require(script.Parent.UiKit)
 local StateStore = require(script.Parent.StateStore)
 local Sfx = require(script.Parent.Sfx)
 local Vfx = require(script.Parent.Vfx)
+local Haptics = require(script.Parent.Haptics)
 local CratePreview = require(script.Parent.CratePreview)
 local BladePreview = require(script.Parent.BladePreview)
 local StageBackdrop = require(script.Parent.StageBackdrop)
@@ -38,16 +40,31 @@ local CrateReveal = {}
 -- ---------------------------------------------------------------------------
 
 local ANSWER_TIMEOUT = 8
-local SEALED_HOLD = 0.3
+local SEALED_HOLD = 0.62
+local RESULT_LOCK = 0.55
 
 local STAGE_W = 1080
 local STAGE_H = 596
 local STAGE_Y = 0.5306
 local VIEW_H = 420
+--- A batch result trades 64px of blade viewport for the copy rail. The single
+--- result keeps the taller stage because there is nothing to list.
+local RESULT_VIEW_H = 356
 local PIP_MAX_W = 320
+
+local RAIL_W = 980
+local CHIP_H = 58
+local CHIP_GAP = 6
+local CHIP_MAX_W = 92
 
 local ACTION_W = 260
 local ACTION_H = 50
+
+--- Rays behind the blade. Twelve thin frames rotated around one anchor; cheap
+--- enough to keep mounted, hidden until a result needs them.
+local RAY_COUNT = 9
+local RAY_LENGTH = 360
+local RAY_SPREAD = 138
 
 local RARITY_COLOR: { [string]: Color3 } = {
 	Scrap = Color3.fromRGB(168, 130, 96),
@@ -63,6 +80,14 @@ local VARIANT_RANK: { [string]: number } = {
 	overclocked = 3,
 	void = 4,
 	prismatic = 5,
+}
+
+local RARITY_RANK: { [string]: number } = {
+	Scrap = 1,
+	Forged = 2,
+	Astral = 3,
+	Void = 4,
+	Quantum = 5,
 }
 
 -- ---------------------------------------------------------------------------
@@ -82,9 +107,18 @@ local subLabel: TextLabel? = nil
 local pipsHost: Frame? = nil
 local action: TextButton? = nil
 local actionLabel: TextLabel? = nil
+local railHost: Frame? = nil
+local rayHost: Frame? = nil
+local beam: Frame? = nil
+local beamCore: Frame? = nil
+local vignetteLeft: Frame? = nil
+local vignetteRight: Frame? = nil
+local vignetteTop: Frame? = nil
+local vignetteBottom: Frame? = nil
 
 local crateHandle: CratePreview.Handle? = nil
 local bladeCleanup: (() -> ())? = nil
+local dustCleanup: (() -> ())? = nil
 local orbit: any = nil
 
 local phase = "closed"
@@ -97,6 +131,9 @@ local lastStrike = 0
 local pending: Types.FeedEvent? = nil
 local onExit: (() -> ())? = nil
 local unsubscribe: (() -> ())? = nil
+local resultRank = 1
+local resultReadyAt = 0
+local rayConnection: RBXScriptConnection? = nil
 
 local function bladeOf(id: string?): BladeRegistry.Blade?
 	if id == nil then
@@ -147,6 +184,57 @@ end
 -- Build
 -- ---------------------------------------------------------------------------
 
+--- Leaves the ceremony. The flash is already at full white when the scrim drops,
+--- so the cut from the overlay back to the page is hidden by the same effect that
+--- celebrates the claim. A close that is a hard `Visible = false` is the one
+--- frame every player notices.
+local function claim()
+	if phase ~= "result" then
+		return
+	end
+	if os.clock() < resultReadyAt then
+		return
+	end
+	local crate = currentCrate
+	phase = "claiming"
+	if action then
+		action.Visible = false
+	end
+	if stage then
+		Vfx.shake(stage, 7, 0.3)
+	end
+	if viewport then
+		local color = if crate then crate.accent else Theme.Color.gold
+		Vfx.shockwave(viewport, color, {
+			size = 120,
+			spread = 4.0,
+			duration = 0.45,
+			thickness = 4,
+		})
+		Vfx.sparks(viewport, color, 18, 1.2)
+		Vfx.burst(viewport, color, 1.2 + resultRank * 0.06)
+	end
+	if flash then
+		flash.BackgroundColor3 = Theme.Color.white
+		flash.BackgroundTransparency = 0.2
+		UiKit.tween(flash, 0.3, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+	end
+	-- The VFX wash lives above the scrim, so it is still on screen one beat
+	-- after `close()` hides the ceremony. That overlap is what hides the cut.
+	Vfx.flash(Theme.Color.white, 0.6)
+	if stageScale then
+		UiKit.tween(stageScale, 0.22, { Scale = 1.05 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	end
+	Sfx.claim()
+	Haptics.pulse(1, 0.18)
+	local stamp = token
+	task.delay(0.14, function()
+		if stamp == token and phase == "claiming" then
+			CrateReveal.close()
+		end
+	end)
+end
+
 local function buildStage(canvas: Frame)
 	local button = UiKit.create("TextButton", {
 		Name = "CrateReveal",
@@ -168,6 +256,37 @@ local function buildStage(canvas: Frame)
 
 	bloom = paintBackdrop(button)
 
+	-- Edge vignette. Four gradient panes on the scrim itself, above the wash and
+	-- below the stage, so they darken the light without touching the type. The
+	-- panes grow during the sealed hold: the room closes in before the reveal.
+	local function edge(name: string, position: UDim2, size: UDim2, rotation: number): Frame
+		local pane = UiKit.create("Frame", {
+			Name = name,
+			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+			BorderSizePixel = 0,
+			BackgroundTransparency = 0,
+			Position = position,
+			Size = size,
+			ZIndex = 1,
+		}) :: Frame
+		local gradient = UiKit.create("UIGradient", {
+			Rotation = rotation,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.55),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}) :: UIGradient
+		gradient.Parent = pane
+		pane.Parent = button
+		return pane
+	end
+	vignetteLeft = edge("VignetteLeft", UDim2.fromOffset(0, 0), UDim2.new(0, 170, 1, 0), 0)
+	vignetteRight = edge("VignetteRight", UDim2.new(1, -170, 0, 0), UDim2.fromOffset(170, 0), 180)
+	vignetteTop = edge("VignetteTop", UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 110), 90)
+	vignetteBottom = edge("VignetteBottom", UDim2.new(0, 0, 1, -110), UDim2.new(1, 0, 0, 110), 270)
+	vignetteRight.Size = UDim2.new(0, 170, 1, 0)
+	vignetteBottom.Position = UDim2.new(0, 0, 1, -110)
+
 	local frame = UiKit.create("Frame", {
 		Name = "Stage",
 		BackgroundTransparency = 1,
@@ -182,6 +301,94 @@ local function buildStage(canvas: Frame)
 	local scale = UiKit.create("UIScale", { Scale = 1 }) :: UIScale
 	scale.Parent = frame
 	stageScale = scale
+
+	-- The light column. Hidden until the rack is empty; it is the "something is
+	-- about to happen" line that a held beat needs, and it costs one frame.
+	local column = UiKit.create("Frame", {
+		Name = "Beam",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromOffset(STAGE_W / 2, 0),
+		Size = UDim2.fromOffset(4, VIEW_H + 80),
+		ZIndex = 1,
+	}) :: Frame
+	local columnGradient = UiKit.create("UIGradient", {
+		Rotation = 90,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.15),
+			NumberSequenceKeypoint.new(0.72, 0.75),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	}) :: UIGradient
+	columnGradient.Parent = column
+	column.Parent = frame
+	beam = column
+
+	local core = UiKit.create("Frame", {
+		Name = "BeamCore",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromOffset(STAGE_W / 2, 0),
+		Size = UDim2.fromOffset(2, VIEW_H + 80),
+		ZIndex = 1,
+	}) :: Frame
+	core.Parent = frame
+	beamCore = core
+
+	-- The ray fan. Twelve thin blades of light behind the result, rotated around
+	-- one zero-size host so a slow spin is one property write per frame.
+	local rays = UiKit.create("Frame", {
+		Name = "Rays",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(STAGE_W / 2, 20 + VIEW_H / 2),
+		Size = UDim2.fromOffset(0, 0),
+		Visible = false,
+		ZIndex = 1,
+	}) :: Frame
+	rays.Parent = frame
+	rayHost = rays
+	for index = 1, RAY_COUNT do
+		local angle = -RAY_SPREAD / 2 + (index - 1) * (RAY_SPREAD / (RAY_COUNT - 1))
+		-- Each ray hangs from a zero-size pivot. A GuiObject rotates around its
+		-- own centre, so rotating the long frame directly swung its base away
+		-- from the origin by half its length; the fan looked like it was lit
+		-- from a different room. The pivot's centre *is* the origin.
+		local pivot = UiKit.create("Frame", {
+			Name = "RayPivot" .. index,
+			BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.fromOffset(0, 0),
+			Rotation = angle,
+			ZIndex = 1,
+		}) :: Frame
+		local ray = UiKit.create("Frame", {
+			Name = "Ray",
+			BackgroundColor3 = Theme.Color.white,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.fromOffset(2, RAY_LENGTH),
+			ZIndex = 1,
+		}) :: Frame
+		local fade = UiKit.create("UIGradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.75, 0.75),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}) :: UIGradient
+		fade.Parent = ray
+		ray.Parent = pivot
+		pivot.Parent = rays
+	end
 
 	local top = UiKit.label(frame, {
 		text = "POOL 01 / 05",
@@ -243,6 +450,21 @@ local function buildStage(canvas: Frame)
 	pips.Parent = frame
 	pipsHost = pips
 
+	-- Copy rail. A batch result lists every copy the player paid for, not just
+	-- the one that won: nine invisible swords is the difference between a
+	-- ten-pull and ten singles.
+	local rail = UiKit.create("Frame", {
+		Name = "CopyRail",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromOffset(STAGE_W / 2, VIEW_H + 118),
+		Size = UDim2.fromOffset(RAIL_W, CHIP_H),
+		Visible = false,
+		ZIndex = 3,
+	}) :: Frame
+	rail.Parent = frame
+	railHost = rail
+
 	local wash = UiKit.create("Frame", {
 		Name = "Flash",
 		BackgroundColor3 = Theme.Color.white,
@@ -288,8 +510,10 @@ local function buildStage(canvas: Frame)
 		end
 	end))
 	UiKit.track(footer, footer.Activated:Connect(function()
-		if phase == "result" or phase == "failed" then
+		if phase == "failed" then
 			CrateReveal.close()
+		else
+			claim()
 		end
 	end))
 
@@ -350,7 +574,185 @@ local function paintPips(total: number, filled: number, colors: { Color3 }?)
 	end
 end
 
+local function clearRail()
+	local host = railHost
+	if host == nil then
+		return
+	end
+	for _, child in host:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	host.Visible = false
+end
+
+local function stopRays()
+	if rayConnection then
+		rayConnection:Disconnect()
+		rayConnection = nil
+	end
+	if rayHost then
+		rayHost.Visible = false
+		rayHost.Rotation = 0
+	end
+end
+
+local function startRays(color: Color3, rank: number)
+	local host = rayHost
+	if host == nil or Theme.reducedMotion() then
+		return
+	end
+	host.Visible = true
+	host.Rotation = 0
+	local index = 0
+	for _, pivot in host:GetChildren() do
+		local ray = pivot:FindFirstChild("Ray")
+		if ray and ray:IsA("Frame") then
+			index += 1
+			ray.BackgroundColor3 = if index % 3 == 1 then color else Theme.Color.white
+			ray.BackgroundTransparency = if rank >= 4 then 0.5 else 0.72
+		end
+	end
+	if rayConnection then
+		rayConnection:Disconnect()
+	end
+	-- A fan that turns a full circle is a pinwheel; a few degrees of sway reads
+	-- as light through a dusty room.
+	local clock = 0
+	rayConnection = RunService.Heartbeat:Connect(function(dt: number)
+		if host.Parent == nil or not host.Visible then
+			return
+		end
+		clock += dt
+		host.Rotation = math.sin(clock * 0.7) * 4
+	end)
+end
+
+--- The stage has two heights: the crate phase and the single result use the full
+--- 420px viewport, a batch result gives 64px of it back to the copy rail.
+local function layoutStage(batch: number, isResult: boolean)
+	local multi = isResult and batch > 1
+	local viewH = if multi then RESULT_VIEW_H else VIEW_H
+	if viewport then
+		viewport.Size = UDim2.fromOffset(STAGE_W, viewH)
+	end
+	if mainLabel then
+		mainLabel.Position = UDim2.fromOffset(0, viewH + 30)
+	end
+	if subLabel then
+		subLabel.Position = UDim2.fromOffset(0, viewH + 70)
+	end
+	if pipsHost then
+		pipsHost.Position = UDim2.fromOffset((STAGE_W - PIP_MAX_W) / 2, viewH + 96)
+	end
+	if railHost then
+		railHost.Position = UDim2.new(0.5, 0, 0, viewH + 118)
+	end
+	if rayHost then
+		rayHost.Position = UDim2.fromOffset(STAGE_W / 2, 20 + viewH / 2)
+	end
+	if beam then
+		beam.Size = UDim2.fromOffset(beam.Size.X.Offset, viewH + 80)
+	end
+	if beamCore then
+		beamCore.Size = UDim2.fromOffset(beamCore.Size.X.Offset, viewH + 80)
+	end
+	if action then
+		action.Position = UDim2.new(0.5, 0, 0, if multi then viewH + 184 else STAGE_H - 68)
+	end
+end
+
+--- Lists every copy in a batch result. The winning copy is gold; the rest carry
+--- their rarity. Chips stagger in left to right so the row is read, not just
+--- seen, and the last one lands with the collect key.
+local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
+	clearRail()
+	local host = railHost
+	if host == nil or #copies <= 1 then
+		return
+	end
+	host.Visible = true
+	local count = #copies
+	local width = math.min(CHIP_MAX_W, math.floor((RAIL_W - CHIP_GAP * (count - 1)) / count))
+	local total = count * width + CHIP_GAP * (count - 1)
+	local left = (RAIL_W - total) / 2
+
+	for index, copy in copies do
+		local copyBlade = bladeOf(copy.blade)
+		local isBest = index == bestIndex
+		local color = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
+		local chip = UiKit.create("Frame", {
+			Name = "Copy" .. index,
+			BackgroundColor3 = if isBest then Theme.Color.panelRaised else Theme.Color.panelSunken,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(left + (index - 1) * (width + CHIP_GAP), 0),
+			Size = UDim2.fromOffset(width, CHIP_H),
+			ZIndex = 3,
+		}) :: Frame
+		UiKit.corner(chip, Theme.Radius.sm)
+		UiKit.stroke(chip, color, if isBest then Theme.Stroke.bold else Theme.Stroke.thin, if isBest then 0.1 else 0.5)
+
+		local bar = UiKit.create("Frame", {
+			BackgroundColor3 = color,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = UDim2.new(1, -8, 0, 3),
+			Position = UDim2.fromOffset(4, 4),
+			ZIndex = 4,
+		}) :: Frame
+		UiKit.corner(bar, 2)
+		bar.Parent = chip
+
+		local name = UiKit.label(chip, {
+			text = string.upper(if copyBlade then copyBlade.name else "A COPY"),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = if isBest then Theme.Color.text else Theme.Color.textSecondary,
+			align = Enum.TextXAlignment.Center,
+			wrap = true,
+		})
+		name.Position = UDim2.fromOffset(4, 8)
+		name.Size = UDim2.new(1, -8, 0, 30)
+		name.TextYAlignment = Enum.TextYAlignment.Center
+		name.ZIndex = 4
+
+		local tag = UiKit.label(chip, {
+			text = if isBest then "BEST" else string.upper(if copyBlade then copyBlade.rarity else "SCRAP"),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = color,
+			align = Enum.TextXAlignment.Center,
+		})
+		tag.Position = UDim2.fromOffset(4, 38)
+		tag.Size = UDim2.new(1, -8, 0, 14)
+		tag.ZIndex = 4
+
+		chip.Parent = host
+		local delay = (index - 1) * 0.035
+		task.delay(delay, function()
+			if chip.Parent == nil then
+				return
+			end
+			UiKit.tween(chip, 0.16, { BackgroundTransparency = if isBest then 0 else 0.1 }, Enum.EasingStyle.Quad)
+			UiKit.tween(bar, 0.2, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
+		end)
+	end
+end
+
 local function paintCrate(crate: ForgeConfig.Tier, batch: number)
+	clearRail()
+	stopRays()
+	layoutStage(batch, false)
+	if beam then
+		beam.BackgroundTransparency = 1
+		beam.Size = UDim2.fromOffset(4, VIEW_H + 80)
+	end
+	if beamCore then
+		beamCore.BackgroundTransparency = 1
+		beamCore.Size = UDim2.fromOffset(2, VIEW_H + 80)
+	end
 	if topLabel then
 		topLabel.Text = string.format("POOL %02d / %02d  ·  %s", crate.tier, #ForgeConfig.Tiers, string.upper(crate.name))
 	end
@@ -404,15 +806,20 @@ local function paintResult(result: Types.FeedEvent, crate: ForgeConfig.Tier)
 	local copies = result.results
 	local colors: { Color3 } = {}
 	local bestMarked = false
+	local bestIndex = 0
 	for index, copy in copies or {} do
 		local copyBlade = bladeOf(copy.blade)
 		local isBest = not bestMarked and copy.blade == result.blade and (result.power == nil or copy.power == result.power)
 		if isBest then
 			bestMarked = true
+			bestIndex = index
 		end
 		colors[index] = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
 	end
-	paintPips(if copies and #copies > 0 then #copies else batch, batch, colors)
+	local list = copies or {}
+	layoutStage(batch, true)
+	paintPips(if #list > 0 then #list else batch, batch, colors)
+	paintRail(list, bestIndex)
 
 	if actionLabel then
 		actionLabel.Text = if batch > 1 then string.format("COLLECT %d", batch) else "COLLECT"
@@ -424,6 +831,10 @@ end
 -- ---------------------------------------------------------------------------
 
 local function clearViewport()
+	if dustCleanup then
+		dustCleanup()
+		dustCleanup = nil
+	end
 	if bladeCleanup then
 		bladeCleanup()
 		bladeCleanup = nil
@@ -441,7 +852,7 @@ local function clearViewport()
 end
 
 local function reveal(result: Types.FeedEvent)
-	if phase == "result" or phase == "closed" then
+	if phase == "result" or phase == "closed" or phase == "claiming" then
 		return
 	end
 	phase = "result"
@@ -451,11 +862,13 @@ local function reveal(result: Types.FeedEvent)
 		return
 	end
 
+	stopRays()
 	clearViewport()
 	local blade = bladeOf(result.blade)
 	local variant = ForgeConfig.variant(if result.variant and result.variant ~= "" then result.variant else ForgeConfig.StandardVariant)
 	local rarityColor = rarityColorOf(blade)
-	local rank = VARIANT_RANK[variant.id] or 1
+	local rank = math.max(VARIANT_RANK[variant.id] or 1, if blade then (RARITY_RANK[blade.rarity] or 1) else 1)
+	resultRank = rank
 	local theme = Theme.tierBackdrop(crate.tier)
 
 	if bloom then
@@ -463,13 +876,23 @@ local function reveal(result: Types.FeedEvent)
 	end
 	paintResult(result, crate)
 
+	-- The collect key arrives after the reveal has been read, not on the same
+	-- frame as the flash. A key that is already under the thumb when the screen
+	-- changes is how a player skips the thing they paid for.
 	if action then
-		action.Visible = true
+		action.Visible = false
 		action.BackgroundColor3 = crate.accent
 	end
 	if actionLabel then
 		actionLabel.TextColor3 = Theme.onColor(crate.accent)
 	end
+	resultReadyAt = os.clock() + RESULT_LOCK
+	local stamp = token
+	task.delay(0.22, function()
+		if stamp == token and phase == "result" and action then
+			action.Visible = true
+		end
+	end)
 
 	if viewport then
 		viewport.Ambient = Color3.fromRGB(214, 216, 228)
@@ -480,7 +903,8 @@ local function reveal(result: Types.FeedEvent)
 			bladeCleanup = BladePreview.mount(viewport, blade, variant.color, {
 				surface = root,
 				frameFill = 0.9,
-				aimBias = 0.06,
+				aimBias = 0,
+				spin = 0,
 			})
 		end
 	end
@@ -493,6 +917,15 @@ local function reveal(result: Types.FeedEvent)
 		flash.BackgroundColor3 = rarityColor
 		flash.BackgroundTransparency = 0.16
 		UiKit.tween(flash, 0.5, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		if rank >= 4 and not Theme.reducedMotion() then
+			task.delay(0.06, function()
+				if flash.Parent then
+					flash.BackgroundColor3 = Theme.Color.white
+					flash.BackgroundTransparency = 0.22
+					UiKit.tween(flash, 0.4, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+				end
+			end)
+		end
 	end
 	if stage then
 		Vfx.shake(stage, 2.5 + rank * 1.2, 0.34)
@@ -506,9 +939,26 @@ local function reveal(result: Types.FeedEvent)
 		})
 		Vfx.sparks(viewport, rarityColor, 12 + rank, 1.2)
 	end
+	if beam then
+		beam.BackgroundColor3 = crate.accent
+		beam.BackgroundTransparency = 0.45
+		beam.Size = UDim2.fromOffset(46, beam.Size.Y.Offset)
+		UiKit.tween(beam, 0.55, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+	end
+	if beamCore then
+		beamCore.BackgroundColor3 = Theme.Color.white
+		beamCore.BackgroundTransparency = 0.2
+		beamCore.Size = UDim2.fromOffset(10, beamCore.Size.Y.Offset)
+		UiKit.tween(beamCore, 0.4, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+	end
+	if vignetteLeft then
+		Theme.tween(vignetteLeft, 0.35, { Size = UDim2.new(0, 170, 1, 0) }, Enum.EasingStyle.Quad)
+	end
+	startRays(rarityColor, rank)
 
 	Sfx.crateShatter()
 	Sfx.result(rank)
+	Haptics.pulse(0.85, 0.22)
 end
 
 local function tryReveal()
@@ -550,6 +1000,9 @@ local function strike()
 	if crateHandle then
 		crateHandle.knock(index, crate.accent)
 	end
+	local final = opened >= currentBatch
+	Sfx.crateBreak(final)
+	Haptics.pulse(if final then 0.6 else 0.22 + index * 0.05, if final then 0.1 else 0.055)
 
 	-- The same answer the anvil gives: a ring at the cursor, sparks, a burst and
 	-- a body check on the stage. The ziggurat of numbers is gone; this is one hit.
@@ -587,7 +1040,42 @@ local function strike()
 		crateHandle.hover(crate.accent)
 	end
 	Sfx.rollTick(8)
+	-- The held beat. Everything converges here: the column lights, the room
+	-- darkens, the pad builds, and two heartbeats carry the silence. The server
+	-- answer is already in hand; this is the pause before the screen admits it.
+	if beam then
+		beam.BackgroundColor3 = crate.accent
+		beam.BackgroundTransparency = 0.7
+		beam.Size = UDim2.fromOffset(8, beam.Size.Y.Offset)
+		UiKit.tween(beam, 0.5, { BackgroundTransparency = 0.45, Size = UDim2.fromOffset(30, beam.Size.Y.Offset) }, Enum.EasingStyle.Quad)
+	end
+	if beamCore then
+		beamCore.BackgroundColor3 = Theme.Color.white
+		beamCore.BackgroundTransparency = 0.55
+		beamCore.Size = UDim2.fromOffset(3, beamCore.Size.Y.Offset)
+		UiKit.tween(beamCore, 0.5, { BackgroundTransparency = 0.2, Size = UDim2.fromOffset(12, beamCore.Size.Y.Offset) }, Enum.EasingStyle.Quad)
+	end
+	if vignetteLeft then
+		Theme.tween(vignetteLeft, SEALED_HOLD, { Size = UDim2.new(0, 230, 1, 0) }, Enum.EasingStyle.Quad)
+	end
+	if vignetteRight then
+		Theme.tween(vignetteRight, SEALED_HOLD, { Size = UDim2.new(0, 230, 1, 0) }, Enum.EasingStyle.Quad)
+	end
+	if vignetteTop then
+		Theme.tween(vignetteTop, SEALED_HOLD, { Size = UDim2.new(1, 0, 0, 160) }, Enum.EasingStyle.Quad)
+	end
+	if vignetteBottom then
+		Theme.tween(vignetteBottom, SEALED_HOLD, { Size = UDim2.new(1, 0, 0, 160) }, Enum.EasingStyle.Quad)
+	end
+	Sfx.riser(5)
+	Sfx.heartbeat()
 	local stamp = token
+	task.delay(0.2, function()
+		if stamp == token and phase == "sealed" then
+			Sfx.heartbeat()
+		end
+	end)
+	Haptics.build(3)
 	task.delay(SEALED_HOLD, function()
 		if stamp == token and phase == "sealed" then
 			tryReveal()
@@ -619,6 +1107,20 @@ local function open(opts: {
 
 	clearViewport()
 	paintCrate(opts.crate, currentBatch)
+	resultReadyAt = 0
+	resultRank = 1
+	if vignetteLeft then
+		vignetteLeft.Size = UDim2.new(0, 170, 1, 0)
+	end
+	if vignetteRight then
+		vignetteRight.Size = UDim2.new(0, 170, 1, 0)
+	end
+	if vignetteTop then
+		vignetteTop.Size = UDim2.new(1, 0, 0, 110)
+	end
+	if vignetteBottom then
+		vignetteBottom.Size = UDim2.new(1, 0, 0, 110)
+	end
 	if bloom then
 		local theme = Theme.tierBackdrop(opts.crate.tier)
 		bloom.setColors(opts.crate.accent, theme.cool, opts.crate.accent)
@@ -669,6 +1171,11 @@ local function open(opts: {
 	end
 
 	Sfx.roll()
+	dustCleanup = Vfx.ambientEmbers(viewport, {
+		count = 16,
+		color = Theme.Color.slate,
+		floor = 0,
+	})
 	task.delay(ANSWER_TIMEOUT, function()
 		if stamp == token and pending == nil and phase ~= "closed" and phase ~= "result" then
 			CrateReveal.fail("THE VAULT DID NOT ANSWER")
@@ -812,8 +1319,30 @@ function CrateReveal.close()
 	pending = nil
 	landed = false
 	opened = 0
+	resultReadyAt = 0
+	stopRays()
+	clearRail()
+	if vignetteLeft then
+		vignetteLeft.Size = UDim2.new(0, 170, 1, 0)
+	end
+	if vignetteRight then
+		vignetteRight.Size = UDim2.new(0, 170, 1, 0)
+	end
+	if vignetteTop then
+		vignetteTop.Size = UDim2.new(1, 0, 0, 110)
+	end
+	if vignetteBottom then
+		vignetteBottom.Size = UDim2.new(1, 0, 0, 110)
+	end
+	if beam then
+		beam.BackgroundTransparency = 1
+	end
+	if beamCore then
+		beamCore.BackgroundTransparency = 1
+	end
 	root.Visible = false
 	clearViewport()
+	Haptics.stop()
 	local callback = onExit
 	onExit = nil
 	if callback then

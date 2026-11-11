@@ -309,11 +309,6 @@ function ForgeConfig.crate(id: string?): Tier?
 	return nil
 end
 
---- True when `lifetime` has opened this crate.
-function ForgeConfig.crateUnlocked(tier: Tier, lifetime: number): boolean
-	return lifetime >= tier.unlock
-end
-
 --- Normalised drop table for the crate browser, ordered rarest first so the
 --- expensive rows sit at the top where a player is looking.
 export type Odds = { rarity: string, weight: number, chance: number }
