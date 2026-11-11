@@ -52,6 +52,7 @@ local Vfx = require(script.Parent.Vfx)
 local CratePreview = require(script.Parent.CratePreview)
 local BladePreview = require(script.Parent.BladePreview)
 local StageBackdrop = require(script.Parent.StageBackdrop)
+local CrateReveal = require(script.Parent.CrateReveal)
 
 local CratesView = {}
 
@@ -70,7 +71,7 @@ local ROW_GAP = 6
 local HERO_H = 300
 local OBJECT_W = 400
 local INFO_X = 412
-local VIEW = 320
+local VIEW = 300
 
 local ODDS_Y = HERO_H + 10
 local ODDS_H = 96
@@ -78,16 +79,6 @@ local KEYS_Y = ODDS_Y + ODDS_H + 12
 local KEY_H = 64
 local NOTE_Y = KEYS_Y + KEY_H + 7
 local DECK_X = RAIL_W + 18
-
---- How long the crate holds at full charge after the rattle, even when the
---- server has already answered. The pause is the point: the rattle tells the
---- player something is inside, the hold tells them it is about to come out.
-local REVEAL_HOLD = 0.42
-
---- The server never refuses silently in the happy path, but a stale price or a
---- full vault can. Without this, a rejected roll leaves the crate floating and
---- every key dead.
-local ROLL_TIMEOUT = 7
 
 --- Rarity colours, mirroring `BladeRegistry.RARITY_INFO`. Kept here because the
 --- page draws the odds legend before it has a blade to ask. Quantum is mint, not
@@ -151,7 +142,6 @@ local beam: Frame? = nil
 local daisGlow: Frame? = nil
 local daisLine: Frame? = nil
 local chargeBar: Frame? = nil
-local chargeFill: Frame? = nil
 local chargeCaption: TextLabel? = nil
 
 -- Rest column
@@ -195,6 +185,9 @@ local oddsWidth = 0
 local rollOne: TextButton? = nil
 local rollOneFace: TextLabel? = nil
 local rollOneCost: TextLabel? = nil
+local rollThree: TextButton? = nil
+local rollThreeFace: TextLabel? = nil
+local rollThreeCost: TextLabel? = nil
 local rollTen: TextButton? = nil
 local rollTenFace: TextLabel? = nil
 local rollTenCost: TextLabel? = nil
@@ -385,7 +378,10 @@ local function mountCrate(shape: string)
 	view.Ambient = Color3.fromRGB(156, 148, 164)
 	view.LightColor = Color3.fromRGB(255, 208, 158)
 	view.LightDirection = Vector3.new(-0.5, -0.8, -0.4)
-	crateHandle = CratePreview.mount(view, shape)
+	crateHandle = CratePreview.mount(view, shape, {
+		surface = hero,
+		spin = 0.12,
+	})
 	mountedShape = shape
 end
 
@@ -474,20 +470,6 @@ local function paintTag(text: string, tint: Color3, visible: boolean)
 	tag.TextTransparency = 1
 	if visible then
 		UiKit.tween(tag, Theme.Duration.normal, { TextTransparency = 0, BackgroundTransparency = 0.2 })
-	end
-end
-
-local function setCharge(beat: number, caption: string, complete: boolean)
-	local fill = chargeFill
-	if fill then
-		UiKit.tween(fill, Theme.Duration.fast, {
-			Size = UDim2.fromScale(math.clamp(beat / 6, 0, 1), 1),
-			BackgroundColor3 = if complete then Theme.Color.gold else Theme.Color.starMatter,
-		}, Enum.EasingStyle.Quad)
-	end
-	if chargeCaption then
-		chargeCaption.Text = caption
-		chargeCaption.TextColor3 = if complete then Theme.Color.gold else Theme.Color.textSecondary
 	end
 end
 
@@ -874,10 +856,14 @@ local function paintDeck()
 
 	local locked = q == nil
 	local canOne = q ~= nil and state ~= nil and state.sm >= q.one
+	local canThree = q ~= nil and state ~= nil and state.sm >= q.three
 	local canTen = q ~= nil and state ~= nil and state.sm >= q.ten
 
 	if rollOne and rollOneFace and rollOneCost then
 		paintKey(rollOne, rollOneFace, rollOneCost, canOne, locked, "ROLL", if q then q.one else nil, Theme.Color.panelRaised, Theme.Color.text)
+	end
+	if rollThree and rollThreeFace and rollThreeCost then
+		paintKey(rollThree, rollThreeFace, rollThreeCost, canThree, locked, "ROLL x3", if q then q.three else nil, Theme.Color.panelRaised, Theme.Color.text)
 	end
 	if rollTen and rollTenFace and rollTenCost then
 		paintKey(rollTen, rollTenFace, rollTenCost, canTen, locked, "ROLL x10", if q then q.ten else nil, crate.accent, Theme.onColor(crate.accent))
@@ -1242,9 +1228,13 @@ end
 
 --- Presses the pool for `count` copies. One transaction: the server charges the
 --- ramp price for the whole batch and reports every copy back as one event.
+---
+--- The page no longer performs the reveal. It opens `CrateReveal`, a canvas-wide
+--- scrim with the chosen crate in it, and the player breaks the seal with six
+--- clicks. The answer is requested now and held until the sixth.
 function CratesView.roll(count: number?)
-	local batch = math.clamp(math.floor(count or 1), 1, 10)
-	if rolling then
+	local batch = if count == 10 then 10 elseif count == 3 then 3 else 1
+	if rolling or CrateReveal.isOpen() then
 		return false
 	end
 	local state = StateStore.current
@@ -1257,7 +1247,8 @@ function CratesView.roll(count: number?)
 		Sfx.error()
 		return false
 	end
-	if state.invCount >= state.invMax then
+	local free = math.max(0, state.invMax - state.invCount)
+	if free <= 0 then
 		Sfx.error()
 		if noteLabel then
 			noteLabel.Text = string.format("Vault full: %d / %d. Melt a copy to make room.", state.invCount, state.invMax)
@@ -1265,7 +1256,10 @@ function CratesView.roll(count: number?)
 		end
 		return false
 	end
-	local price = if batch > 1 then q.ten else q.one
+	-- The server caps a pull at the free slots. Spawn and charge the same number
+	-- here, or a ten-pull with three slots shows ten crates and pays for three.
+	local actual = math.min(batch, free)
+	local price = if batch >= 10 then q.ten elseif batch >= 3 then q.three else q.one
 	if state.sm < price then
 		Sfx.error()
 		if noteLabel then
@@ -1275,103 +1269,24 @@ function CratesView.roll(count: number?)
 		return false
 	end
 
-	rolling = true
-	rollToken += 1
-	local token = rollToken
-	awaitingReveal = true
-	crateOpen = false
-	pendingResult = nil
-	revealReadyAt = 0
-
-	resetStage(crate)
-	showRest(crate)
-	mountCrate(crate.shape)
-	paintRestTint(crate)
-
-	if chargeBar then
-		chargeBar.Visible = true
-	end
-	if chargeCaption then
-		chargeCaption.Visible = true
-	end
 	local _, _, remaining = pityProgress(crate)
-	local armed = remaining <= 1
-	setCharge(0, if armed then "PITY GUARANTEE  ·  BREACHING" else "BREACHING", false)
-
-	if noteLabel then
-		noteLabel.Text = if batch > 1
-			then string.format("Breaching %d copies out of %s.", batch, crate.name)
-			else string.format("Breaching %s.", crate.name)
-		noteLabel.TextColor3 = Theme.Color.textSecondary
-	end
-
-	Sfx.roll()
-	if crateHandle then
-		crateHandle.play(crate.accent, {
-			onLanded = function()
-				if token == rollToken then
-					Sfx.crateLand()
-				end
-			end,
-			onBeat = function(beat: number)
-				if token ~= rollToken then
-					return
-				end
-				Sfx.rollTick(beat)
-				setCharge(beat, if armed then "PITY GUARANTEE  ·  BREACHING" else "BREACHING", false)
-			end,
-			onReady = function()
-				if token ~= rollToken then
-					return
-				end
-				-- The rattle is the wind-up. The answer may already be sitting in
-				-- `pendingResult`; if it is not, the event handler fires the reveal
-				-- the moment it lands, after the same hold.
-				crateOpen = true
-				revealReadyAt = os.clock() + REVEAL_HOLD
-				setCharge(6, if armed then "PITY GUARANTEE  ·  SEALED" else "SEALED", true)
-				-- The last beat is the top of the ladder plus a ring around the
-				-- crate. It is the only cue that says "the next thing is the
-				-- answer", and it runs for exactly the hold.
-				Sfx.rollTick(8)
-				if viewport then
-					Vfx.shockwave(viewport, crate.accent, {
-						size = 110,
-						spread = 1.55,
-						duration = REVEAL_HOLD + 0.08,
-						thickness = 3,
-					})
-				end
-				tryReveal()
-			end,
-		})
-	else
-		-- No viewport means the page never built; do not leave the roll hanging.
-		crateOpen = true
-		revealReadyAt = os.clock() + REVEAL_HOLD
-	end
-
-	-- A rejected roll never reports `forged`. Let the crate land, hold for the
-	-- same beat the player expects, then put the pool back and say so.
-	task.delay(ROLL_TIMEOUT, function()
-		if token ~= rollToken or not awaitingReveal then
-			return
-		end
-		awaitingReveal = false
-		crateOpen = false
-		pendingResult = nil
+	rolling = true
+	local opened = CrateReveal.open({
+		crate = crate,
+		batch = actual,
+		armed = remaining <= 1,
+		onExit = function()
+			rolling = false
+			paintDeck()
+		end,
+	})
+	if not opened then
 		rolling = false
-		unmountCrate()
-		mountCrate(selectedCrate().shape)
-		resetStage(selectedCrate())
-		paintDeck()
-		if noteLabel then
-			noteLabel.Text = "The vault did not answer. Try again."
-			noteLabel.TextColor3 = Theme.Color.warn
-		end
-	end)
+		Sfx.error()
+		return false
+	end
 
-	StateStore.send("forge", { crate = crate.id, count = batch })
+	StateStore.send("forge", { crate = crate.id, count = actual })
 	paintDeck()
 	return true
 end
@@ -1624,7 +1539,7 @@ local function buildStage()
 		Name = "Preview",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset((OBJECT_W - VIEW) / 2, -16),
+		Position = UDim2.fromOffset((OBJECT_W - VIEW) / 2, 0),
 		Size = UDim2.fromOffset(VIEW, VIEW),
 		ZIndex = 2,
 	}) :: ViewportFrame
@@ -1691,7 +1606,6 @@ local function buildStage()
 	}) :: Frame
 	UiKit.corner(fill, 2)
 	fill.Parent = bar
-	chargeFill = fill
 
 	local flash = UiKit.create("Frame", {
 		Name = "StageFlash",
@@ -2161,17 +2075,25 @@ end
 
 local function buildKeys(parent: Frame)
 	local gap = 10
-	-- 38 / 62 split. The ten-pull is the real purchase on this page; the single
-	-- key exists for players who cannot afford ten yet, and it should look like it.
-	local oneW = math.floor((deckWidth() - gap) * 0.38)
-	local tenW = deckWidth() - gap - oneW
+	-- 26 / 30 / 44. The ten-pull is still the real purchase on this page; the
+	-- single is the try-it key and the three is the bridge a player reaches for
+	-- when they can almost afford ten.
+	local available = deckWidth() - gap * 2
+	local oneW = math.floor(available * 0.26)
+	local threeW = math.floor(available * 0.30)
+	local tenW = available - oneW - threeW
 
 	rollOne, rollOneFace, rollOneCost = buildKey(parent, "RollOne", 0, oneW, Theme.Color.panelRaised, false)
 	UiKit.track(rollOne, rollOne.Activated:Connect(function()
 		CratesView.roll(1)
 	end))
 
-	rollTen, rollTenFace, rollTenCost = buildKey(parent, "RollTen", oneW + gap, tenW, Theme.Color.starMatter, true)
+	rollThree, rollThreeFace, rollThreeCost = buildKey(parent, "RollThree", oneW + gap, threeW, Theme.Color.panelRaised, false)
+	UiKit.track(rollThree, rollThree.Activated:Connect(function()
+		CratesView.roll(3)
+	end))
+
+	rollTen, rollTenFace, rollTenCost = buildKey(parent, "RollTen", oneW + threeW + gap * 2, tenW, Theme.Color.starMatter, true)
 	UiKit.track(rollTen, rollTen.Activated:Connect(function()
 		CratesView.roll(10)
 	end))
@@ -2237,6 +2159,11 @@ function CratesView.init(canvas: Frame, x: number, y: number, width: number, hei
 	mountCrate(selectedCrate().shape)
 	paintDeck()
 
+	-- The ceremony is a canvas-level overlay: a black scrim over the rail, the
+	-- HUD and this page, with the chosen crate inside it. It is built once and
+	-- reused for every pool.
+	CrateReveal.init(canvas)
+
 	unsubscribeEvent = StateStore.onEvent(function(event: Types.FeedEvent)
 		if event.kind ~= "forged" then
 			return
@@ -2272,12 +2199,16 @@ function CratesView.layout()
 	if oddsHost then
 		paintOdds(selectedCrate())
 	end
-	if rollOne and rollTen then
+	if rollOne and rollThree and rollTen then
 		local gap = 10
-		local oneW = math.floor((deckWidth() - gap) * 0.38)
-		local tenW = deckWidth() - gap - oneW
+		local available = deckWidth() - gap * 2
+		local oneW = math.floor(available * 0.26)
+		local threeW = math.floor(available * 0.30)
+		local tenW = available - oneW - threeW
 		rollOne.Size = UDim2.fromOffset(oneW, KEY_H)
-		rollTen.Position = UDim2.fromOffset(oneW + gap, KEYS_Y)
+		rollThree.Position = UDim2.fromOffset(oneW + gap, KEYS_Y)
+		rollThree.Size = UDim2.fromOffset(threeW, KEY_H)
+		rollTen.Position = UDim2.fromOffset(oneW + threeW + gap * 2, KEYS_Y)
 		rollTen.Size = UDim2.fromOffset(tenW, KEY_H)
 	end
 	paintPity(selectedCrate())
@@ -2362,9 +2293,56 @@ function CratesView.preview(bladeId: string, variantId: string?): boolean
 	return true
 end
 
+--- Studio seam: paints the overlay reveal without charging or rolling.
+function CratesView.revealPreview(bladeId: string, variantId: string?): boolean
+	local blade = BladeRegistry.get(bladeId)
+	if blade == nil then
+		return false
+	end
+	local crate = selectedCrate()
+	return CrateReveal.preview(crate, {
+		kind = "forged",
+		blade = bladeId,
+		variant = variantId or "prismatic",
+		batch = 1,
+		crate = crate.id,
+		newBlade = true,
+	})
+end
+
+--- Studio seam: opens the ceremony with `batch` crates and answers as the
+--- server would, so the drop, the click ladder and the reveal can be walked
+--- without spending a pull or a vault slot.
+function CratesView.stagePreview(batch: number?): boolean
+	local crate = selectedCrate()
+	local count = math.clamp(math.floor(batch or 1), 1, 10)
+	local opened = CrateReveal.open({ crate = crate, batch = count, armed = false })
+	if not opened then
+		return false
+	end
+	local rarity = ForgeConfig.rollRarity(false, crate)
+	local blade = ForgeConfig.pickBlade(crate.tier, rarity)
+	if blade == nil then
+		return false
+	end
+	CrateReveal.deliver({
+		kind = "forged",
+		blade = blade.id,
+		variant = "prismatic",
+		batch = count,
+		crate = crate.id,
+		newBlade = true,
+	})
+	return true
+end
+
 --- Leaves the result without buying another pull. The crate comes back, so the
 --- page is a pool browser again rather than a reveal with no exit.
 function CratesView.dismiss()
+	if CrateReveal.isOpen() then
+		CrateReveal.close()
+		return
+	end
 	if rolling then
 		return
 	end
@@ -2389,6 +2367,7 @@ function CratesView.destroy()
 		unsubscribeEvent()
 		unsubscribeEvent = nil
 	end
+	CrateReveal.destroy()
 	unmountCrate()
 	if root then
 		root:Destroy()
@@ -2413,7 +2392,6 @@ function CratesView.destroy()
 	daisGlow = nil
 	daisLine = nil
 	chargeBar = nil
-	chargeFill = nil
 	chargeCaption = nil
 	restGroup = nil
 	restEyebrow = nil
@@ -2426,8 +2404,7 @@ function CratesView.destroy()
 	unlockFill = nil
 	restRareValue = nil
 	restMark = nil
-	resultGroup = nil
-	resultKicker = nil
+	resultGroup = nil	resultKicker = nil
 	resultNew = nil
 	resultVariant = nil
 	resultName = nil
@@ -2443,6 +2420,9 @@ function CratesView.destroy()
 	rollOne = nil
 	rollOneFace = nil
 	rollOneCost = nil
+	rollThree = nil
+	rollThreeFace = nil
+	rollThreeCost = nil
 	rollTen = nil
 	rollTenFace = nil
 	rollTenCost = nil

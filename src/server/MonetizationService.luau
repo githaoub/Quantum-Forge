@@ -52,6 +52,12 @@ end
 
 --- Re-checks pass ownership on join. This is the authority — a client claiming a
 --- pass it does not own is ignored entirely.
+---
+--- VIP is a bundle, not a badge: owning it grants every other configured pass.
+--- That has to happen here rather than as five separate ownership checks,
+--- because a player who buys VIP later must not be asked to buy Fast Forge on
+--- top of it. The expansion runs after the individual checks so a revoked pass
+--- still grants through VIP while VIP itself is owned.
 local function refreshPasses(player: Player)
 	local state = DataManager.get(player)
 	if not state then
@@ -67,6 +73,15 @@ local function refreshPasses(player: Player)
 		end)
 		if ok and owns then
 			if not state.passes[key] then
+				grantPass(state, key)
+				DataManager.markDirty(player)
+			end
+		end
+	end
+
+	if state.passes.vipAura then
+		for key, def in MonetizationConfig.Passes do
+			if key ~= "vipAura" and isConfiguredPass(def) and not state.passes[key] then
 				grantPass(state, key)
 				DataManager.markDirty(player)
 			end

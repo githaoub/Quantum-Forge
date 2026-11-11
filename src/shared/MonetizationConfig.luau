@@ -80,10 +80,10 @@ MonetizationConfig.Passes = {
 
 	vipAura = {
 		id = 0,
-		name = "VIP Quantum Aura",
-		description = "Status only. Carries the VIP badge and nothing else.",
+		name = "VIP",
+		description = "Every gamepass, forever, plus the VIP badge and aura.",
 		enabled = true,
-		price = 399,
+		price = 499,
 		badge = "VIP",
 		icon = "vip_aura",
 	} :: PassDef,
@@ -108,7 +108,7 @@ MonetizationConfig.Products = {
 	starterForge = {
 		id = 0,
 		name = "Starter Forge Pack",
-		description = "25 Aether and fifteen minutes of double income. One-time boost for a fresh forge.",
+		description = "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
 		enabled = true,
 		price = 5,
 		badge = "START",
@@ -152,8 +152,8 @@ MonetizationConfig.Products = {
 -- service so a designer can rebalance without touching logic.
 MonetizationConfig.OverdriveSeconds = 900
 MonetizationConfig.OverdriveMultiplier = 3
-MonetizationConfig.StarterSeconds = 900
-MonetizationConfig.StarterAether = 25
+MonetizationConfig.StarterSeconds = 1200
+MonetizationConfig.StarterAether = 500000
 
 --- Looks up a pass by its Marketplace ID. Nil when the ID is still 0.
 function MonetizationConfig.passByid(id: number): (string?, PassDef?)
@@ -176,7 +176,7 @@ end
 
 --- Storefront order. Passes first (permanent), then consumables, because the
 --- permanent row is the one a returning player is still deciding about.
-MonetizationConfig.PassOrder = { "fastForge", "autoVent", "x2StarMatter", "vipAura", "eternalForge" }
+MonetizationConfig.PassOrder = { "vipAura", "fastForge", "x2StarMatter", "autoVent", "eternalForge" }
 MonetizationConfig.ProductOrder = { "starterForge", "instantOverdrive", "instantVent", "expressSalvage" }
 
 return MonetizationConfig

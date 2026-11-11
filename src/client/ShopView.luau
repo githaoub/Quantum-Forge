@@ -37,6 +37,16 @@ local TEXT_X = ICON_X + ICON_SIZE + 14
 --- is pinned at `1, -104`.
 local TEXT_W = -(TEXT_X + 112)
 
+--- Feature rows. The two offers worth leading with — the VIP bundle and the
+--- starter pack — take a 176px plate with a 112px badge, a ribbon and a larger
+--- price, so the storefront has a top rather than nine identical rows. The
+--- distributor deals blocks, not columns, so a full-width banner would need a
+--- layout change; a tall tile reads as a banner inside the grid it already has.
+local HERO_H = 176
+local HERO_ICON = 112
+local HERO_TEXT_X = ICON_X + HERO_ICON + 16
+local HERO_TEXT_W = -(HERO_TEXT_X + 132)
+
 type RowOpts = {
 	name: string,
 	description: string,
@@ -48,16 +58,18 @@ type RowOpts = {
 	accent: Color3,
 	enabled: boolean,
 	configured: boolean,
+	hero: boolean?,
+	ribbon: string?,
 	onBuy: () -> (),
 }
 
-local function buildCategoryPill(row: Frame, text: string, accent: Color3): Frame
+local function buildCategoryPill(row: Frame, text: string, accent: Color3, y: number): Frame
 	local pill = UiKit.create("Frame", {
 		BackgroundColor3 = accent,
 		BackgroundTransparency = 0.84,
 		BorderSizePixel = 0,
 		Size = UDim2.fromOffset(56, 20),
-		Position = UDim2.fromOffset(ICON_X, ICON_Y + 26),
+		Position = UDim2.fromOffset(ICON_X, y),
 	}) :: Frame
 	UiKit.corner(pill, 4)
 	UiKit.stroke(pill, accent, Theme.Stroke.hair, 0.55)
@@ -89,16 +101,16 @@ end
 --- No procedural stand-in lives behind the art. A hand-drawn approximation of
 --- an approved badge is a placeholder wearing the badge's clothes: it looks
 --- deliberate when the real art is merely late, and it hides the failure.
-local function buildIconBadge(row: Frame, imageId: string, accent: Color3): Frame
+local function buildIconBadge(row: Frame, imageId: string, accent: Color3, size: number, y: number): Frame
 	local well = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.outline,
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-		Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE),
-		Position = UDim2.fromOffset(ICON_X, ICON_Y),
+		Size = UDim2.fromOffset(size, size),
+		Position = UDim2.fromOffset(ICON_X, y),
 	}) :: Frame
 	well.Name = "PassBadge"
-	UiKit.corner(well, math.floor(ICON_SIZE * 0.5))
+	UiKit.corner(well, math.floor(size * 0.5))
 	UiKit.stroke(well, Theme.Color.outline, 2, 0)
 	well.Parent = row
 
@@ -126,13 +138,21 @@ local function buildIconBadge(row: Frame, imageId: string, accent: Color3): Fram
 end
 
 local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
+	local hero = opts.hero == true
+	local height = if hero then HERO_H else ROW_H
+	local iconSize = if hero then HERO_ICON else ICON_SIZE
+	local iconY = if hero then 16 else ICON_Y
+	local textX = if hero then HERO_TEXT_X else TEXT_X
+	local textW = if hero then HERO_TEXT_W else TEXT_W
+
 	local row = UiKit.panel(parent, {
-		tier = "item",
+		tier = if hero then "raised" else "item",
 		radius = Theme.Radius.md,
 		stroke = opts.accent,
-		strokeTransparency = 0.86,
+		strokeTransparency = if hero then 0.7 else 0.86,
 	})
-	row.Size = UDim2.new(1, -4, 0, ROW_H)
+	row.Name = if hero then "HeroRow" else "ShopRow"
+	row.Size = UDim2.new(1, -4, 0, height)
 	row.LayoutOrder = order
 
 	local stripe = UiKit.create("Frame", {
@@ -150,19 +170,19 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 	-- clone with no uploads, so the row never renders an empty ImageLabel.
 	local iconId = if opts.icon then AssetManifest.gamepassIcon(opts.icon) else ""
 	if iconId ~= "" then
-		buildIconBadge(row, iconId, opts.accent)
+		buildIconBadge(row, iconId, opts.accent, iconSize, iconY)
 	else
-		buildCategoryPill(row, opts.badge, opts.accent)
+		buildCategoryPill(row, opts.badge, opts.accent, iconY + iconSize - 30)
 	end
 
 	local title = UiKit.label(row, {
 		text = opts.name,
-		size = Theme.Text.Body,
+		size = if hero then Theme.Text.Heading else Theme.Text.Body,
 		font = Theme.Font.Heading,
 		color = Theme.Color.text,
 	})
-	title.Position = UDim2.fromOffset(TEXT_X, 10)
-	title.Size = UDim2.new(1, TEXT_W, 0, 22)
+	title.Position = UDim2.fromOffset(textX, if hero then 14 else 10)
+	title.Size = UDim2.new(1, textW, 0, if hero then 26 else 22)
 
 	local desc = UiKit.label(row, {
 		text = opts.description,
@@ -170,8 +190,28 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 		color = Theme.Color.textSecondary,
 		wrap = true,
 	})
-	desc.Position = UDim2.fromOffset(TEXT_X, 36)
-	desc.Size = UDim2.new(1, TEXT_W, 0, 58)
+	desc.Position = UDim2.fromOffset(textX, if hero then 46 else 36)
+	desc.Size = UDim2.new(1, textW, 0, if hero then 86 else 58)
+
+	if hero and opts.ribbon then
+		local ribbon = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.gold,
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(textX, 118),
+			Size = UDim2.fromOffset(96, 22),
+		}) :: Frame
+		UiKit.corner(ribbon, 3)
+		ribbon.Parent = row
+		local ribbonLabel = UiKit.label(ribbon, {
+			text = opts.ribbon,
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = Theme.onColor(Theme.Color.gold),
+			align = Enum.TextXAlignment.Center,
+		})
+		ribbonLabel.Size = UDim2.fromScale(1, 1)
+	end
 
 	-- The emerald price plate. `R$` plus the display price, never a bare GET:
 	-- the number is the affordance, and it is the same shape on every row.
@@ -192,8 +232,8 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 			opts.onBuy()
 		end,
 	})
-	handle.button.Position = UDim2.new(1, -104, 0.5, -17)
-	handle.button.Size = UDim2.fromOffset(92, 34)
+	handle.button.Position = UDim2.new(1, if hero then -124 else -104, 0.5, if hero then -22 else -17)
+	handle.button.Size = UDim2.fromOffset(if hero then 112 else 92, if hero then 44 else 34)
 	-- An item with no Marketplace id behind it cannot be bought, so it does not
 	-- quote a price. A live "R$ 149" plate that answers with a toast is the UI
 	-- claiming a product exists; "SOON" is the same row telling the truth.
@@ -243,6 +283,8 @@ function ShopView.init(parent: Instance)
 				accent = Theme.Color.good,
 				enabled = def.enabled,
 				configured = def.id ~= 0,
+				hero = key == "vipAura",
+				ribbon = if key == "vipAura" then "BEST VALUE" else nil,
 				onBuy = function()
 					StateStore.send("prompt", { kind = "pass", key = key })
 				end,
@@ -267,6 +309,8 @@ function ShopView.init(parent: Instance)
 				accent = Theme.Color.aether,
 				enabled = def.enabled,
 				configured = def.id ~= 0,
+				hero = key == "starterForge",
+				ribbon = if key == "starterForge" then "FIRST BUY" else nil,
 				onBuy = function()
 					StateStore.send("prompt", { kind = "product", key = key })
 				end,

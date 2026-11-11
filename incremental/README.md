@@ -45,6 +45,7 @@ with an audit and a ranked action list, and says what was actually read.
 | `build-log-forge-12.md` | shipped work | What the 3D crate, the income-relative roll price, the modifier axes, the codex, the boards, trading, the quality ladder and the custom currency art changed. |
 | `build-log-forge-13.md` | shipped work | What the Foundry section rebuilds (crates, fleet, runes, store) and the heat lean point changed, measured. |
 | `build-log-forge-14.md` | shipped work | What the staged crate reveal, the every-copy ribbon, pity progress and the band clamp changed, measured. |
+| `build-log-forge-15.md` | shipped work | What the full-screen ceremony, the 1/3/10 crate racks, the scroll-canvas fix, the store heroes and the VIP bundle changed, measured. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
 | `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
 | `game-design-brief.md` | founding document | The game as designed, including what the first plan got wrong. |
@@ -127,11 +128,12 @@ repaints from the payload).
 2. `game-design-brief.md` - what the game is.
 3. `game-design-research.md` - the five fun levers and the audit of this build.
 4. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
-5. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
-6. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
-7. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
-8. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
-9. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
+5. `build-log-forge-15.md` - the full-screen ceremony, the racks, the scroll fix and the store heroes.
+6. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
+7. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
+8. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
+9. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
+10. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
 10. `build-log-forge-09.md` - the vault split view and the one-card guide.
 11. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
 12. `build-log-forge-07.md` - what the RNG forge pass shipped.

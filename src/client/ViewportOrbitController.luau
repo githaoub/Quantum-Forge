@@ -153,12 +153,13 @@ function OrbitController.attach(viewport: ViewportFrame, model: Model, options: 
 	local lastPointer: Vector3? = nil
 
 	local function applyDrag(dx: number, dy: number)
-		-- Drag right, the camera swings left, so the model appears to turn with
-		-- the cursor. Drag down, the camera drops and the model is seen from
-		-- below.
+		-- The model follows the cursor: drag right, the camera swings right with
+		-- it; drag down, the camera rises so the model is seen from above. This
+		-- is the "grab the object" direction, not the inverted "grab the world"
+		-- direction the first pass shipped.
 		handle.dragTravel += math.abs(dx) + math.abs(dy)
-		handle.cameraYaw -= dx * sensitivity
-		handle.cameraPitch = math.clamp(handle.cameraPitch + dy * sensitivity, -pitchLimit, pitchLimit)
+		handle.cameraYaw += dx * sensitivity
+		handle.cameraPitch = math.clamp(handle.cameraPitch - dy * sensitivity, -pitchLimit, pitchLimit)
 	end
 
 	local function endDrag()

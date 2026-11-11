@@ -543,14 +543,22 @@ end
 
 --- The blade in `tier` with `rarity`, falling back to any blade in the tier.
 function ForgeConfig.pickBlade(tierIndex: number, rarity: BladeRegistry.Rarity): BladeRegistry.Blade?
+	local matches: { BladeRegistry.Blade } = {}
 	local tierPool: { BladeRegistry.Blade } = {}
 	for _, blade in BladeRegistry.list() do
 		if blade.tier == tierIndex then
 			table.insert(tierPool, blade)
 			if blade.rarity == rarity then
-				return blade
+				table.insert(matches, blade)
 			end
 		end
+	end
+	-- Every blade of the rolled rarity is a candidate. The old version returned
+	-- the first match, so a ten-pull at one tier produced ten copies of the same
+	-- silhouette even though the catalogue held several. The fallback stays a
+	-- tier draw for a rarity the tier does not stock.
+	if #matches > 0 then
+		return matches[math.random(1, #matches)]
 	end
 	if #tierPool == 0 then
 		return BladeRegistry.list()[1]

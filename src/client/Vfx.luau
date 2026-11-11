@@ -11,6 +11,7 @@
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
@@ -118,14 +119,18 @@ end
 --- pill. Returns nil when the pointer is outside, and every caller falls back to
 --- the anchor's centre.
 ---
---- `GetMouseLocation` is viewport space including the GUI inset; the layer starts
---- below that inset, and `toLocal` subtracts the layer's own absolute origin, so
---- the two conventions cancel instead of stacking as a 58px vertical error.
+--- `GetMouseLocation` is viewport space, measured from the top of the window.
+--- `AbsolutePosition` is GUI space, measured from the inset edge. On this build
+--- the canvas sits at GUI (0, 0) while the inset is 36px, so the two conventions
+--- disagree by exactly the inset: measured live, a ring fired at a click on
+--- y = 300 landed at y = 336. The inset is subtracted here once.
 function Vfx.pointer(within: GuiObject?): Vector2?
 	if layer == nil then
 		return nil
 	end
 	local point = UserInputService:GetMouseLocation()
+	local inset = GuiService:GetGuiInset()
+	point = point - Vector2.new(inset.X, inset.Y)
 	if within then
 		local min = within.AbsolutePosition
 		local max = min + within.AbsoluteSize

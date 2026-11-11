@@ -1400,6 +1400,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 			local taken = if state.forgeCrate == crate.id then state.forgeRolls else 0
 			costs[crate.id] = {
 				one = ForgeConfig.bulkRollCost(crate, taken, 1, scale, income),
+				three = ForgeConfig.bulkRollCost(crate, taken, 3, scale, income),
 				ten = ForgeConfig.bulkRollCost(crate, taken, 10, scale, income),
 			}
 		end

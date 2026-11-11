@@ -641,6 +641,15 @@ local function boot()
 				-- Visual QA for the top-rarity reveal without a 0.35% roll.
 				Sections.select("crates")
 				return CratesView.preview(argument, "prismatic")
+			elseif command == "crateReveal" and type(argument) == "string" then
+				-- Same copy, through the canvas overlay the player sees.
+				Sections.select("crates")
+				return CratesView.revealPreview(argument, "prismatic")
+			elseif command == "crateStage" then
+				-- The ceremony itself, with N crates and no charge. Walks the drop,
+				-- the click ladder and the reveal exactly as a real pull does.
+				Sections.select("crates")
+				return CratesView.stagePreview(if type(argument) == "number" then argument else 1)
 			elseif command == "crateDismiss" then
 				Sections.select("crates")
 				CratesView.dismiss()

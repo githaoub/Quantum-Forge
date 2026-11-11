@@ -640,16 +640,31 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	-- was a 0-height canvas over 400px of rows: the section simply could not be
 	-- scrolled. Each column knows its own height, so the scroll takes the taller
 	-- of the two whenever either changes.
+	--
+	-- `AbsoluteSize` is already multiplied by the canvas UIScale, while
+	-- `CanvasSize` is written in canvas units and multiplied on the way out. A
+	-- column measured in screen pixels therefore produced a canvas that was
+	-- 0.72x too short: the store reported a 451 canvas over 372 pixels of window
+	-- and still refused to scroll, because in canvas units 451 became 324.
+	--
+	-- `AutomaticSize` never writes back into `Size`, so there is no design-space
+	-- height to read; the scale comes off the canvas itself and the measured
+	-- height is converted back into canvas units.
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.None
 	local function fitCanvas()
 		if content == nil then
 			return
 		end
+		local scale = 1
+		local scaleObject = canvas:FindFirstChildOfClass("UIScale")
+		if scaleObject and scaleObject.Scale > 0 then
+			scale = scaleObject.Scale
+		end
 		local height = 0
 		for _, column in columns do
-			height = math.max(height, column.AbsoluteSize.Y)
+			height = math.max(height, column.AbsoluteSize.Y / scale)
 		end
-		content.CanvasSize = UDim2.fromOffset(0, height + Theme.Space.lg)
+		content.CanvasSize = UDim2.fromOffset(0, math.ceil(height + Theme.Space.lg))
 	end
 	for _, column in columns do
 		UiKit.track(column, column:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCanvas))

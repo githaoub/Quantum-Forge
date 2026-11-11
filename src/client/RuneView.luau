@@ -59,15 +59,20 @@ local function hasFreeSocket(state: Types.SyncPayload): boolean
 end
 
 --- What the button on a rune row should do right now, and what it should say.
+---
+--- The cost used to live inside the button (`CRAFT 3`), which read as a verb
+--- and a count of runes rather than a price. The price belongs on the shard
+--- line, where the player is already reading their balance; the button is a
+--- verb and nothing else.
 local function decisionFor(state: Types.SyncPayload, runeId: string, cost: number): (string, string, Color3)
 	local owned = state.runes[runeId] or 0
 	if owned > 0 and hasFreeSocket(state) then
 		return "socket", "SOCKET", Theme.Color.quantum
 	end
 	if state.shards >= cost then
-		return "craft", string.format("CRAFT %d", cost), Theme.Color.aether
+		return "craft", "CRAFT", Theme.Color.aether
 	end
-	return "locked", string.format("NEED %d", cost), Theme.Color.aether
+	return "locked", "CRAFT", Theme.Color.aether
 end
 
 local function buildMastery(parent: Instance)
@@ -303,7 +308,7 @@ local function buildShelf(parent: Instance)
 			color = Theme.Color.quantum,
 		})
 		count.Position = UDim2.fromOffset(108, 60)
-		count.Size = UDim2.fromOffset(140, 18)
+		count.Size = UDim2.fromOffset(240, 18)
 
 		local handle = UiKit.actionButton(row, {
 			accent = Theme.Color.quantum,
@@ -453,7 +458,7 @@ function RuneView.render(payload: Types.SyncPayload)
 		local row = runeRows[rune.id]
 		if row then
 			local owned = payload.runes[rune.id] or 0
-			row.count.Text = string.format("%d OWNED", owned)
+			row.count.Text = string.format("%d OWNED  ·  %d SHARDS", owned, rune.cost)
 			row.count.TextColor3 = if owned > 0 then Theme.Color.quantum else Theme.Color.textFaint
 
 			local action, text, accent = decisionFor(payload, rune.id, rune.cost)

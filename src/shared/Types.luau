@@ -211,6 +211,8 @@ export type ProfileState = {
 export type CrateQuote = {
 	--- Price of the next single roll on this crate.
 	one: number,
+	--- Price of the next three, ramp included.
+	three: number,
 	--- Price of the next ten, ramp included.
 	ten: number,
 }

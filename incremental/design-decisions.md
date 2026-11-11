@@ -3839,3 +3839,70 @@ disagreed with the economy whenever the tech moved the band.
 | Pity label | Live page read `PITY 9 / 11` and `GUARANTEE IN 2`; ticks filled to 9 | The guarantee switch was not crossed in this session. |
 | Sounds | New heavier roll ticks and the result fanfare call are code-verified | The kit is unchanged apart from `rollTick`; the new layers were not heard in this pass. |
 | Result layout | `BackToPool` 285-299, `PullRibbon` 309-333 at the test window, so the two do not overlap | Absolute positions were checked because the screenshot scale hides 10 px. |
+
+## ADR-084 - The crate ceremony takes the whole screen
+
+**Context.** The reveal shipped as a card floating over the crates page: a tier
+wash, a stage, and a two-column block of odds and pity. That card covered two
+thirds of the width and fought the page behind it, and the model — the one thing
+the player paid for — sat beside a paragraph of type instead of in the middle of
+the frame. Darkening the card only made it read as a modal dialog.
+
+**Decision.**
+
+- The ceremony is a canvas-level overlay above every page and below `Vfx`, not a
+  card. The page behind it is gone for the duration: the scrim is opaque black,
+  with a `StageBackdrop` wash painted full-bleed behind the props. The wash has no
+  edge because every band inside it is exactly the size of the frame it is painted
+  on, and that frame is the window.
+- The overlay is measured against the real viewport, not the canvas sheet: it is
+  pushed up by `GuiService:GetGuiInset()` and sized to `viewport + inset` in canvas
+  units, so it covers the strip the fixed 1686x720 sheet leaves uncovered. CoreGui's
+  top bar sits outside every game GUI and is left alone.
+- The model is the announcement: one small pool line above, a click prompt below,
+  pips for the pull, and a name plus one stat line after the reveal.
+- A pull of three mounts three crates and a pull of ten mounts ten, laid out by
+  `CratePreview.layout`. One click breaks one crate. `Activated` can arrive twice
+  for a synthetic press and release, so a 120 ms floor collapses the duplicate.
+- The strike answers with the anvil's own effect: a `Vfx.shockwave` at the cursor
+  plus sparks and a burst, then the crate jumps, turns and fades.
+- `Vfx.pointer` subtracts `GuiService:GetGuiInset()` once. `GetMouseLocation` is
+  viewport space and `AbsolutePosition` is GUI space; without the correction every
+  ring landed 58 px below the cursor on this build.
+
+**What it costs.** The overlay covers the HUD, so the player cannot watch their
+balance while opening. The wash is a full-screen composite of seven frames: cheap,
+not free on a low-end phone.
+
+## ADR-085 - Scroll canvases are measured in canvas units
+
+**Context.** The store and the fleet both refused to scroll even with rows hanging
+below the window. `Sections.fitCanvas` measured `column.AbsoluteSize.Y` and wrote
+it straight into `Content.CanvasSize`. `AbsoluteSize` is already multiplied by the
+canvas `UIScale` (0.72 on the test window), while a `CanvasSize` offset is
+multiplied on the way out. The store therefore reported a 451-unit canvas over
+372 pixels of window, which renders as 324 pixels of canvas: shorter than the
+content, and impossible to scroll.
+
+**Decision.** `fitCanvas` divides the measured height by the canvas `UIScale`
+before writing `CanvasSize`. `AutomaticSize` never writes back into `Size`, so the
+scale is read from the canvas's own `UIScale` rather than inferred from the column.
+
+**What it costs.** One extra `FindFirstChildOfClass("UIScale")` per fit. The fit
+runs on column size changes, not per frame.
+
+## ADR-086 - VIP is a bundle, not a badge
+
+**Context.** `vipAura` shipped as status only, so a player who bought it still had
+to buy Fast Forge, Auto-Vent, 2x Star-Matter and Eternal Forge separately. That is
+a storefront that punishes its biggest buyer.
+
+**Decision.** `refreshPasses` expands an owned VIP into every other configured
+pass after the individual ownership checks. The grant is server-side and persisted
+like any other pass, so a later revocation of VIP does not take the other passes
+back with it.
+
+**What it costs.** VIP cannibalises the four smaller passes. It is priced at R$499
+against R$1499 for Eternal Forge alone, so the bundle is the cheaper path on
+purpose: one purchase beats five prompts.
+

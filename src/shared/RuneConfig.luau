@@ -55,7 +55,7 @@ RuneConfig.Runes = {
 		description = "+8% strike yield.",
 		effect = "click",
 		perRune = 0.08,
-		cost = 3,
+		cost = 6,
 		icon = "rune_ember",
 	} :: Rune,
 
@@ -65,7 +65,7 @@ RuneConfig.Runes = {
 		description = "+6% heat cooling.",
 		effect = "cool",
 		perRune = 0.06,
-		cost = 3,
+		cost = 6,
 		icon = "rune_tempo",
 	} :: Rune,
 
@@ -75,7 +75,7 @@ RuneConfig.Runes = {
 		description = "+3% crit chance.",
 		effect = "crit",
 		perRune = 0.03,
-		cost = 4,
+		cost = 9,
 		icon = "rune_edge",
 	} :: Rune,
 
@@ -85,7 +85,7 @@ RuneConfig.Runes = {
 		description = "+10% Aether from venting.",
 		effect = "vent",
 		perRune = 0.10,
-		cost = 5,
+		cost = 12,
 		icon = "rune_prism",
 	} :: Rune,
 }
