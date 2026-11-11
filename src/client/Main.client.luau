@@ -419,6 +419,28 @@ local function boot()
 			elseif command == "roll" then
 				ForgeView.roll()
 				return true
+			elseif command == "strike" then
+				-- Same entry point the strike key and the stage both call, so a
+				-- heat run can be driven without pointer synthesis.
+				ForgeView.strike()
+				return true
+			elseif command == "stats" then
+				local state = StateStore.current
+				if state == nil then
+					return nil
+				end
+				return {
+					heat = state.heat,
+					yield = state.clickYield,
+					sm = state.sm,
+					bandMult = state.bandMult,
+					inSweetSpot = state.inSweetSpot,
+					overdrive = state.overdriveRemaining,
+					boost = state.boostRemaining,
+				}
+			elseif command == "vent" then
+				StateStore.send("vent")
+				return true
 			elseif command == "forgeState" then
 				local state = StateStore.current
 				return {
@@ -427,7 +449,7 @@ local function boot()
 					note = ForgeView.rollNote(),
 					sm = if state then state.sm else -1,
 					forgeCost = if state then state.forgeCost else -1,
-					locked = if state then state.locked else true,
+					heat = if state then state.heat else -1,
 				}
 			elseif command == "forgeOrbit" then
 				local orbit = ForgeView.orbitHandle()

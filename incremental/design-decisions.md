@@ -3666,6 +3666,10 @@ shipped version is a 12px ruled bar under a 30px figure. One caption follows the
 state (`BAND 65-85`, `SWEET SPOT x2.5`, `PURGE TO COOL`, `OVERHOT YIELD x0.5`).
 The fill is a solid state colour, not a blue-to-red ramp.
 
+Measured on a live profile with the `stats` / `vent` dev seam: at 99.4% heat the
+payload paid 2,911.6; after one purge, at 6.1%, the same build paid 5,823.2.
+Exactly 0.5x, with no overdrive or boost running on either read.
+
 ## ADR-080 - Crates, Fleet, Runes and Store rebuilt on the Foundry grid
 
 CRATES: the header is a 64px banner. The five odds chips became one stacked bar
@@ -3710,7 +3714,7 @@ into the vault.
 | Thing | State | Note |
 | --- | --- | --- |
 | Forge, crates, fleet, runes and store were photographed in a live play session | 1536 x 864 captures after the module reload | The canvas carries UIScale 0.7193, so screen pixels are not design pixels. |
-| Heat penalty is observable and applied | Gauge read 99%, `OVERHOT YIELD x0.5` and the danger fill were on screen | The 0.5x number was read from `Config`, not measured across two controlled payouts. |
+| Heat penalty is observable and applied | Gauge read 99%, `OVERHOT YIELD x0.5` and the danger fill were on screen | A/B at the same build: 99.4% paid 2,911.6, 6.1% paid 5,823.2, exactly 0.5x with no overdrive or boost. Driven through the `stats` / `vent` dev seam. |
 | Roll keys were driven through `QF_Dev`, not clicked | `openCrates` / `sideTab` select the page; `CratesView.roll` was not invoked | No pointer synthesis in this environment. The keys' `Activated` handlers are the same calls the seam uses. |
 | The sculpted drone mesh is invisible here | A red test part rendered in the same viewport; the mesh parts did not | The source model's MeshParts carry a MeshId that does not resolve in this place. The primitive hull is now forced. |
 | `DROP ODDS` bar was read visually | Segment widths match the five weights at 55.14 / 29.87 / 13.83 / 2.41 / 0.35% | The legend and the sorted order were checked against `ForgeConfig.odds`. |

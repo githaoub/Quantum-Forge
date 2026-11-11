@@ -26,7 +26,7 @@ is in the wrong place.
 
 | I want to… | Open |
 | --- | --- |
-| know what shipped last | [[build-log-forge-12]] |
+| know what shipped last | [[build-log-forge-13]] |
 | know why a rule exists | [[design-decisions]] |
 | find a module | [[code-map]] |
 | build the current UI | [[ui-refactor-direction]] |
@@ -38,31 +38,39 @@ is in the wrong place.
 
 > [!success] Shipped
 > Balance pass, five-crate pools, starter boost, daily track, codex expansion,
-> crate page section, foundry-instrument UI tokens, left rail, control deck.
+> crate page section, Foundry Instrument tokens, left rail, deck-free forge with
+> a heat lean point, and the four section rebuilds (crates, fleet, runes, store).
 >
 > [!warning] Blocked
-> 26 blade meshes return `User is not authorized to access Asset`. 22 VFX sheets
-> unuploaded. No pointer synthesis in the Studio build, so interactive paths are
-> driven through `QF_Dev`.
+> 26 blade meshes and the sculpted drone mesh return `User is not authorized to
+> access Asset`; both fall back to primitives. 22 VFX sheets unuploaded. No
+> pointer synthesis in the Studio build, so interactive paths are driven through
+> `QF_Dev`.
 
 ## The decision log
 
 `design-decisions.md` is append-only. Link to one decision by heading, never by
 copying it:
 
-- [[design-decisions#ADR-075]] — page sections
-- [[design-decisions#ADR-074]] — crate pools
-- [[design-decisions#ADR-073]] — daily track
-- [[design-decisions#ADR-072]] — starter boost
-- [[design-decisions#ADR-071]] — toolbar
-- [[design-decisions#ADR-070]] — cursor VFX
-- [[design-decisions#ADR-069]] — balance pass
+- [[design-decisions#ADR-081]] — vault map of content
+- [[design-decisions#ADR-080]] — crates/fleet/runes/store rebuilds
+- [[design-decisions#ADR-079]] — heat lean point
+- [[design-decisions#ADR-078]] — forge strip, no roll column
+- [[design-decisions#ADR-077]] — rail and rate foot
+- [[design-decisions#ADR-076]] — Foundry Instrument system
+- [[design-decisions#ADR-075]] — codex expansion
+- [[design-decisions#ADR-074]] — top bar toolbar
+- [[design-decisions#ADR-073]] — starter hour and daily track
+- [[design-decisions#ADR-072]] — crate page section
+- [[design-decisions#ADR-071]] — ten-pull transaction
+- [[design-decisions#ADR-070]] — five crate weight tables
 
 ## Build logs
 
 Newest first. Each log is one pass, with measurements and the open list at the
 end.
 
+- [[build-log-forge-13]]
 - [[build-log-forge-12]]
 - [[build-log-forge-11]]
 - [[build-log-forge-10]]
