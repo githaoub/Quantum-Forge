@@ -127,7 +127,6 @@ local railPlate: Frame? = nil
 local hero: Frame? = nil
 
 local railRows: { [string]: TextButton } = {}
-local railChips: { [string]: TextLabel } = {}
 local railPrices: { [string]: TextLabel } = {}
 local railTracks: { [string]: Frame } = {}
 local railFills: { [string]: Frame } = {}
@@ -166,8 +165,6 @@ local pityHost: Frame? = nil
 local pityTicks: { Frame } = {}
 local unlockBar: Frame? = nil
 local unlockFill: Frame? = nil
-local restCostValue: TextLabel? = nil
-local restTenValue: TextLabel? = nil
 local restRareValue: TextLabel? = nil
 local restMark: TextLabel? = nil
 
@@ -191,7 +188,6 @@ local ribbonCells: { Frame } = {}
 
 -- Odds strip
 local oddsHost: Frame? = nil
-local oddsPityLabel: TextLabel? = nil
 local oddsCrateId: string? = nil
 local oddsWidth = 0
 
@@ -554,33 +550,13 @@ local function paintRail()
 			local price = railPrices[crate.id]
 			if price then
 				if unlocked then
-					local filled, goal = pityProgress(crate)
 					local q = quote(crate.id)
-					price.Text = string.format(
-						"%s SM  ·  PITY %d / %d",
-						if q then NumberUtil.abbreviate(q.one) else "--",
-						filled,
-						goal
-					)
+					price.Text = string.format("%s SM", if q then NumberUtil.abbreviate(q.one) else "--")
 					price.TextColor3 = Theme.Color.textSecondary
 				else
-					price.Text = string.format("%s / %s RUN", NumberUtil.abbreviate(runSm), NumberUtil.abbreviate(crate.unlock))
-					price.TextColor3 = Theme.Color.textFaint
-				end
-			end
-
-			local chip = railChips[crate.id]
-			if chip then
-				if not unlocked then
 					local pct = if crate.unlock <= 0 then 1 else math.clamp(runSm / crate.unlock, 0, 1)
-					chip.Text = string.format("%d%% TO OPEN", math.floor(pct * 100))
-					chip.TextColor3 = Theme.Color.locked
-				elseif isSelected then
-					chip.Text = "SELECTED"
-					chip.TextColor3 = crate.accent
-				else
-					chip.Text = "OPEN"
-					chip.TextColor3 = Theme.Color.textSecondary
+					price.Text = string.format("%d%% TO OPEN", math.floor(pct * 100))
+					price.TextColor3 = Theme.Color.locked
 				end
 			end
 
@@ -675,10 +651,9 @@ local function paintPity(crate: ForgeConfig.Tier)
 end
 
 local function paintRest(crate: ForgeConfig.Tier)
-	local q = quote(crate.id)
 	local state = StateStore.current
 	if restEyebrow then
-		restEyebrow.Text = string.format("POOL %02d / %02d  ·  %s", crate.tier, #ForgeConfig.Tiers, string.upper(crate.short))
+		restEyebrow.Text = string.format("POOL %02d / %02d", crate.tier, #ForgeConfig.Tiers)
 		restEyebrow.TextColor3 = crate.accent
 	end
 	if restTitle then
@@ -686,12 +661,6 @@ local function paintRest(crate: ForgeConfig.Tier)
 	end
 	if restBlurb then
 		restBlurb.Text = crate.blurb
-	end
-	if restCostValue then
-		restCostValue.Text = if q then NumberUtil.abbreviate(q.one) .. " SM" else "--"
-	end
-	if restTenValue then
-		restTenValue.Text = if q then NumberUtil.abbreviate(q.ten) .. " SM" else "--"
 	end
 	if restRareValue then
 		restRareValue.Text = string.format("%.2f%%", pityChance(crate) * 100)
@@ -714,13 +683,6 @@ local function paintOdds(crate: ForgeConfig.Tier)
 
 	local width = deckWidth()
 	if oddsCrateId == crate.id and oddsWidth == width then
-		if oddsPityLabel then
-			local filled, goal = pityProgress(crate)
-			oddsPityLabel.Text = if quote(crate.id) ~= nil
-				then string.format("PITY  %d / %d", filled, goal)
-				else "LOCKED"
-			oddsPityLabel.TextColor3 = if quote(crate.id) ~= nil then Theme.Color.textFaint else Theme.Color.locked
-		end
 		return
 	end
 	oddsCrateId = crate.id
@@ -741,21 +703,6 @@ local function paintOdds(crate: ForgeConfig.Tier)
 		color = Theme.Color.textFaint,
 	})
 	eye.Size = UDim2.fromOffset(200, 14)
-
-	oddsPityLabel = UiKit.label(host, {
-		text = "PITY",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Right,
-	})
-	oddsPityLabel.Position = UDim2.new(1, -220, 0, 0)
-	oddsPityLabel.Size = UDim2.fromOffset(220, 14)
-	local fill, goal = pityProgress(crate)
-	oddsPityLabel.Text = if quote(crate.id) ~= nil
-		then string.format("PITY  %d / %d", fill, goal)
-		else "LOCKED"
-	oddsPityLabel.TextColor3 = if quote(crate.id) ~= nil then Theme.Color.textFaint else Theme.Color.locked
 
 	-- One stacked bar, not five cards. Five equal cards said every outcome was
 	-- equally likely; a single bar makes the 0.35% sliver look like what it is.
@@ -869,15 +816,15 @@ local function paintKey(
 	end
 end
 
-local function paintNote(crate: ForgeConfig.Tier, q: Types.CrateQuote?)
+local function paintNote(q: Types.CrateQuote?)
 	local label = noteLabel
 	if label == nil or rolling then
 		return
 	end
 	local state = StateStore.current
 	if q == nil then
-		label.Text = string.format("This pool opens at %s Star-Matter earned this run.", NumberUtil.abbreviate(crate.unlock))
-		label.TextColor3 = Theme.Color.locked
+		-- The rail carries the percentage and the stage carries the open price.
+		label.Text = ""
 		return
 	end
 	if state == nil then
@@ -895,18 +842,9 @@ local function paintNote(crate: ForgeConfig.Tier, q: Types.CrateQuote?)
 		label.TextColor3 = Theme.Color.warn
 		return
 	end
-	local _, _, remaining = pityProgress(crate)
-	if remaining <= 1 then
-		label.Text = "Guarantee armed: the next roll is Void or better."
-		label.TextColor3 = Theme.Color.gold
-		return
-	end
-	label.Text = string.format(
-		"%s Star-Matter held  ·  guarantee in %d rolls  ·  odds printed above.",
-		NumberUtil.abbreviate(state.sm),
-		remaining
-	)
-	label.TextColor3 = Theme.Color.textSecondary
+	-- Nothing important to say. The stage already prints pity, guarantee and
+	-- odds; repeating them here was the third copy of the same rule.
+	label.Text = ""
 end
 
 local function paintResultPity(crate: ForgeConfig.Tier)
@@ -945,7 +883,7 @@ local function paintDeck()
 		paintKey(rollTen, rollTenFace, rollTenCost, canTen, locked, "ROLL x10", if q then q.ten else nil, crate.accent, Theme.onColor(crate.accent))
 	end
 
-	paintNote(crate, q)
+	paintNote(q)
 end
 
 -- ---------------------------------------------------------------------------
@@ -1472,7 +1410,7 @@ end
 local function header(parent: Frame)
 	local banner = UiKit.banner(parent, {
 		text = "CRATE VAULT",
-		subtitle = "FIVE POOLS  ·  SEALED  ·  EVERY ODDS PRINTED",
+		subtitle = "FIVE POOLS  ·  ODDS PRINTED",
 		width = UDim2.new(1, 0, 0, HEADER_H),
 		height = HEADER_H,
 		size = Theme.Text.Title - 4,
@@ -1535,7 +1473,7 @@ local function buildRail(parent: Frame)
 			color = Theme.Color.text,
 		})
 		name.Name = "Name"
-		name.Position = UDim2.fromOffset(66, 9)
+		name.Position = UDim2.fromOffset(66, 18)
 		name.Size = UDim2.fromOffset(RAIL_W - 96, 20)
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		name.ZIndex = 3
@@ -1546,21 +1484,10 @@ local function buildRail(parent: Frame)
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textSecondary,
 		})
-		price.Position = UDim2.fromOffset(66, 33)
+		price.Position = UDim2.fromOffset(66, 40)
 		price.Size = UDim2.fromOffset(RAIL_W - 92, 16)
 		price.ZIndex = 3
 		railPrices[crate.id] = price
-
-		local chip = UiKit.label(row, {
-			text = "OPEN",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Label,
-			color = Theme.Color.textSecondary,
-		})
-		chip.Position = UDim2.fromOffset(66, 55)
-		chip.Size = UDim2.fromOffset(RAIL_W - 92, 16)
-		chip.ZIndex = 3
-		railChips[crate.id] = chip
 
 		local track = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.strokeFaint,
@@ -1600,29 +1527,6 @@ local function buildRail(parent: Frame)
 
 		railRows[crate.id] = row
 	end
-
-	-- The pity rule is not obvious from a bar. One paragraph in the dead space
-	-- under the list is cheaper than a tutorial step and keeps the counter honest.
-	local footY = 34 + #ForgeConfig.Tiers * (ROW_H + ROW_GAP) + 2
-	local footHead = UiKit.label(rail, {
-		text = "ONE GUARANTEE",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.textFaint,
-	})
-	footHead.Position = UDim2.fromOffset(14, footY)
-	footHead.Size = UDim2.fromOffset(RAIL_W - 28, 16)
-
-	local foot = UiKit.label(rail, {
-		text = "The pity counter follows you across pools and resets only when a Void or better lands. It never expires.",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Body,
-		color = Theme.Color.textFaint,
-		wrap = true,
-	})
-	foot.Position = UDim2.fromOffset(14, footY + 18)
-	foot.Size = UDim2.fromOffset(RAIL_W - 28, 52)
-	foot.TextYAlignment = Enum.TextYAlignment.Top
 end
 
 --- Builds the objects hanging over the hero, independent of the info column.
@@ -1936,9 +1840,7 @@ local function buildRest(parent: Frame)
 		value.Size = UDim2.new(1 / 3, -8, 0, 22)
 		return value
 	end
-	restCostValue = stat(1, "NEXT ROLL")
-	restTenValue = stat(2, "TEN-PULL")
-	restRareValue = stat(3, "VOID OR BETTER")
+	restRareValue = stat(1, "VOID OR BETTER")
 	if restRareValue then
 		restRareValue.TextColor3 = RARITY_COLOR.Void
 	end
@@ -2493,7 +2395,6 @@ function CratesView.destroy()
 		root = nil
 	end
 	table.clear(railRows)
-	table.clear(railChips)
 	table.clear(railPrices)
 	table.clear(railTracks)
 	table.clear(railFills)
@@ -2523,8 +2424,6 @@ function CratesView.destroy()
 	pityHost = nil
 	unlockBar = nil
 	unlockFill = nil
-	restCostValue = nil
-	restTenValue = nil
 	restRareValue = nil
 	restMark = nil
 	resultGroup = nil
@@ -2541,7 +2440,6 @@ function CratesView.destroy()
 	resultBackLabel = nil
 	ribbon = nil
 	oddsHost = nil
-	oddsPityLabel = nil
 	rollOne = nil
 	rollOneFace = nil
 	rollOneCost = nil

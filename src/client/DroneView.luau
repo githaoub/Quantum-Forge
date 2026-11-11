@@ -18,7 +18,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
-local Config = require(Shared:WaitForChild("Config"))
 local DroneRegistry = require(Shared:WaitForChild("DroneRegistry"))
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 local SalvageConfig = require(Shared:WaitForChild("SalvageConfig"))
@@ -46,11 +45,8 @@ local CODEX_H = 142
 local viewport: ViewportFrame? = nil
 local tierNameLabel: TextLabel? = nil
 local tierOwnedLabel: TextLabel? = nil
-local tierIndexLabel: TextLabel? = nil
 local fleetLabel: TextLabel? = nil
 local outputLabel: TextLabel? = nil
-local perDroneLabel: TextLabel? = nil
-local ladderCountLabel: TextLabel? = nil
 local buyOneHandle: UiKit.ActionHandle? = nil
 local buyTenHandle: UiKit.ActionHandle? = nil
 local unsubscribe: (() -> ())? = nil
@@ -99,7 +95,6 @@ type CacheSlot = {
 local cacheSlots: { CacheSlot } = {}
 local cacheMeterBar: UiKit.BarParts? = nil
 local cacheMeterText: TextLabel? = nil
-local cacheMeterNote: TextLabel? = nil
 local codexRows: { [string]: { root: Frame, pips: { Frame }, bonus: TextLabel } } = {}
 local codexCount: TextLabel? = nil
 
@@ -406,16 +401,6 @@ local function buildSalvage(parent: Instance)
 	head.Position = UDim2.fromOffset(12, 6)
 	head.Size = UDim2.fromOffset(180, 18)
 
-	cacheMeterNote = UiKit.label(band, {
-		text = "0 / 3 CACHES",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.quantum,
-		align = Enum.TextXAlignment.Right,
-	})
-	cacheMeterNote.Position = UDim2.new(1, -172, 0, 6)
-	cacheMeterNote.Size = UDim2.fromOffset(160, 18)
-
 	cacheMeterBar = UiKit.bar(band, {
 		height = 6,
 		radius = 3,
@@ -634,16 +619,6 @@ local function buildLadder(parent: Instance)
 	head.Position = UDim2.fromOffset(12, 5)
 	head.Size = UDim2.fromOffset(150, 18)
 
-	ladderCountLabel = UiKit.label(band, {
-		text = "0/5 RUNGS",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.aether,
-		align = Enum.TextXAlignment.Right,
-	})
-	ladderCountLabel.Position = UDim2.new(1, -162, 0, 5)
-	ladderCountLabel.Size = UDim2.fromOffset(150, 18)
-
 	local row = UiKit.create("Frame", {
 		Name = "LadderRow",
 		BackgroundTransparency = 1,
@@ -765,9 +740,6 @@ function DroneView.init(parent: Instance)
 	}) :: Frame
 	info.Parent = hero
 
-	local eye = UiKit.eyebrow(info, "SELECTED RUNG")
-	eye.Position = UDim2.fromOffset(0, 0)
-
 	tierNameLabel = UiKit.label(info, {
 		text = "SCRAP DRONE",
 		size = Theme.Text.Title - 6,
@@ -775,7 +747,7 @@ function DroneView.init(parent: Instance)
 		color = Theme.Color.aether,
 	})
 	tierNameLabel.Name = "TierName"
-	tierNameLabel.Position = UDim2.fromOffset(0, 16)
+	tierNameLabel.Position = UDim2.fromOffset(0, 0)
 	tierNameLabel.Size = UDim2.new(1, -130, 0, 28)
 
 	tierOwnedLabel = UiKit.label(info, {
@@ -785,34 +757,22 @@ function DroneView.init(parent: Instance)
 		color = Theme.Color.textSecondary,
 	})
 	tierOwnedLabel.Name = "TierOwned"
-	tierOwnedLabel.Position = UDim2.fromOffset(0, 46)
+	tierOwnedLabel.Position = UDim2.fromOffset(0, 32)
 	tierOwnedLabel.Size = UDim2.fromOffset(180, 14)
 
-	tierIndexLabel = UiKit.label(info, {
-		text = "TIER 1/5",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Right,
-	})
-	tierIndexLabel.Name = "TierIndex"
-	tierIndexLabel.Position = UDim2.new(1, -130, 0, 46)
-	tierIndexLabel.Size = UDim2.fromOffset(130, 14)
+	UiKit.rule(info, { position = UDim2.fromOffset(0, 56) })
 
-	UiKit.rule(info, { position = UDim2.fromOffset(0, 70) })
-
-	-- Three figures on one line: how many drones, what they produce, and what the
-	-- next one is worth. Same order as the decision the player is making.
-	fleetLabel = buildStat(info, 0, 112, "FLEET", Theme.Color.text, 78)
-	outputLabel = buildStat(info, 124, 112, "OUTPUT", Theme.Color.starMatter, 78)
-	perDroneLabel = buildStat(info, 248, 108, "PER DRONE", Theme.Color.aether, 78)
-	for _, x in { 112, 238 } do
+	-- Two figures, not three: "per drone" is the output divided by the count,
+	-- which the player can already see on this line.
+	fleetLabel = buildStat(info, 0, 112, "FLEET", Theme.Color.text, 66)
+	outputLabel = buildStat(info, 124, 112, "OUTPUT", Theme.Color.starMatter, 66)
+	for _, x in { 112 } do
 		local divider = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.stroke,
 			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
 			Size = UDim2.fromOffset(1, 38),
-			Position = UDim2.fromOffset(x, 78),
+			Position = UDim2.fromOffset(x, 66),
 			ZIndex = 3,
 		}) :: Frame
 		divider.Parent = info
@@ -1004,7 +964,7 @@ local function paintSalvage(payload: Types.SyncPayload)
 			slot.stroke.Transparency = 0
 			slot.state.Text = "CRACK"
 			slot.state.TextColor3 = Theme.Color.text
-			slot.hint.Text = "TAP TO START"
+			slot.hint.Text = ""
 			slot.bar.set(0)
 		elseif not ready then
 			local total = math.max(1, rarity.crackSeconds)
@@ -1032,13 +992,9 @@ local function paintSalvage(payload: Types.SyncPayload)
 	end
 	if cacheMeterText then
 		cacheMeterText.Text = if full
-			then "RACK FULL  ·  OPEN A CACHE TO RESUME DROPS"
+			then "RACK FULL"
 			else string.format("NEXT CACHE  %d / %d STRIKES", payload.cacheMeter, payload.cacheGoal)
 		cacheMeterText.TextColor3 = if full then Theme.Color.warn else Theme.Color.textSecondary
-	end
-	if cacheMeterNote then
-		cacheMeterNote.Text = string.format("%d / %d CACHES", #payload.caches, SalvageConfig.MaxCaches)
-		cacheMeterNote.TextColor3 = if full then Theme.Color.warn else Theme.Color.quantum
 	end
 end
 
@@ -1101,9 +1057,6 @@ function DroneView.render(payload: Types.SyncPayload)
 	if tierOwnedLabel then
 		tierOwnedLabel.Text = string.format("%s OWNED", NumberUtil.abbreviate(entry.owned))
 	end
-	if tierIndexLabel then
-		tierIndexLabel.Text = string.format("TIER %d/%d", tier.tier, #DroneRegistry.tiers)
-	end
 
 	-- Strip.
 	if fleetLabel then
@@ -1111,12 +1064,6 @@ function DroneView.render(payload: Types.SyncPayload)
 	end
 	if outputLabel then
 		outputLabel.Text = NumberUtil.abbreviateRate(payload.passiveYield)
-	end
-	if perDroneLabel then
-		local perDrone = if payload.drones > 0
-			then payload.passiveYield / payload.drones
-			else Config.BaseDroneYield * payload.mult
-		perDroneLabel.Text = NumberUtil.abbreviateRate(perDrone)
 	end
 
 	-- Buy keys price the selected rung, not the best unlocked one. A locked rung
@@ -1144,15 +1091,11 @@ function DroneView.render(payload: Types.SyncPayload)
 
 	-- Ladder. Every key repaints from the tick payload: owned count, unlock
 	-- meter, and the selected border.
-	local unlockedCount = 0
 	for _, rungId in ladderOrder do
 		local key = ladderKeys[rungId]
 		local rungTier = DroneRegistry.get(rungId)
 		local rung = entryFor(payload, rungId)
 		if key ~= nil and rungTier ~= nil and rung ~= nil then
-			if rung.unlocked then
-				unlockedCount += 1
-			end
 			key.name.Text = string.upper(rungTier.name)
 			key.name.TextColor3 = if rung.unlocked then rungTier.glow else Theme.Color.locked
 			key.count.Text = NumberUtil.abbreviate(rung.owned)
@@ -1167,9 +1110,6 @@ function DroneView.render(payload: Types.SyncPayload)
 			key.stroke.Color = if chosen then rungTier.glow else Theme.Color.stroke
 			key.stroke.Thickness = if chosen then 2 else 1
 		end
-	end
-	if ladderCountLabel then
-		ladderCountLabel.Text = string.format("%d/%d RUNGS", unlockedCount, #ladderOrder)
 	end
 
 	paintExpedition(payload)
@@ -1206,11 +1146,8 @@ function DroneView.destroy()	if unsubscribe then
 	viewport = nil
 	tierNameLabel = nil
 	tierOwnedLabel = nil
-	tierIndexLabel = nil
 	fleetLabel = nil
 	outputLabel = nil
-	perDroneLabel = nil
-	ladderCountLabel = nil
 	buyOneHandle = nil
 	buyTenHandle = nil
 	selectedTier = nil
@@ -1230,7 +1167,6 @@ function DroneView.destroy()	if unsubscribe then
 	table.clear(cacheSlots)
 	cacheMeterBar = nil
 	cacheMeterText = nil
-	cacheMeterNote = nil
 	table.clear(codexRows)
 	codexCount = nil
 end
