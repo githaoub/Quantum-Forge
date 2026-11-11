@@ -530,7 +530,7 @@ Cost of the next level: `floor(costBase · costGrowth^level)`.
 | Node | Effect | Max | Base | Growth | Total at max |
 | --- | --- | --- | --- | --- | --- |
 | Forged Momentum | `+25%` click yield / level | 10 | 1 | 1.6 | `+250%` |
-| Thermal Calibration | `+0.25` sweet spot mult and `±2` band width / level | 5 | 2 | 2.0 | `×3.75`, band `55–95` |
+| Thermal Calibration | `+0.25` sweet spot mult and `±2` band width / level | 5 | 2 | 2.0 | `×3.75`, band `55–90` (clamped at the lean point) |
 | Drone Lattice | `+20%` drone yield / level | 10 | 2 | 1.7 | `+200%` |
 | Vent Efficiency | `+25%` vent Aether / level | 8 | 2 | 1.7 | `+200%` |
 | Offline Core | `+25%` offline yield / level | 8 | 3 | 1.8 | `+200%` |
@@ -541,15 +541,15 @@ Cost of the next level: `floor(costBase · costGrowth^level)`.
 Two design notes:
 
 - **Thermal Calibration is the best node in the game and is priced accordingly.**
-  Widening the band to `55–95` makes the sweet spot reachable in 2.5 s instead of
-  3.3 s and holdable with far more slack, which is worth more than any flat
-  multiplier because it raises the *ceiling* of skilled play rather than the floor.
-  The band is clamped so `sweetSpotMax ≤ 95` (`OverheatAt − 5`), which leaves five
-  points of runway before the cap at 100. **The lean point interacts with this:**
-  past 90 the strike pays `2.5 × 0.5 = 1.25x`, not `2.5x`. The effective paying band
-  is therefore `55–90`; the top five points of a maxed band are a trap. Clamp
-  `sweetSpotMax` to `PenaltyFrom` (90) or paint the 90–95 stretch as lean, or the
-  gauge promises a multiplier it does not pay.
+  Widening the band makes the sweet spot reachable in 2.5 s instead of 3.3 s and
+  holdable with far more slack, which is worth more than any flat multiplier
+  because it raises the *ceiling* of skilled play rather than the floor. The band
+  is clamped so `sweetSpotMax ≤ Config.PenaltyFrom` (90). The lean point pays
+  `2.5 × 0.5 = 1.25x`, so anything above 90 would be a stretch of band the gauge
+  sells as `2.5x` but the economy pays at half. Clamping at 90 keeps the band, the
+  caption and the payout identical (ADR-083). The gauge repaints `bandMin` /
+  `bandMax` from the server payload every sync and draws a full-height 90% tick,
+  so a player can see the lean point before crossing it.
 - **Phantom Hammer autoplays the mechanic at a fixed rate** (0.5 clicks/s per level,
   capped at 20 strikes per frame). At max level it is 5 clicks/s, which in the band
   would be 12.5× bladeMult/s — competitive with manual play, but it cannot modulate

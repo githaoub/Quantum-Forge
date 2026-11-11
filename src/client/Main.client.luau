@@ -623,6 +623,14 @@ local function boot()
 				-- anvil any more.
 				Sections.select("crates")
 				return CratesView.roll(if type(argument) == "number" then argument else 1)
+			elseif command == "cratePreview" and type(argument) == "string" then
+				-- Visual QA for the top-rarity reveal without a 0.35% roll.
+				Sections.select("crates")
+				return CratesView.preview(argument, "prismatic")
+			elseif command == "crateDismiss" then
+				Sections.select("crates")
+				CratesView.dismiss()
+				return true
 			elseif command == "openDaily" then
 				DailyView.open()
 				return true

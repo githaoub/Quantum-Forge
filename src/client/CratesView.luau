@@ -12,11 +12,27 @@
 -- pull is a tax on the loop. It lives at `Sections` key "crates", the same way
 -- the fleet and the tech tree do, and it keeps its own crate model on screen.
 --
--- The page owns the whole reveal. Press ROLL, the crate drops and rattles, the
--- pool's answer lands from the server, the crate shatters, and the copy the roll
--- produced is mounted in the same viewport as a static blade. The anvil still
--- owns the three-second celebration for a blade that beats the equipped one; this
--- page is the terminal where you buy, and it should answer on the spot.
+-- The page owns the whole reveal. The crate drops, rattles, cracks and hands its
+-- answer to a lit stage; the copy lands as a blade on that same stage. The forge
+-- still owns the three-second celebration for a blade equipped there. This one
+-- is a purchase, so it gets its own ceremony.
+--
+-- The ceremony is a ladder, not a single flash:
+--
+--   1. the crate falls and the stage charge bar starts
+--   2. six beats, each one faster, brighter and a half-step heavier
+--   3. a held beat at full charge, where the answer is already known
+--   4. the crack, the screen wash, the fanfare, the rays
+--   5. the copy, its rarity, its condition and its power on the stage
+--
+-- A ten-pull adds a ribbon of every copy under the result. The server returns
+-- all ten in `results`; the reveal names the best and lets the ribbon prove the
+-- other nine happened. That is the difference between "x10" as a caption and
+-- ten pulls as an event.
+--
+-- Pity is drawn as progress toward the guarantee, not as its threshold. The
+-- profile counter carries across pools, so the honest read is `PITY 3 / 11`,
+-- and the label switches to `GUARANTEE NEXT ROLL` when the next pull is forced.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -35,6 +51,7 @@ local Sfx = require(script.Parent.Sfx)
 local Vfx = require(script.Parent.Vfx)
 local CratePreview = require(script.Parent.CratePreview)
 local BladePreview = require(script.Parent.BladePreview)
+local StageBackdrop = require(script.Parent.StageBackdrop)
 
 local CratesView = {}
 
@@ -45,25 +62,59 @@ local CratesView = {}
 local PAD = 18
 local HEADER_H = 64
 local RAIL_W = 300
-local ROW_H = 82
+local ROW_H = 76
 local ROW_GAP = 6
-local HERO_H = 288
-local VIEW = 268
-local ODDS_Y = 300
+
+--- The stage. The crate zone is fixed so the 3D framing never depends on the
+--- window; the info column beside it is the elastic half.
+local HERO_H = 300
+local OBJECT_W = 400
+local INFO_X = 412
+local VIEW = 320
+
+local ODDS_Y = HERO_H + 10
 local ODDS_H = 96
-local KEYS_Y = 408
-local KEY_H = 62
-local NOTE_Y = 478
+local KEYS_Y = ODDS_Y + ODDS_H + 12
+local KEY_H = 64
+local NOTE_Y = KEYS_Y + KEY_H + 7
 local DECK_X = RAIL_W + 18
 
---- Same five hues the blade cards use, so "VOID 26%" here and a purple card in
---- the vault are the same fact.
+--- How long the crate holds at full charge after the rattle, even when the
+--- server has already answered. The pause is the point: the rattle tells the
+--- player something is inside, the hold tells them it is about to come out.
+local REVEAL_HOLD = 0.42
+
+--- The server never refuses silently in the happy path, but a stale price or a
+--- full vault can. Without this, a rejected roll leaves the crate floating and
+--- every key dead.
+local ROLL_TIMEOUT = 7
+
+--- Rarity colours, mirroring `BladeRegistry.RARITY_INFO`. Kept here because the
+--- page draws the odds legend before it has a blade to ask. Quantum is mint, not
+--- gold: the star-matter currency is gold, and using it for a blade rarity made
+--- the same word mean two colours on two screens.
 local RARITY_COLOR: { [string]: Color3 } = {
-	Scrap = Theme.Color.locked,
-	Forged = Theme.Color.cyan,
-	Astral = Theme.Color.quantum,
-	Void = Theme.Color.magenta,
-	Quantum = Theme.Color.gold,
+	Scrap = Color3.fromRGB(168, 130, 96),
+	Forged = Color3.fromRGB(176, 188, 202),
+	Astral = Color3.fromRGB(122, 226, 255),
+	Void = Color3.fromRGB(198, 132, 255),
+	Quantum = Color3.fromRGB(132, 255, 208),
+}
+
+local RARITY_RANK: { [string]: number } = {
+	Scrap = 1,
+	Forged = 2,
+	Astral = 3,
+	Void = 4,
+	Quantum = 5,
+}
+
+local VARIANT_RANK: { [string]: number } = {
+	standard = 1,
+	tempered = 2,
+	overclocked = 3,
+	void = 4,
+	prismatic = 5,
 }
 
 -- ---------------------------------------------------------------------------
@@ -73,8 +124,13 @@ local RARITY_COLOR: { [string]: Color3 } = {
 local root: Frame? = nil
 local deck: Frame? = nil
 local railPlate: Frame? = nil
+local hero: Frame? = nil
 
 local railRows: { [string]: TextButton } = {}
+local railChips: { [string]: TextLabel } = {}
+local railPrices: { [string]: TextLabel } = {}
+local railTracks: { [string]: Frame } = {}
+local railFills: { [string]: Frame } = {}
 local selected = "standard"
 
 --- Set by `Main`. The roll page does not require `ForgeView`: the anvil card and
@@ -82,18 +138,64 @@ local selected = "standard"
 CratesView.onSelect = nil :: ((id: string) -> ())?
 
 local viewport: ViewportFrame? = nil
+local viewportScale: UIScale? = nil
 local crateHandle: CratePreview.Handle? = nil
 local mountedShape: string? = nil
+local stageTint: StageBackdrop.Handle? = nil
 
-local shortLabel: TextLabel? = nil
-local nameLabel: TextLabel? = nil
-local blurbLabel: TextLabel? = nil
-local stateLabel: TextLabel? = nil
-local costValue: TextLabel? = nil
-local pityValue: TextLabel? = nil
-local gateValue: TextLabel? = nil
+-- Stage furniture
+local stageFlash: Frame? = nil
+local rarityTag: TextLabel? = nil
+local rayHost: Frame? = nil
+local rays: { Frame } = {}
+local beam: Frame? = nil
+local daisGlow: Frame? = nil
+local daisLine: Frame? = nil
+local chargeBar: Frame? = nil
+local chargeFill: Frame? = nil
+local chargeCaption: TextLabel? = nil
+
+-- Rest column
+local restGroup: Frame? = nil
+local restEyebrow: TextLabel? = nil
+local restTitle: TextLabel? = nil
+local restBlurb: TextLabel? = nil
+local restPityValue: TextLabel? = nil
+local restPityHint: TextLabel? = nil
+local pityHost: Frame? = nil
+local pityTicks: { Frame } = {}
+local unlockBar: Frame? = nil
+local unlockFill: Frame? = nil
+local restCostValue: TextLabel? = nil
+local restTenValue: TextLabel? = nil
+local restRareValue: TextLabel? = nil
+local restMark: TextLabel? = nil
+
+-- Result column
+local resultGroup: Frame? = nil
+local resultKicker: TextLabel? = nil
+local resultNew: TextLabel? = nil
+local resultVariant: TextLabel? = nil
+local resultName: TextLabel? = nil
+local resultCondition: TextLabel? = nil
+local resultPowerKey: TextLabel? = nil
+local resultPowerValue: TextLabel? = nil
+local resultEquipped: TextLabel? = nil
+local resultAffix: TextLabel? = nil
+local resultPity: TextLabel? = nil
+local resultBackLabel: TextLabel? = nil
+
+-- Batch ribbon
+local ribbon: Frame? = nil
+local ribbonCells: { Frame } = {}
+
+-- Odds strip
 local oddsHost: Frame? = nil
+local oddsPityLabel: TextLabel? = nil
+local oddsCrateId: string? = nil
+local oddsWidth = 0
 
+-- Keys
 local rollOne: TextButton? = nil
 local rollOneFace: TextLabel? = nil
 local rollOneCost: TextLabel? = nil
@@ -102,21 +204,64 @@ local rollTenFace: TextLabel? = nil
 local rollTenCost: TextLabel? = nil
 local noteLabel: TextLabel? = nil
 
---- Result plate, hidden until a roll lands.
-local resultPlate: Frame? = nil
-local resultShort: TextLabel? = nil
-local resultName: TextLabel? = nil
-local resultLine: TextLabel? = nil
-local resultPower: TextLabel? = nil
-
 local rolling = false
 local rollToken = 0
 local awaitingReveal = false
---- True once the crate's rattle has finished and the reveal may fire.
+--- True once the rattle has finished and the reveal may fire.
 local crateOpen = false
+local revealReadyAt = 0
 local pendingResult: Types.FeedEvent? = nil
+local showingResult = false
 
 local unsubscribeEvent: (() -> ())? = nil
+
+-- ---------------------------------------------------------------------------
+-- Data
+-- ---------------------------------------------------------------------------
+
+local function selectedCrate(): ForgeConfig.Tier
+	return ForgeConfig.crate(selected) or ForgeConfig.Tiers[1]
+end
+
+local function quote(id: string): Types.CrateQuote?
+	local state = StateStore.current
+	if state == nil then
+		return nil
+	end
+	return state.forgeCosts[id]
+end
+
+--- The profile counter is shared by every pool. A crate with a smaller goal can
+--- be entered with the counter already past it, so the display clamps.
+local function pityProgress(crate: ForgeConfig.Tier): (number, number, number)
+	local state = StateStore.current
+	local goal = math.max(1, crate.pity)
+	local filled = if state then math.clamp(state.forgePity, 0, goal) else 0
+	return filled, goal, math.max(0, goal - filled)
+end
+
+--- Odds of the two rarities the guarantee can pay, from the crate's own weights.
+--- This is the number the player is actually buying when pity is close.
+local function pityChance(crate: ForgeConfig.Tier): number
+	local total = 0
+	for _, entry in ForgeConfig.odds(crate) do
+		if entry.rarity == "Void" or entry.rarity == "Quantum" then
+			total += entry.chance
+		end
+	end
+	return total
+end
+
+local function variantOf(id: string?): ForgeConfig.Variant
+	return ForgeConfig.variant(if id and id ~= "" then id else ForgeConfig.StandardVariant)
+end
+
+local function bladeOf(id: string?): BladeRegistry.Blade?
+	if id == nil then
+		return nil
+	end
+	return BladeRegistry.get(id)
+end
 
 -- ---------------------------------------------------------------------------
 -- Small drawing helpers
@@ -139,6 +284,14 @@ end
 --- born at their fallback width until the first resize.
 local function deckWidth(): number
 	return Layout.CONTENT_W - 36 - DECK_X
+end
+
+local function infoWidth(): number
+	return math.max(300, deckWidth() - INFO_X - 20)
+end
+
+local function ribbonWidth(): number
+	return math.max(320, deckWidth() - 24)
 end
 
 --- A 2D silhouette per crate family for the rail. The hero is a real 3D model;
@@ -184,28 +337,27 @@ local function glyph(parent: Instance, style: string, accent: Color3, size: numb
 	end
 end
 
--- ---------------------------------------------------------------------------
--- Data
--- ---------------------------------------------------------------------------
-
-local function selectedCrate(): ForgeConfig.Tier
-	return ForgeConfig.crate(selected) or ForgeConfig.Tiers[1]
+--- A horizontal rule that does not need its own stroke object.
+local function rule(parent: Instance, y: number, width: number, color: Color3, transparency: number): Frame
+	local line = UiKit.create("Frame", {
+		BackgroundColor3 = color,
+		BackgroundTransparency = transparency,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, y),
+		Size = UDim2.fromOffset(width, 1),
+	}) :: Frame
+	line.Parent = parent
+	return line
 end
 
-local function quote(id: string): Types.CrateQuote?
-	local state = StateStore.current
-	if state == nil then
-		return nil
-	end
-	return state.forgeCosts[id]
-end
-
---- Picks the crate the page should start on: the server's, then standard.
-local function adoptSelection()
-	local state = StateStore.current
-	if state and ForgeConfig.crate(state.forgeCrate) then
-		selected = state.forgeCrate
-	end
+--- Gradient transparency on a plain frame. `UiKit.gradient` only sets colour;
+--- light shafts and floor lines need the alpha ramp.
+local function fadeGradient(frame: Frame, stops: { NumberSequenceKeypoint }): UIGradient
+	local gradient = UiKit.create("UIGradient", {
+		Transparency = NumberSequence.new(stops),
+	}) :: UIGradient
+	gradient.Parent = frame
+	return gradient
 end
 
 -- ---------------------------------------------------------------------------
@@ -234,11 +386,145 @@ local function mountCrate(shape: string)
 	unmountCrate()
 	-- A crate viewport wants a lit stage; a blade thumbnail sets its own lighting
 	-- inside `BladePreview.thumbnail`, so both can share one frame.
-	view.Ambient = Color3.fromRGB(120, 112, 132)
+	view.Ambient = Color3.fromRGB(156, 148, 164)
 	view.LightColor = Color3.fromRGB(255, 208, 158)
 	view.LightDirection = Vector3.new(-0.5, -0.8, -0.4)
 	crateHandle = CratePreview.mount(view, shape)
 	mountedShape = shape
+end
+
+-- ---------------------------------------------------------------------------
+-- Stage
+-- ---------------------------------------------------------------------------
+
+local function restPalette(crate: ForgeConfig.Tier): (Color3, Color3, Color3)
+	local theme = Theme.tierBackdrop(crate.tier)
+	return crate.accent, theme.cool, crate.accent
+end
+
+local function paintDais(color: Color3)
+	if daisGlow then
+		daisGlow.BackgroundColor3 = color
+		daisGlow.BackgroundTransparency = 0.9
+	end
+	if daisLine then
+		daisLine.BackgroundColor3 = color
+	end
+end
+
+local function paintRestTint(crate: ForgeConfig.Tier)
+	if stageTint == nil then
+		return
+	end
+	local warm, cool, accent = restPalette(crate)
+	stageTint.setColors(warm, cool, accent)
+	paintDais(accent)
+	if beam then
+		beam.BackgroundColor3 = accent
+	end
+end
+
+local function paintRays(visible: boolean, tint: Color3, rank: number)
+	local host = rayHost
+	if host == nil then
+		return
+	end
+	host.Visible = visible
+	if not visible then
+		return
+	end
+	local alpha = math.clamp(0.78 - rank * 0.07, 0.34, 0.72)
+	for _, ray in rays do
+		ray.BackgroundColor3 = tint
+		ray.BackgroundTransparency = 1
+		UiKit.tween(ray, Theme.Duration.slow, { BackgroundTransparency = alpha }, Enum.EasingStyle.Quad)
+	end
+	host.Rotation = 0
+	-- A slow quarter-degree drift keeps the rays from reading as a decal. It is
+	-- a reveal-only element, so a looping rotation here does not compete with a
+	-- number the player is trying to read.
+	if not Theme.reducedMotion() then
+		UiKit.tween(host, 7, { Rotation = 5 }, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	end
+end
+
+local function paintBeam(visible: boolean, tint: Color3, rank: number)
+	local frame = beam
+	if frame == nil then
+		return
+	end
+	frame.Visible = visible
+	if not visible then
+		return
+	end
+	frame.BackgroundColor3 = tint
+	frame.BackgroundTransparency = math.clamp(0.94 - rank * 0.025, 0.76, 0.94)
+end
+
+local function paintTag(text: string, tint: Color3, visible: boolean)
+	local tag = rarityTag
+	if tag == nil then
+		return
+	end
+	tag.Visible = visible
+	tag.Text = text
+	tag.TextColor3 = tint
+	local stroke = tag:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = tint
+		stroke.Transparency = 0.35
+	end
+	tag.BackgroundTransparency = 0.35
+	tag.TextTransparency = 1
+	if visible then
+		UiKit.tween(tag, Theme.Duration.normal, { TextTransparency = 0, BackgroundTransparency = 0.2 })
+	end
+end
+
+local function setCharge(beat: number, caption: string, complete: boolean)
+	local fill = chargeFill
+	if fill then
+		UiKit.tween(fill, Theme.Duration.fast, {
+			Size = UDim2.fromScale(math.clamp(beat / 6, 0, 1), 1),
+			BackgroundColor3 = if complete then Theme.Color.gold else Theme.Color.starMatter,
+		}, Enum.EasingStyle.Quad)
+	end
+	if chargeCaption then
+		chargeCaption.Text = caption
+		chargeCaption.TextColor3 = if complete then Theme.Color.gold else Theme.Color.textSecondary
+	end
+end
+
+local function resetStage(crate: ForgeConfig.Tier)
+	showingResult = false
+	if restGroup then
+		restGroup.Visible = true
+	end
+	if resultGroup then
+		resultGroup.Visible = false
+	end
+	if ribbon then
+		ribbon.Visible = false
+	end
+	if rarityTag then
+		rarityTag.Visible = false
+	end
+	if rayHost then
+		rayHost.Visible = false
+	end
+	if beam then
+		beam.Visible = false
+	end
+	if chargeBar then
+		chargeBar.Visible = false
+	end
+	if chargeCaption then
+		chargeCaption.Visible = false
+	end
+	if stageFlash then
+		stageFlash.BackgroundTransparency = 1
+	end
+	paintRestTint(crate)
 end
 
 -- ---------------------------------------------------------------------------
@@ -247,6 +533,7 @@ end
 
 local function paintRail()
 	local state = StateStore.current
+	local runSm = if state then state.runSm else 0
 	for _, crate in ForgeConfig.Tiers do
 		local row = railRows[crate.id]
 		if row then
@@ -258,12 +545,35 @@ local function paintRail()
 				stroke.Transparency = if isSelected then 0 else 0.35
 				stroke.Thickness = if isSelected then 2 else 1
 			end
-			local chip = row:FindFirstChild("State")
-			if chip and chip:IsA("TextLabel") then
+
+			local name = row:FindFirstChild("Name")
+			if name and name:IsA("TextLabel") then
+				name.TextColor3 = if unlocked then Theme.Color.text else Theme.Color.locked
+			end
+
+			local price = railPrices[crate.id]
+			if price then
+				if unlocked then
+					local filled, goal = pityProgress(crate)
+					local q = quote(crate.id)
+					price.Text = string.format(
+						"%s SM  ·  PITY %d / %d",
+						if q then NumberUtil.abbreviate(q.one) else "--",
+						filled,
+						goal
+					)
+					price.TextColor3 = Theme.Color.textSecondary
+				else
+					price.Text = string.format("%s / %s RUN", NumberUtil.abbreviate(runSm), NumberUtil.abbreviate(crate.unlock))
+					price.TextColor3 = Theme.Color.textFaint
+				end
+			end
+
+			local chip = railChips[crate.id]
+			if chip then
 				if not unlocked then
-					chip.Text = if state
-						then string.format("AT %s LIFETIME", NumberUtil.abbreviate(crate.unlock))
-						else "LINKING"
+					local pct = if crate.unlock <= 0 then 1 else math.clamp(runSm / crate.unlock, 0, 1)
+					chip.Text = string.format("%d%% TO OPEN", math.floor(pct * 100))
 					chip.TextColor3 = Theme.Color.locked
 				elseif isSelected then
 					chip.Text = "SELECTED"
@@ -273,20 +583,126 @@ local function paintRail()
 					chip.TextColor3 = Theme.Color.textSecondary
 				end
 			end
-			row.BackgroundTransparency = if unlocked then 0 else 0.35
+
+			local track = railTracks[crate.id]
+			local fill = railFills[crate.id]
+			if track and fill then
+				track.Visible = not unlocked
+				if not unlocked and crate.unlock > 0 then
+					fill.Size = UDim2.fromScale(math.clamp(runSm / crate.unlock, 0, 1), 1)
+					fill.BackgroundColor3 = crate.accent
+				end
+			end
+
+			row.BackgroundTransparency = if unlocked then 0 else 0.3
 		end
 	end
 end
 
---- Puts the crate's own card back in the info column: name, blurb, facts.
-local function paintCrateInfo()
-	if resultPlate then
-		resultPlate.Visible = false
+local function paintPity(crate: ForgeConfig.Tier)
+	local host = pityHost
+	local bar = unlockBar
+	local state = StateStore.current
+	local locked = quote(crate.id) == nil
+	local filled, goal, remaining = pityProgress(crate)
+
+	if host then
+		host.Visible = not locked
 	end
-	for _, label in { shortLabel, nameLabel, blurbLabel, stateLabel } do
-		if label then
-			label.Visible = true
+	if bar then
+		bar.Visible = locked
+	end
+
+	if locked then
+		local pct = if crate.unlock <= 0 then 1 else math.clamp((if state then state.runSm else 0) / crate.unlock, 0, 1)
+		if unlockFill then
+			unlockFill.Size = UDim2.fromScale(pct, 1)
+			unlockFill.BackgroundColor3 = crate.accent
 		end
+		if restPityValue then
+			restPityValue.Text = string.format("OPEN AT %s", NumberUtil.abbreviate(crate.unlock))
+			restPityValue.TextColor3 = Theme.Color.textFaint
+		end
+		if restPityHint then
+			restPityHint.Text = string.format("%d%% THIS RUN", math.floor(pct * 100))
+			restPityHint.TextColor3 = Theme.Color.textFaint
+		end
+		return
+	end
+
+	if restPityValue then
+		restPityValue.Text = string.format("PITY  %d / %d", filled, goal)
+		restPityValue.TextColor3 = if remaining <= 1 then Theme.Color.gold else Theme.Color.textFaint
+	end
+	if restPityHint then
+		restPityHint.Text = if remaining <= 1
+			then "GUARANTEE NEXT ROLL"
+			else string.format("GUARANTEE IN %d", remaining)
+		restPityHint.TextColor3 = if remaining <= 1 then Theme.Color.gold else Theme.Color.textSecondary
+	end
+
+	local width = infoWidth()
+	if host then
+		host.Size = UDim2.fromOffset(width, 14)
+	end
+	if bar then
+		bar.Size = UDim2.fromOffset(width, 8)
+	end
+	local gap = 3
+	local tickW = math.max(4, math.floor((width - gap * (goal - 1)) / goal))
+	for index = 1, #pityTicks do
+		local tick = pityTicks[index]
+		tick.Visible = index <= goal
+		if index <= goal then
+			local last = index == goal
+			tick.Position = UDim2.fromOffset((index - 1) * (tickW + gap), if last then 0 else 6)
+			tick.Size = UDim2.fromOffset(tickW, if last then 14 else 8)
+			if index <= filled then
+				tick.BackgroundColor3 = if last then Theme.Color.gold else crate.accent
+				tick.BackgroundTransparency = 0
+			elseif index == filled + 1 then
+				tick.BackgroundColor3 = if remaining <= 1 then Theme.Color.gold else Theme.Color.text
+				tick.BackgroundTransparency = 0.25
+			elseif last then
+				tick.BackgroundColor3 = Theme.Color.gold
+				tick.BackgroundTransparency = 0.55
+			else
+				tick.BackgroundColor3 = Theme.Color.strokeBright
+				tick.BackgroundTransparency = 0.55
+			end
+		end
+	end
+end
+
+local function paintRest(crate: ForgeConfig.Tier)
+	local q = quote(crate.id)
+	local state = StateStore.current
+	if restEyebrow then
+		restEyebrow.Text = string.format("POOL %02d / %02d  ·  %s", crate.tier, #ForgeConfig.Tiers, string.upper(crate.short))
+		restEyebrow.TextColor3 = crate.accent
+	end
+	if restTitle then
+		restTitle.Text = string.upper(crate.name)
+	end
+	if restBlurb then
+		restBlurb.Text = crate.blurb
+	end
+	if restCostValue then
+		restCostValue.Text = if q then NumberUtil.abbreviate(q.one) .. " SM" else "--"
+	end
+	if restTenValue then
+		restTenValue.Text = if q then NumberUtil.abbreviate(q.ten) .. " SM" else "--"
+	end
+	if restRareValue then
+		restRareValue.Text = string.format("%.2f%%", pityChance(crate) * 100)
+	end
+	if restMark then
+		restMark.Text = string.format("%02d", crate.tier)
+		restMark.TextColor3 = crate.accent
+	end
+	if state == nil and restBlurb then
+		-- Pre-sync the page still shows the pool; the note line carries the wait.
+		restBlurb.Text = "Linking the vault."
 	end
 end
 
@@ -295,13 +711,27 @@ local function paintOdds(crate: ForgeConfig.Tier)
 	if host == nil then
 		return
 	end
+
+	local width = deckWidth()
+	if oddsCrateId == crate.id and oddsWidth == width then
+		if oddsPityLabel then
+			local filled, goal = pityProgress(crate)
+			oddsPityLabel.Text = if quote(crate.id) ~= nil
+				then string.format("PITY  %d / %d", filled, goal)
+				else "LOCKED"
+			oddsPityLabel.TextColor3 = if quote(crate.id) ~= nil then Theme.Color.textFaint else Theme.Color.locked
+		end
+		return
+	end
+	oddsCrateId = crate.id
+	oddsWidth = width
+
 	for _, child in host:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
 		end
 	end
 
-	local width = deckWidth()
 	local entries = ForgeConfig.odds(crate)
 
 	local eye = UiKit.label(host, {
@@ -312,30 +742,39 @@ local function paintOdds(crate: ForgeConfig.Tier)
 	})
 	eye.Size = UDim2.fromOffset(200, 14)
 
-	local pity = UiKit.label(host, {
-		text = string.format("PITY %d ROLLS", crate.pity),
+	oddsPityLabel = UiKit.label(host, {
+		text = "PITY",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Right,
 	})
-	pity.Position = UDim2.new(1, -220, 0, 0)
-	pity.Size = UDim2.fromOffset(220, 14)
+	oddsPityLabel.Position = UDim2.new(1, -220, 0, 0)
+	oddsPityLabel.Size = UDim2.fromOffset(220, 14)
+	local fill, goal = pityProgress(crate)
+	oddsPityLabel.Text = if quote(crate.id) ~= nil
+		then string.format("PITY  %d / %d", fill, goal)
+		else "LOCKED"
+	oddsPityLabel.TextColor3 = if quote(crate.id) ~= nil then Theme.Color.textFaint else Theme.Color.locked
 
 	-- One stacked bar, not five cards. Five equal cards said every outcome was
 	-- equally likely; a single bar makes the 0.35% sliver look like what it is.
 	-- Drawn common to rare, so the legend under it reads in the same order.
-	local barY = 22
+	local barY = 20
 	local barH = 22
 	local cursor = 0
+	local voidX: number? = nil
 	for index = #entries, 1, -1 do
 		local entry = entries[index]
 		local color = RARITY_COLOR[entry.rarity] or Theme.Color.text
-		local px = math.max(math.floor(width * entry.chance), 2)
+		local px = math.max(2, math.floor(width * entry.chance))
+		if entry.rarity == "Void" then
+			voidX = cursor
+		end
 		local seg = plate(host, color, 1)
 		seg.Name = "Seg_" .. entry.rarity
-		seg.Position = UDim2.fromOffset(math.floor(cursor), barY)
-		seg.Size = UDim2.fromOffset(px, barH)
+		seg.Position = UDim2.fromOffset(cursor, barY)
+		seg.Size = UDim2.fromOffset(math.max(1, px - 1), barH)
 		seg.ZIndex = 2
 		cursor += px
 	end
@@ -350,6 +789,20 @@ local function paintOdds(crate: ForgeConfig.Tier)
 	UiKit.stroke(frame, Theme.Color.stroke, Theme.Stroke.hair, 0.2)
 	frame.Parent = host
 
+	-- The guarantee is the only bracket on the odds bar. It spans the two
+	-- rarities pity can pay, so the player can see what a forced roll excludes.
+	if voidX then
+		local bracket = UiKit.create("Frame", {
+			BackgroundColor3 = RARITY_COLOR.Void,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(voidX, barY + barH + 3),
+			Size = UDim2.fromOffset(math.max(2, width - voidX), 1),
+			ZIndex = 3,
+		}) :: Frame
+		bracket.Parent = host
+	end
+
 	-- Legend: colour, name, chance. Five even columns under the bar.
 	local columns = #entries
 	local gap = 10
@@ -360,7 +813,7 @@ local function paintOdds(crate: ForgeConfig.Tier)
 		local x = (slot - 1) * (colW + gap)
 
 		local dot = plate(host, color, 1)
-		dot.Position = UDim2.fromOffset(x, 56)
+		dot.Position = UDim2.fromOffset(x, 53)
 		dot.Size = UDim2.fromOffset(8, 8)
 		dot.ZIndex = 3
 
@@ -368,9 +821,9 @@ local function paintOdds(crate: ForgeConfig.Tier)
 			text = string.upper(entry.rarity),
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
-			color = Theme.Color.textDim,
+			color = if entry.rarity == "Void" or entry.rarity == "Quantum" then color else Theme.Color.textDim,
 		})
-		name.Position = UDim2.fromOffset(x + 14, 50)
+		name.Position = UDim2.fromOffset(x + 14, 47)
 		name.Size = UDim2.fromOffset(colW - 14, 14)
 
 		local chance = UiKit.label(host, {
@@ -379,9 +832,92 @@ local function paintOdds(crate: ForgeConfig.Tier)
 			font = Theme.Font.Numeric,
 			color = Theme.Color.text,
 		})
-		chance.Position = UDim2.fromOffset(x + 14, 66)
+		chance.Position = UDim2.fromOffset(x + 14, 63)
 		chance.Size = UDim2.fromOffset(colW - 14, 14)
 	end
+end
+
+local function paintKey(
+	button: TextButton?,
+	face: TextLabel?,
+	cost: TextLabel?,
+	ready: boolean,
+	locked: boolean,
+	label: string,
+	price: number?,
+	fill: Color3,
+	ink: Color3
+)
+	if button == nil then
+		return
+	end
+	local activeFill = if ready then fill else Theme.Color.slate
+	button.BackgroundColor3 = activeFill
+	local stroke = button:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = if ready then Theme.Color.outline else Theme.Color.stroke
+	end
+	if face then
+		face.Text = if locked then "LOCKED" else label
+		face.TextColor3 = if ready then ink else Theme.Color.locked
+		face.TextTransparency = if ready then 0 else 0.25
+	end
+	if cost then
+		cost.Text = if price then string.format("%s SM", NumberUtil.abbreviate(price)) else "--"
+		cost.TextColor3 = if ready then ink else Theme.Color.locked
+		cost.TextTransparency = if ready then 0 else 0.3
+	end
+end
+
+local function paintNote(crate: ForgeConfig.Tier, q: Types.CrateQuote?)
+	local label = noteLabel
+	if label == nil or rolling then
+		return
+	end
+	local state = StateStore.current
+	if q == nil then
+		label.Text = string.format("This pool opens at %s Star-Matter earned this run.", NumberUtil.abbreviate(crate.unlock))
+		label.TextColor3 = Theme.Color.locked
+		return
+	end
+	if state == nil then
+		label.Text = "Linking the vault."
+		label.TextColor3 = Theme.Color.textFaint
+		return
+	end
+	if state.invCount >= state.invMax then
+		label.Text = string.format("Vault full: %d / %d. Melt a copy to make room.", state.invCount, state.invMax)
+		label.TextColor3 = Theme.Color.warn
+		return
+	end
+	if state.sm < q.one then
+		label.Text = string.format("Needs %s more Star-Matter for a single roll.", NumberUtil.abbreviate(q.one - state.sm))
+		label.TextColor3 = Theme.Color.warn
+		return
+	end
+	local _, _, remaining = pityProgress(crate)
+	if remaining <= 1 then
+		label.Text = "Guarantee armed: the next roll is Void or better."
+		label.TextColor3 = Theme.Color.gold
+		return
+	end
+	label.Text = string.format(
+		"%s Star-Matter held  ·  guarantee in %d rolls  ·  odds printed above.",
+		NumberUtil.abbreviate(state.sm),
+		remaining
+	)
+	label.TextColor3 = Theme.Color.textSecondary
+end
+
+local function paintResultPity(crate: ForgeConfig.Tier)
+	if resultPity == nil then
+		return
+	end
+	local filled, goal, remaining = pityProgress(crate)
+	resultPity.Text = if remaining <= 1
+		then string.format("PITY %d / %d  ·  GUARANTEE NEXT ROLL", filled, goal)
+		else string.format("PITY %d / %d  ·  GUARANTEE IN %d", filled, goal, remaining)
+	resultPity.TextColor3 = if remaining <= 1 then Theme.Color.gold else Theme.Color.textFaint
 end
 
 local function paintDeck()
@@ -389,113 +925,264 @@ local function paintDeck()
 	local q = quote(crate.id)
 	local state = StateStore.current
 
-	if shortLabel then
-		shortLabel.Text = crate.short
-		shortLabel.TextColor3 = crate.accent
+	if not showingResult then
+		paintRest(crate)
+	else
+		paintResultPity(crate)
 	end
-	if nameLabel then
-		nameLabel.Text = string.upper(crate.name)
-	end
-	if blurbLabel then
-		blurbLabel.Text = crate.blurb
-	end
-	if stateLabel then
-		stateLabel.Text = if q ~= nil
-			then "OPEN"
-			else string.format("NEEDS %s LIFETIME", NumberUtil.abbreviate(crate.unlock))
-		stateLabel.TextColor3 = if q ~= nil then Theme.Color.emerald else Theme.Color.locked
-	end
-	if costValue then
-		costValue.Text = if q then string.format("%s SM", NumberUtil.abbreviate(q.one)) else "--"
-	end
-	if pityValue then
-		pityValue.Text = string.format("%d ROLLS", crate.pity)
-	end
-
-	if rollOne then
-		local ready = q ~= nil and state ~= nil and state.sm >= q.one
-		rollOne.BackgroundColor3 = if ready then Theme.Color.panelRaised else Theme.Color.slate
-		local stroke = rollOne:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if ready then Theme.Color.strokeBright else Theme.Color.stroke
-		end
-		if rollOneFace then
-			rollOneFace.Text = if q then "ROLL" else "LOCKED"
-			rollOneFace.TextColor3 = if ready then Theme.Color.text else Theme.Color.locked
-			rollOneFace.TextTransparency = if ready then 0 else 0.35
-		end
-		if rollOneCost then
-			rollOneCost.Text = if q then string.format("%s SM", NumberUtil.abbreviate(q.one)) else "--"
-			rollOneCost.TextColor3 = if ready then Theme.Color.textFaint else Theme.Color.locked
-			rollOneCost.TextTransparency = if ready then 0 else 0.45
-		end
-	end
-
-	if rollTen then
-		local ready = q ~= nil and state ~= nil and state.sm >= q.ten
-		local tint = crate.accent
-		rollTen.BackgroundColor3 = if ready then tint else Theme.Color.slate
-		local stroke = rollTen:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if ready then Theme.Color.outline else Theme.Color.stroke
-		end
-		if rollTenFace then
-			rollTenFace.Text = if q then "ROLL x10" else "LOCKED"
-			rollTenFace.TextColor3 = if ready then Theme.onColor(tint) else Theme.Color.locked
-			rollTenFace.TextTransparency = if ready then 0 else 0.35
-		end
-		if rollTenCost then
-			rollTenCost.Text = if q then string.format("%s SM", NumberUtil.abbreviate(q.ten)) else "--"
-			rollTenCost.TextColor3 = if ready then Theme.onColor(tint) else Theme.Color.locked
-			rollTenCost.TextTransparency = if ready then 0 else 0.45
-		end
-	end
-
-	if noteLabel and not rolling then
-		if q == nil then
-			noteLabel.Text = string.format("This pool opens at %s lifetime Star-Matter.", NumberUtil.abbreviate(crate.unlock))
-			noteLabel.TextColor3 = Theme.Color.locked
-		elseif state then
-			noteLabel.Text = string.format(
-				"You hold %s Star-Matter. Pity forces Void or better every %d rolls on this pool.",
-				NumberUtil.abbreviate(state.sm),
-				crate.pity
-			)
-			noteLabel.TextColor3 = Theme.Color.textSecondary
-		end
-	end
-
-	paintOdds(crate)
+	paintPity(crate)
 	paintRail()
-end
+	paintOdds(crate)
 
-local function pick(id: string)
-	if ForgeConfig.crate(id) == nil or id == selected then
-		return
+	local locked = q == nil
+	local canOne = q ~= nil and state ~= nil and state.sm >= q.one
+	local canTen = q ~= nil and state ~= nil and state.sm >= q.ten
+
+	if rollOne and rollOneFace and rollOneCost then
+		paintKey(rollOne, rollOneFace, rollOneCost, canOne, locked, "ROLL", if q then q.one else nil, Theme.Color.panelRaised, Theme.Color.text)
 	end
-	selected = id
-	Sfx.tab()
-	rolling = false
-	awaitingReveal = false
-	crateOpen = false
-	pendingResult = nil
-	mountCrate(selectedCrate().shape)
-	paintCrateInfo()
-	paintDeck()
-	-- The crate is profile state, not a per-roll argument: the server bills the
-	-- ramp of whatever crate the profile is on, so the pick has to land before
-	-- the press. Skipping this made the next sync paint the old pool back over
-	-- the one the player had just chosen.
-	StateStore.send("crate", id)
-	local callback = CratesView.onSelect
-	if callback then
-		callback(selected)
+	if rollTen and rollTenFace and rollTenCost then
+		paintKey(rollTen, rollTenFace, rollTenCost, canTen, locked, "ROLL x10", if q then q.ten else nil, crate.accent, Theme.onColor(crate.accent))
 	end
+
+	paintNote(crate, q)
 end
 
 -- ---------------------------------------------------------------------------
 -- Roll
 -- ---------------------------------------------------------------------------
+
+local function showRest(crate: ForgeConfig.Tier)
+	showingResult = false
+	if restGroup then
+		restGroup.Visible = true
+	end
+	if resultGroup then
+		resultGroup.Visible = false
+	end
+	if ribbon then
+		ribbon.Visible = false
+	end
+	paintRest(crate)
+end
+
+local function showResult(result: Types.FeedEvent, blade: BladeRegistry.Blade?, variant: ForgeConfig.Variant, rank: number)
+	showingResult = true
+	if restGroup then
+		restGroup.Visible = false
+	end
+	if resultGroup then
+		resultGroup.Visible = true
+	end
+
+	local batch = math.max(1, math.floor(result.batch or 1))
+	local rarityColor = RARITY_COLOR[blade and blade.rarity or "Scrap"] or variant.color
+
+	if resultKicker then
+		resultKicker.Text = if batch > 1 then string.format("BEST OF %d", batch) else "JUST FORGED"
+		resultKicker.TextColor3 = if batch > 1 then Theme.Color.gold else Theme.Color.textFaint
+	end
+	if resultNew then
+		local text = if result.newBlade == true
+			then "NEW BLADE"
+			elseif result.newVariant == true then "NEW VARIANT" else ""
+		resultNew.Text = text
+		resultNew.Visible = text ~= ""
+		resultNew.TextColor3 = Theme.Color.gold
+	end
+	if resultVariant then
+		resultVariant.Text = string.format(
+			'<font color="#%s">%s</font>   ·   <font color="#%s">%s</font>',
+			variant.color:ToHex(),
+			string.upper(variant.name),
+			rarityColor:ToHex(),
+			string.upper(blade and blade.rarity or "Scrap")
+		)
+	end
+	local nameSize = Theme.Text.Title
+	if resultName then
+		local display = if blade
+			then ModifierConfig.displayName(blade.name, result.prefix or "", result.suffix or "")
+			else "A COPY"
+		resultName.Text = string.upper(display)
+		resultName.TextColor3 = Theme.Color.text
+		-- A 30px title fits one line; a modifier-heavy name does not. Drop the
+		-- long ones to the heading rung so two lines still clear the condition.
+		nameSize = if #display > 24 then Theme.Text.Heading else Theme.Text.Title
+	end
+	if resultCondition then
+		resultCondition.Text = ModifierConfig.condition(result.grade or "", result.element or "")
+	end
+	if resultPowerValue then
+		if result.power then
+			resultPowerValue.Text = NumberUtil.abbreviate(result.power)
+			resultPowerValue.Visible = true
+			if resultPowerKey then
+				resultPowerKey.Visible = true
+			end
+		else
+			resultPowerValue.Visible = false
+			if resultPowerKey then
+				resultPowerKey.Visible = false
+			end
+		end
+	end
+	if resultEquipped then
+		resultEquipped.Visible = result.equipped == true
+	end
+	if resultAffix then
+		local parts = {}
+		local prefix = ModifierConfig.prefix(result.prefix or "")
+		local suffix = ModifierConfig.suffix(result.suffix or "")
+		if prefix then
+			table.insert(parts, prefix.name)
+		end
+		if suffix then
+			table.insert(parts, suffix.name)
+		end
+		resultAffix.Text = table.concat(parts, "  ·  ")
+	end
+	if resultPity then
+		paintResultPity(selectedCrate())
+	end
+
+	-- Entrance. Text fades in order, and the name gets one size punch. No sliding
+	-- frames: the stage flash is already the motion, and moving type on a lit
+	-- backdrop reads as a layout bug rather than as a reveal.
+	local order: { TextLabel } = {}
+	for _, label in { resultKicker, resultNew, resultVariant, resultName, resultCondition, resultPowerKey, resultPowerValue, resultEquipped, resultAffix, resultPity, resultBackLabel } do
+		if label then
+			table.insert(order, label)
+		end
+	end
+	for _, label in order do
+		label.TextTransparency = 1
+	end
+	if resultName then
+		resultName.TextSize = nameSize - 4
+		local token = rollToken
+		task.delay(if rank >= 4 then 0.34 else 0, function()
+			if token == rollToken then
+				UiKit.tween(resultName, Theme.Duration.slow, { TextSize = nameSize }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			end
+		end)
+	end
+	local token = rollToken
+	local baseDelay = if rank >= 4 then 0.34 else 0
+	for index, label in order do
+		task.delay(baseDelay + (index - 1) * 0.055, function()
+			if token == rollToken then
+				UiKit.tween(label, Theme.Duration.normal, { TextTransparency = 0 }, Enum.EasingStyle.Quad)
+			end
+		end)
+	end
+end
+
+--- The ten-pull ribbon. One cell per copy, rarity on the bottom edge, variant on
+--- the left edge, so two collection axes are visible without a second legend.
+local function paintRibbon(result: Types.FeedEvent)
+	local strip = ribbon
+	if strip == nil then
+		return
+	end
+	for _, child in strip:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	table.clear(ribbonCells)
+
+	local copies = result.results
+	if copies == nil or #copies < 2 then
+		strip.Visible = false
+		return
+	end
+	strip.Visible = true
+
+	local gap = 4
+	local count = #copies
+	local width = ribbonWidth()
+	local cellW = math.max(36, math.floor((width - gap * (count - 1)) / count))
+	local bestId = result.blade
+	local bestMarked = false
+
+	for index, copy in copies do
+		local blade = bladeOf(copy.blade)
+		local variant = variantOf(copy.variant)
+		local rarityColor = RARITY_COLOR[blade and blade.rarity or "Scrap"] or Theme.Color.text
+		local isBest = not bestMarked and copy.blade == bestId and (result.power == nil or copy.power == result.power)
+		if isBest then
+			bestMarked = true
+		end
+		local cell = plate(strip, variant.color:Lerp(Theme.Color.void, 0.8), Theme.Radius.sm)
+		cell.Name = "Copy" .. index
+		cell.Position = UDim2.fromOffset((index - 1) * (cellW + gap), 0)
+		cell.Size = UDim2.fromOffset(cellW, 34)
+		cell.ZIndex = 4
+		local stroke = UiKit.stroke(cell, if isBest then Theme.Color.text else rarityColor, if isBest then 2 else 1, if isBest then 0.15 else 0.5)
+
+		local edge = UiKit.create("Frame", {
+			BackgroundColor3 = variant.color,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(3, 34),
+			ZIndex = 5,
+		}) :: Frame
+		edge.Parent = cell
+		local name = UiKit.label(cell, {
+			text = if blade then string.upper(blade.name) else string.upper(copy.blade),
+			size = Theme.Text.Tiny,
+			font = if isBest then Theme.Font.Heading else Theme.Font.Label,
+			color = if isBest then Theme.Color.text else Theme.Color.textDim,
+		})
+		name.Position = UDim2.fromOffset(8, 2)
+		name.Size = UDim2.new(1, -10, 0, 18)
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.ZIndex = 5
+
+		local bar = UiKit.create("Frame", {
+			BackgroundColor3 = rarityColor,
+			BackgroundTransparency = 0.15,
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 8, 1, -7),
+			Size = UDim2.fromOffset(0, 3),
+			ZIndex = 5,
+		}) :: Frame
+		bar.Parent = cell
+
+		local tag = UiKit.label(cell, {
+			text = if isBest then "BEST" else string.upper(blade and blade.rarity or "COPY"),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = if isBest then Theme.Color.gold else rarityColor,
+		})
+		tag.Position = UDim2.fromOffset(8, 19)
+		tag.Size = UDim2.new(1, -10, 0, 12)
+		tag.ZIndex = 5
+
+		table.insert(ribbonCells, cell)
+
+		-- The stagger is the point: ten cells landing together is a table, ten
+		-- cells landing one after another is a run of pulls.
+		local token = rollToken
+		cell.BackgroundTransparency = 1
+		edge.BackgroundTransparency = 1
+		stroke.Transparency = 1
+		name.TextTransparency = 1
+		tag.TextTransparency = 1
+		bar.BackgroundTransparency = 1
+		task.delay((index - 1) * 0.06, function()
+			if token ~= rollToken then
+				return
+			end
+			UiKit.tween(cell, Theme.Duration.fast, { BackgroundTransparency = 0 })
+			UiKit.tween(edge, Theme.Duration.fast, { BackgroundTransparency = 0 })
+			UiKit.tween(stroke, Theme.Duration.fast, { Transparency = if isBest then 0.15 else 0.5 })
+			UiKit.tween(name, Theme.Duration.fast, { TextTransparency = 0 })
+			UiKit.tween(tag, Theme.Duration.fast, { TextTransparency = 0 })
+			UiKit.tween(bar, Theme.Duration.normal, { Size = UDim2.new(1, -16, 0, 3), BackgroundTransparency = 0.15 }, Enum.EasingStyle.Quad)
+		end)
+	end
+end
 
 local function revealNow()
 	if not awaitingReveal then
@@ -508,69 +1195,115 @@ local function revealNow()
 	rolling = false
 
 	local crate = selectedCrate()
-	local variant = if result and result.variant then ForgeConfig.variant(result.variant) else nil
-	local tint = if variant then variant.color else crate.accent
-	local batch = if result then math.max(1, math.floor(result.batch or 1)) else 1
+	local blade = bladeOf(result and result.blade)
+	local variant = variantOf(result and result.variant)
+	local rarity = if blade then blade.rarity else "Scrap"
+	local tint = variant.color
+	local rarityColor = RARITY_COLOR[rarity] or tint
+	local rank = math.max(VARIANT_RANK[variant.id] or 1, RARITY_RANK[rarity] or 1)
+
+	if chargeBar then
+		chargeBar.Visible = false
+	end
+	if chargeCaption then
+		chargeCaption.Visible = false
+	end
+
+	Sfx.crateShatter()
+	task.delay(0.07, function()
+		Sfx.result(rank)
+	end)
 
 	if viewport then
-		Vfx.burst(viewport, tint, 1.35)
-		Vfx.sparks(viewport, tint, 22, 1.7)
-		Vfx.shockwave(viewport, tint, { size = 120, spread = 2.6, duration = 0.38, thickness = 4 })
+		Vfx.resultWash(viewport, tint, rank)
+		if rank >= 4 then
+			local token = rollToken
+			task.delay(0.16, function()
+				if token == rollToken then
+					Vfx.shockwave(viewport, rarityColor, {
+						size = 150,
+						spread = 3.2,
+						duration = 0.5,
+						thickness = 5,
+					})
+				end
+			end)
+		end
 	end
-	Sfx.crateShatter()
+	if hero then
+		Vfx.shake(hero, 2 + rank * 1.6, 0.32)
+	end
+	if stageFlash then
+		stageFlash.BackgroundColor3 = rarityColor
+		stageFlash.BackgroundTransparency = 0.18
+		UiKit.tween(stageFlash, 0.5, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	end
 
-	if result == nil or result.blade == nil then
+	if stageTint then
+		local theme = Theme.tierBackdrop(crate.tier)
+		stageTint.setColors(tint, theme.cool, rarityColor)
+	end
+	paintDais(tint)
+	paintRays(rank >= 3, tint, rank)
+	paintBeam(true, tint, rank)
+	paintTag(
+		string.format(
+			'<font color="#%s">%s</font>   ·   <font color="#%s">%s</font>',
+			tint:ToHex(),
+			string.upper(variant.name),
+			rarityColor:ToHex(),
+			string.upper(rarity)
+		),
+		tint,
+		true
+	)
+
+	if result == nil or blade == nil then
+		unmountCrate()
 		mountCrate(crate.shape)
-		paintCrateInfo()
+		showRest(crate)
 		paintDeck()
+		if noteLabel then
+			noteLabel.Text = "The forge returned an empty crate. No copy was lost."
+			noteLabel.TextColor3 = Theme.Color.warn
+		end
 		return
 	end
 
-	local blade = BladeRegistry.get(result.blade)
-	if blade and viewport then
-		unmountCrate()
+	unmountCrate()
+	-- The blade lands a little too big and settles. The crate is gone in the
+	-- same frame, so the punch reads as the copy coming through the crack.
+	if viewportScale then
+		viewportScale.Scale = 1.1
+		UiKit.tween(viewportScale, Theme.Duration.slow, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	end
+	if viewport then
 		BladePreview.thumbnail(viewport, blade, nil, tint)
 	end
-
-	if resultPlate then
-		resultPlate.Visible = true
-	end
-	for _, label in { shortLabel, nameLabel, blurbLabel, stateLabel } do
-		if label then
-			label.Visible = false
-		end
-	end
-
-	if resultName then
-		local prefix = result.prefix or ""
-		local suffix = result.suffix or ""
-		local display = if blade then ModifierConfig.displayName(blade.name, prefix, suffix) else "A COPY"
-		resultName.Text = string.upper(display)
-	end
-	if resultShort then
-		local grade = if result.grade and result.grade ~= "" then ModifierConfig.grade(result.grade) else nil
-		resultShort.Text = if batch > 1
-			then string.format("%s COPIES  ·  BEST OF THE PULL", batch)
-			else "JUST FORGED"
-		resultShort.TextColor3 = if grade then grade.color else tint
-	end
-	if resultLine and blade then
-		resultLine.Text = string.format(
-			"%s  ·  %s",
-			ForgeConfig.variant(result.variant or ForgeConfig.StandardVariant).name,
-			blade.rarity
-		)
-	end
-	if resultPower and blade and StateStore.current and StateStore.current.forgeCosts[crate.id] then
-		resultPower.Text = string.format("PITY %d/%d  ·  NEXT %s SM", StateStore.current.forgePity, crate.pity, NumberUtil.abbreviate(StateStore.current.forgeCosts[crate.id].one))
-		resultPower.TextColor3 = Theme.Color.textSecondary
-	end
-
+	showResult(result, blade, variant, rank)
+	paintRibbon(result)
 	paintDeck()
 end
 
+local function tryReveal()
+	if not awaitingReveal or not crateOpen then
+		return
+	end
+	local wait = math.max(0, revealReadyAt - os.clock())
+	if wait > 0 then
+		local token = rollToken
+		task.delay(wait, function()
+			if token == rollToken and awaitingReveal and crateOpen and pendingResult ~= nil then
+				revealNow()
+			end
+		end)
+		return
+	end
+	revealNow()
+end
+
 --- Presses the pool for `count` copies. One transaction: the server charges the
---- ramp price for the whole batch and reports the best copy back as one event.
+--- ramp price for the whole batch and reports every copy back as one event.
 function CratesView.roll(count: number?)
 	local batch = math.clamp(math.floor(count or 1), 1, 10)
 	if rolling then
@@ -586,11 +1319,21 @@ function CratesView.roll(count: number?)
 		Sfx.error()
 		return false
 	end
+	if state.invCount >= state.invMax then
+		Sfx.error()
+		if noteLabel then
+			noteLabel.Text = string.format("Vault full: %d / %d. Melt a copy to make room.", state.invCount, state.invMax)
+			noteLabel.TextColor3 = Theme.Color.warn
+		end
+		return false
+	end
 	local price = if batch > 1 then q.ten else q.one
 	if state.sm < price then
 		Sfx.error()
-		noteLabel.Text = string.format("Needs %s Star-Matter.", NumberUtil.abbreviate(price))
-		noteLabel.TextColor3 = Theme.Color.red
+		if noteLabel then
+			noteLabel.Text = string.format("Needs %s Star-Matter.", NumberUtil.abbreviate(price))
+			noteLabel.TextColor3 = Theme.Color.red
+		end
 		return false
 	end
 
@@ -600,17 +1343,31 @@ function CratesView.roll(count: number?)
 	awaitingReveal = true
 	crateOpen = false
 	pendingResult = nil
+	revealReadyAt = 0
 
+	resetStage(crate)
+	showRest(crate)
 	mountCrate(crate.shape)
-	paintCrateInfo()
+	paintRestTint(crate)
+
+	if chargeBar then
+		chargeBar.Visible = true
+	end
+	if chargeCaption then
+		chargeCaption.Visible = true
+	end
+	local _, _, remaining = pityProgress(crate)
+	local armed = remaining <= 1
+	setCharge(0, if armed then "PITY GUARANTEE  ·  BREACHING" else "BREACHING", false)
 
 	if noteLabel then
 		noteLabel.Text = if batch > 1
-			then string.format("Rolling %d copies from %s.", batch, crate.name)
-			else string.format("Rolling %s.", crate.name)
+			then string.format("Breaching %d copies out of %s.", batch, crate.name)
+			else string.format("Breaching %s.", crate.name)
 		noteLabel.TextColor3 = Theme.Color.textSecondary
 	end
 
+	Sfx.roll()
 	if crateHandle then
 		crateHandle.play(crate.accent, {
 			onLanded = function()
@@ -619,9 +1376,11 @@ function CratesView.roll(count: number?)
 				end
 			end,
 			onBeat = function(beat: number)
-				if token == rollToken then
-					Sfx.rollTick(beat)
+				if token ~= rollToken then
+					return
 				end
+				Sfx.rollTick(beat)
+				setCharge(beat, if armed then "PITY GUARANTEE  ·  BREACHING" else "BREACHING", false)
 			end,
 			onReady = function()
 				if token ~= rollToken then
@@ -629,18 +1388,81 @@ function CratesView.roll(count: number?)
 				end
 				-- The rattle is the wind-up. The answer may already be sitting in
 				-- `pendingResult`; if it is not, the event handler fires the reveal
-				-- the moment it lands.
+				-- the moment it lands, after the same hold.
 				crateOpen = true
-				if pendingResult ~= nil then
-					revealNow()
+				revealReadyAt = os.clock() + REVEAL_HOLD
+				setCharge(6, if armed then "PITY GUARANTEE  ·  SEALED" else "SEALED", true)
+				-- The last beat is the top of the ladder plus a ring around the
+				-- crate. It is the only cue that says "the next thing is the
+				-- answer", and it runs for exactly the hold.
+				Sfx.rollTick(8)
+				if viewport then
+					Vfx.shockwave(viewport, crate.accent, {
+						size = 110,
+						spread = 1.55,
+						duration = REVEAL_HOLD + 0.08,
+						thickness = 3,
+					})
 				end
+				tryReveal()
 			end,
 		})
+	else
+		-- No viewport means the page never built; do not leave the roll hanging.
+		crateOpen = true
+		revealReadyAt = os.clock() + REVEAL_HOLD
 	end
+
+	-- A rejected roll never reports `forged`. Let the crate land, hold for the
+	-- same beat the player expects, then put the pool back and say so.
+	task.delay(ROLL_TIMEOUT, function()
+		if token ~= rollToken or not awaitingReveal then
+			return
+		end
+		awaitingReveal = false
+		crateOpen = false
+		pendingResult = nil
+		rolling = false
+		unmountCrate()
+		mountCrate(selectedCrate().shape)
+		resetStage(selectedCrate())
+		paintDeck()
+		if noteLabel then
+			noteLabel.Text = "The vault did not answer. Try again."
+			noteLabel.TextColor3 = Theme.Color.warn
+		end
+	end)
 
 	StateStore.send("forge", { crate = crate.id, count = batch })
 	paintDeck()
 	return true
+end
+
+local function pick(id: string)
+	if ForgeConfig.crate(id) == nil or id == selected then
+		return
+	end
+	selected = id
+	Sfx.tab()
+	rolling = false
+	awaitingReveal = false
+	crateOpen = false
+	pendingResult = nil
+	rollToken += 1
+	local crate = selectedCrate()
+	resetStage(crate)
+	unmountCrate()
+	mountCrate(crate.shape)
+	paintDeck()
+	-- The crate is profile state, not a per-roll argument: the server bills the
+	-- ramp of whatever crate the profile is on, so the pick has to land before
+	-- the press. Skipping this made the next sync paint the old pool back over
+	-- the one the player had just chosen.
+	StateStore.send("crate", id)
+	local callback = CratesView.onSelect
+	if callback then
+		callback(selected)
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -650,7 +1472,7 @@ end
 local function header(parent: Frame)
 	local banner = UiKit.banner(parent, {
 		text = "CRATE VAULT",
-		subtitle = "FIVE POOLS  ·  ONE ROLL  ·  ODDS ON THE TABLE",
+		subtitle = "FIVE POOLS  ·  SEALED  ·  EVERY ODDS PRINTED",
 		width = UDim2.new(1, 0, 0, HEADER_H),
 		height = HEADER_H,
 		size = Theme.Text.Title - 4,
@@ -689,6 +1511,9 @@ local function buildRail(parent: Frame)
 		UiKit.corner(row, Theme.Radius.sm)
 		UiKit.stroke(row, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.35)
 		row.Parent = rail
+		if index == 1 then
+			row.BackgroundColor3 = Theme.Color.card
+		end
 
 		local accent = plate(row, crate.accent, 2)
 		accent.Size = UDim2.fromOffset(4, ROW_H)
@@ -697,7 +1522,7 @@ local function buildRail(parent: Frame)
 		local art = UiKit.create("Frame", {
 			Name = "Art",
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(14, (ROW_H - 40) / 2),
+			Position = UDim2.fromOffset(14, (ROW_H - 40) / 2 - 2),
 			Size = UDim2.fromOffset(40, 40),
 		}) :: Frame
 		art.Parent = row
@@ -709,20 +1534,22 @@ local function buildRail(parent: Frame)
 			font = Theme.Font.Heading,
 			color = Theme.Color.text,
 		})
-		name.Position = UDim2.fromOffset(66, 10)
+		name.Name = "Name"
+		name.Position = UDim2.fromOffset(66, 9)
 		name.Size = UDim2.fromOffset(RAIL_W - 96, 20)
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		name.ZIndex = 3
 
 		local price = UiKit.label(row, {
-			text = string.format("%s SM  ·  PITY %d", NumberUtil.abbreviate(crate.cost), crate.pity),
+			text = "--",
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textSecondary,
 		})
-		price.Position = UDim2.fromOffset(66, 34)
-		price.Size = UDim2.fromOffset(RAIL_W - 96, 16)
+		price.Position = UDim2.fromOffset(66, 33)
+		price.Size = UDim2.fromOffset(RAIL_W - 92, 16)
 		price.ZIndex = 3
+		railPrices[crate.id] = price
 
 		local chip = UiKit.label(row, {
 			text = "OPEN",
@@ -730,167 +1557,630 @@ local function buildRail(parent: Frame)
 			font = Theme.Font.Label,
 			color = Theme.Color.textSecondary,
 		})
-		chip.Name = "State"
-		chip.Position = UDim2.fromOffset(66, 56)
-		chip.Size = UDim2.fromOffset(RAIL_W - 96, 16)
+		chip.Position = UDim2.fromOffset(66, 55)
+		chip.Size = UDim2.fromOffset(RAIL_W - 92, 16)
 		chip.ZIndex = 3
+		railChips[crate.id] = chip
+
+		local track = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.strokeFaint,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(12, ROW_H - 5),
+			Size = UDim2.new(1, -24, 0, 2),
+			ZIndex = 4,
+			Visible = false,
+		}) :: Frame
+		track.Parent = row
+		railTracks[crate.id] = track
+
+		local fill = UiKit.create("Frame", {
+			BackgroundColor3 = crate.accent,
+			BorderSizePixel = 0,
+			Size = UDim2.fromScale(0, 1),
+			ZIndex = 5,
+		}) :: Frame
+		fill.Parent = track
+		railFills[crate.id] = fill
 
 		UiKit.track(row, row.Activated:Connect(function()
 			pick(crate.id)
 		end))
 		UiKit.track(row, row.MouseEnter:Connect(function()
 			Sfx.hover()
+			UiKit.tween(row, Theme.Duration.fast, { BackgroundColor3 = Theme.Color.card })
+		end))
+		UiKit.track(row, row.MouseLeave:Connect(function()
+			if crate.id ~= selected then
+				UiKit.tween(row, Theme.Duration.normal, { BackgroundColor3 = Theme.Color.panelRaised })
+			else
+				UiKit.tween(row, Theme.Duration.normal, { BackgroundColor3 = Theme.Color.card })
+			end
 		end))
 
 		railRows[crate.id] = row
 	end
-end
 
---- A labelled fact row inside the hero's info column.
-local function fact(parent: Frame, y: number, caption: string): TextLabel
-	local key = UiKit.label(parent, {
-		text = caption,
+	-- The pity rule is not obvious from a bar. One paragraph in the dead space
+	-- under the list is cheaper than a tutorial step and keeps the counter honest.
+	local footY = 34 + #ForgeConfig.Tiers * (ROW_H + ROW_GAP) + 2
+	local footHead = UiKit.label(rail, {
+		text = "ONE GUARANTEE",
 		size = Theme.Text.Tiny,
-		font = Theme.Font.Label,
+		font = Theme.Font.Black,
 		color = Theme.Color.textFaint,
 	})
-	key.Position = UDim2.fromOffset(0, y)
-	key.Size = UDim2.fromOffset(110, 22)
+	footHead.Position = UDim2.fromOffset(14, footY)
+	footHead.Size = UDim2.fromOffset(RAIL_W - 28, 16)
 
-	local value = UiKit.label(parent, {
-		text = "--",
-		size = Theme.Text.Small,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.text,
+	local foot = UiKit.label(rail, {
+		text = "The pity counter follows you across pools and resets only when a Void or better lands. It never expires.",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Body,
+		color = Theme.Color.textFaint,
+		wrap = true,
 	})
-	value.Position = UDim2.fromOffset(110, y)
-	value.Size = UDim2.new(1, -110, 0, 22)
-	return value
+	foot.Position = UDim2.fromOffset(14, footY + 18)
+	foot.Size = UDim2.fromOffset(RAIL_W - 28, 52)
+	foot.TextYAlignment = Enum.TextYAlignment.Top
 end
 
-local function buildHero(parent: Frame)
-	local hero = plate(parent, Theme.Color.panelSunken, Theme.Radius.md)
-	hero.Name = "Hero"
-	hero.Size = UDim2.new(1, 0, 0, HERO_H)
-	UiKit.stroke(hero, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.25)
+--- Builds the objects hanging over the hero, independent of the info column.
+local function buildStage()
+	if hero == nil then
+		return
+	end
+
+	-- Rays sit behind the subject. Twelve thin blades of light, anchored at the
+	-- object's centre, each fading at both ends so the wheel has no hard rim.
+	local host = UiKit.create("Frame", {
+		Name = "Rays",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromOffset(OBJECT_W / 2, 0),
+		Size = UDim2.fromOffset(OBJECT_W, HERO_H),
+		ZIndex = 1,
+		Visible = false,
+	}) :: Frame
+	host.Parent = hero
+	rayHost = host
+	for index = 1, 12 do
+		local ray = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.white,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(3, 360),
+			Rotation = (index - 1) * 15,
+			ZIndex = 1,
+		}) :: Frame
+		fadeGradient(ray, {
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.45, 0.1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(0.55, 0.1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		ray.Parent = host
+		table.insert(rays, ray)
+	end
+
+	local shaft = UiKit.create("Frame", {
+		Name = "Beam",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(110, 0),
+		Size = UDim2.fromOffset(180, HERO_H),
+		ZIndex = 1,
+		Visible = false,
+	}) :: Frame
+	fadeGradient(shaft, {
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.5, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	shaft.Parent = hero
+	beam = shaft
+
+	-- Dais. A soft pool under the subject plus a 2px rule at the floor line. The
+	-- 3D crate has no ground plane of its own, so without this it floats.
+	local glow = UiKit.create("Frame", {
+		Name = "DaisGlow",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 0.88,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(86, 216),
+		Size = UDim2.fromOffset(228, 54),
+		ZIndex = 1,
+	}) :: Frame
+	UiKit.corner(glow, 999)
+	glow.Parent = hero
+	daisGlow = glow
+
+	local line = UiKit.create("Frame", {
+		Name = "DaisLine",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(100, 268),
+		Size = UDim2.fromOffset(200, 2),
+		ZIndex = 3,
+	}) :: Frame
+	fadeGradient(line, {
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.5, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	line.Parent = hero
+	daisLine = line
 
 	local view = UiKit.create("ViewportFrame", {
 		Name = "Preview",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(10, (HERO_H - VIEW) / 2),
+		Position = UDim2.fromOffset((OBJECT_W - VIEW) / 2, -16),
 		Size = UDim2.fromOffset(VIEW, VIEW),
 		ZIndex = 2,
 	}) :: ViewportFrame
 	view.ClipsDescendants = true
 	view.Parent = hero
 	viewport = view
+	local scale = UiKit.create("UIScale", { Scale = 1 }) :: UIScale
+	scale.Parent = view
+	viewportScale = scale
 
-	local infoX = VIEW + 22
-	local info = UiKit.create("Frame", {
-		Name = "Info",
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(infoX, 16),
-		Size = UDim2.fromOffset(620, HERO_H - 32),
+	local tag = UiKit.label(hero, {
+		text = "",
+		size = Theme.Text.Small,
+		font = Theme.Font.Black,
+		color = Theme.Color.text,
+		align = Enum.TextXAlignment.Center,
+		rich = true,
+	})
+	tag.Name = "RarityTag"
+	tag.AnchorPoint = Vector2.new(0.5, 0)
+	tag.Position = UDim2.fromOffset(OBJECT_W / 2, 14)
+	tag.Size = UDim2.fromOffset(300, 26)
+	tag.BackgroundColor3 = Theme.Color.void
+	tag.BackgroundTransparency = 1
+	tag.ZIndex = 5
+	tag.Visible = false
+	UiKit.corner(tag, Theme.Radius.sm)
+	UiKit.stroke(tag, Theme.Color.stroke, Theme.Stroke.hair, 0.2)
+	rarityTag = tag
+
+	local caption = UiKit.label(hero, {
+		text = "BREACHING",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Center,
+	})
+	caption.Name = "ChargeCaption"
+	caption.Position = UDim2.fromOffset(0, 242)
+	caption.Size = UDim2.fromOffset(OBJECT_W, 16)
+	caption.ZIndex = 5
+	caption.Visible = false
+	chargeCaption = caption
+
+	local bar = UiKit.create("Frame", {
+		Name = "ChargeBar",
+		BackgroundColor3 = Theme.Color.strokeFaint,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(40, 264),
+		Size = UDim2.fromOffset(OBJECT_W - 80, 4),
+		ZIndex = 5,
+		Visible = false,
 	}) :: Frame
-	info.Parent = hero
+	UiKit.corner(bar, 2)
+	bar.Parent = hero
+	chargeBar = bar
 
-	local short = UiKit.label(info, {
-		text = "STD",
+	local fill = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.starMatter,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(0, 1),
+		ZIndex = 6,
+	}) :: Frame
+	UiKit.corner(fill, 2)
+	fill.Parent = bar
+	chargeFill = fill
+
+	local flash = UiKit.create("Frame", {
+		Name = "StageFlash",
+		BackgroundColor3 = Theme.Color.white,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 7,
+	}) :: Frame
+	UiKit.corner(flash, Theme.Radius.md)
+	flash.Parent = hero
+	stageFlash = flash
+end
+
+local function buildRest(parent: Frame)
+	local group = UiKit.create("Frame", {
+		Name = "Rest",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 4,
+	}) :: Frame
+	group.Parent = parent
+	restGroup = group
+
+	local width = infoWidth()
+
+	local eyebrow = UiKit.label(group, {
+		text = "POOL 01 / 05",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.gold,
 	})
-	short.Position = UDim2.fromOffset(0, 0)
-	short.Size = UDim2.fromOffset(300, 16)
-	shortLabel = short
+	eyebrow.Position = UDim2.fromOffset(0, 0)
+	eyebrow.Size = UDim2.fromOffset(260, 16)
+	restEyebrow = eyebrow
 
-	local name = UiKit.label(info, {
+	local title = UiKit.label(group, {
 		text = "STANDARD FORGE CRATE",
-		size = Theme.Text.Heading,
-		font = Theme.Font.Display,
+		size = Theme.Text.Title,
+		font = Theme.Font.Black,
 		color = Theme.Color.text,
 	})
-	name.Position = UDim2.fromOffset(0, 18)
-	name.Size = UDim2.new(1, -8, 0, 30)
-	name.TextTruncate = Enum.TextTruncate.AtEnd
-	nameLabel = name
+	title.Position = UDim2.fromOffset(0, 19)
+	title.Size = UDim2.new(1, -8, 0, 38)
+	title.TextTruncate = Enum.TextTruncate.AtEnd
+	restTitle = title
 
-	local blurb = UiKit.label(info, {
+	local blurb = UiKit.label(group, {
 		text = "",
 		size = Theme.Text.Small,
 		font = Theme.Font.Body,
 		color = Theme.Color.textSecondary,
+		wrap = true,
 	})
-	blurb.Position = UDim2.fromOffset(0, 54)
-	blurb.Size = UDim2.new(1, -12, 0, 40)
-	blurb.TextWrapped = true
+	blurb.Position = UDim2.fromOffset(0, 60)
+	blurb.Size = UDim2.new(1, -12, 0, 38)
 	blurb.TextYAlignment = Enum.TextYAlignment.Top
-	blurbLabel = blurb
+	restBlurb = blurb
 
-	costValue = fact(info, 104, "COST")
-	pityValue = fact(info, 132, "PITY")
-	gateValue = fact(info, 160, "STATE")
-	stateLabel = gateValue
+	local pityLabel = UiKit.label(group, {
+		text = "PITY",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+	})
+	pityLabel.Position = UDim2.fromOffset(0, 106)
+	pityLabel.Size = UDim2.fromOffset(200, 14)
+	restPityValue = pityLabel
 
-	-- Result plate. Sits in the same column as the crate's own facts, so the
-	-- answer to a roll replaces the promise of one instead of stacking on it.
-	local result = plate(info, Theme.Color.panelRaised, Theme.Radius.sm)
-	result.Name = "Result"
-	result.Size = UDim2.new(1, -8, 0, 196)
-	result.Visible = false
-	UiKit.stroke(result, Theme.Color.stroke, Theme.Stroke.hair, 0.1)
-	resultPlate = result
+	local hint = UiKit.label(group, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Right,
+	})
+	hint.Position = UDim2.fromOffset(0, 106)
+	hint.Size = UDim2.new(1, 0, 0, 14)
+	restPityHint = hint
 
-	local rShort = UiKit.label(result, {
+	local ticks = UiKit.create("Frame", {
+		Name = "PityTicks",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, 124),
+		Size = UDim2.fromOffset(width, 14),
+		ZIndex = 4,
+	}) :: Frame
+	ticks.Parent = group
+	pityHost = ticks
+	for _ = 1, 12 do
+		local tick = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.strokeBright,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(8, 8),
+		}) :: Frame
+		UiKit.corner(tick, 1)
+		tick.Parent = ticks
+		table.insert(pityTicks, tick)
+	end
+
+	local unlock = UiKit.create("Frame", {
+		Name = "UnlockBar",
+		BackgroundColor3 = Theme.Color.strokeFaint,
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, 124),
+		Size = UDim2.fromOffset(width, 8),
+		ZIndex = 4,
+		Visible = false,
+	}) :: Frame
+	UiKit.corner(unlock, 2)
+	unlock.Parent = group
+	unlockBar = unlock
+
+	local unlockFillFrame = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.gold,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(0, 1),
+		ZIndex = 5,
+	}) :: Frame
+	UiKit.corner(unlockFillFrame, 2)
+	unlockFillFrame.Parent = unlock
+	unlockFill = unlockFillFrame
+
+	local divider = rule(group, 150, width, Theme.Color.strokeFaint, 0.2)
+	divider.Size = UDim2.new(1, 0, 0, 1)
+	divider.ZIndex = 4
+
+	local function stat(index: number, caption: string): TextLabel
+		local x = (index - 1) / 3
+		local key = UiKit.label(group, {
+			text = caption,
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Label,
+			color = Theme.Color.textFaint,
+		})
+		key.Position = UDim2.new(x, 0, 0, 160)
+		key.Size = UDim2.new(1 / 3, -8, 0, 14)
+		local value = UiKit.label(group, {
+			text = "--",
+			size = Theme.Text.Subheading,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.text,
+		})
+		value.Position = UDim2.new(x, 0, 0, 176)
+		value.Size = UDim2.new(1 / 3, -8, 0, 22)
+		return value
+	end
+	restCostValue = stat(1, "NEXT ROLL")
+	restTenValue = stat(2, "TEN-PULL")
+	restRareValue = stat(3, "VOID OR BETTER")
+	if restRareValue then
+		restRareValue.TextColor3 = RARITY_COLOR.Void
+	end
+
+	-- A large, very faint pool number. It gives the empty right half a subject
+	-- without adding another object to read.
+	local mark = UiKit.label(group, {
+		text = "01",
+		size = Theme.Text.Hero * 2,
+		font = Theme.Font.Black,
+		color = Theme.Color.gold,
+		align = Enum.TextXAlignment.Right,
+	})
+	mark.Name = "PoolMark"
+	mark.Position = UDim2.new(1, -160, 0, 156)
+	mark.Size = UDim2.fromOffset(160, 112)
+	mark.TextTransparency = 0.9
+	mark.ZIndex = 2
+	restMark = mark
+end
+
+local function buildResult(parent: Frame)
+	local group = UiKit.create("Frame", {
+		Name = "Result",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 4,
+		Visible = false,
+	}) :: Frame
+	group.Parent = parent
+	resultGroup = group
+
+	local kicker = UiKit.label(group, {
 		text = "JUST FORGED",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = Theme.Color.emerald,
+		color = Theme.Color.cyan,
 	})
-	rShort.Position = UDim2.fromOffset(14, 10)
-	rShort.Size = UDim2.new(1, -28, 0, 16)
-	resultShort = rShort
+	kicker.Position = UDim2.fromOffset(0, 0)
+	kicker.Size = UDim2.fromOffset(320, 16)
+	resultKicker = kicker
 
-	local rName = UiKit.label(result, {
+	local new = UiKit.label(group, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.gold,
+		align = Enum.TextXAlignment.Right,
+	})
+	new.Position = UDim2.new(1, -200, 0, 0)
+	new.Size = UDim2.fromOffset(200, 16)
+	new.Visible = false
+	resultNew = new
+
+	local variant = UiKit.label(group, {
 		text = "",
 		size = Theme.Text.Subheading,
-		font = Theme.Font.Display,
+		font = Theme.Font.Black,
 		color = Theme.Color.text,
+		rich = true,
 	})
-	rName.Position = UDim2.fromOffset(14, 30)
-	rName.Size = UDim2.new(1, -28, 0, 52)
-	rName.TextWrapped = true
-	rName.TextYAlignment = Enum.TextYAlignment.Top
-	resultName = rName
+	variant.Position = UDim2.fromOffset(0, 20)
+	variant.Size = UDim2.new(1, -8, 0, 22)
+	resultVariant = variant
 
-	local rLine = UiKit.label(result, {
+	local name = UiKit.label(group, {
+		text = "",
+		size = Theme.Text.Title,
+		font = Theme.Font.Black,
+		color = Theme.Color.text,
+		wrap = true,
+	})
+	name.Position = UDim2.fromOffset(0, 45)
+	name.Size = UDim2.new(1, -8, 0, 64)
+	name.TextYAlignment = Enum.TextYAlignment.Top
+	resultName = name
+
+	local condition = UiKit.label(group, {
 		text = "",
 		size = Theme.Text.Small,
 		font = Theme.Font.Body,
-		color = Theme.Color.textSecondary,
+		color = Theme.Color.textDim,
 	})
-	rLine.Position = UDim2.fromOffset(14, 88)
-	rLine.Size = UDim2.new(1, -28, 0, 20)
-	resultLine = rLine
+	condition.Position = UDim2.fromOffset(0, 111)
+	condition.Size = UDim2.new(1, -8, 0, 18)
+	resultCondition = condition
 
-	local rPower = UiKit.label(result, {
+	local powerKey = UiKit.label(group, {
+		text = "POWER",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Label,
+		color = Theme.Color.textFaint,
+	})
+	powerKey.Position = UDim2.fromOffset(0, 136)
+	powerKey.Size = UDim2.fromOffset(52, 22)
+	resultPowerKey = powerKey
+
+	local power = UiKit.label(group, {
+		text = "--",
+		size = Theme.Text.Heading,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.text,
+	})
+	power.Position = UDim2.fromOffset(54, 133)
+	power.Size = UDim2.fromOffset(180, 24)
+	resultPowerValue = power
+
+	local equipped = UiKit.label(group, {
+		text = "AUTO-EQUIPPED",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.emerald,
+		align = Enum.TextXAlignment.Right,
+	})
+	equipped.Position = UDim2.new(1, -200, 0, 136)
+	equipped.Size = UDim2.fromOffset(200, 18)
+	equipped.Visible = false
+	resultEquipped = equipped
+
+	local affix = UiKit.label(group, {
 		text = "",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
 	})
-	rPower.Position = UDim2.fromOffset(14, 112)
-	rPower.Size = UDim2.new(1, -28, 0, 16)
-	resultPower = rPower
+	affix.Position = UDim2.fromOffset(0, 160)
+	affix.Size = UDim2.new(1, -8, 0, 16)
+	resultAffix = affix
 
-	-- Scan line: a two-pixel band under the name that reads as the crate's pulse
-	-- while it is sealed and as the copy's rarity once it is open.
-	local pulse = plate(result, Theme.Color.emerald, 2)
-	pulse.Position = UDim2.fromOffset(14, 150)
-	pulse.Size = UDim2.new(1, -28, 0, 3)
-	pulse.BackgroundTransparency = 0.4
-	pulse.ZIndex = 3
+	local pity = UiKit.label(group, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+	})
+	pity.Position = UDim2.fromOffset(0, 181)
+	pity.Size = UDim2.new(1, -8, 0, 16)
+	resultPity = pity
+
+	-- The result is a room the player can leave without buying another pull.
+	-- Without this the only exits were rolling again or switching pools, which
+	-- made a good reveal feel like a modal with no close.
+	local back = UiKit.create("TextButton", {
+		Name = "BackToPool",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Position = UDim2.fromOffset(0, 208),
+		Size = UDim2.fromOffset(150, 20),
+		ZIndex = 5,
+	}) :: TextButton
+	back.Parent = group
+	local backLabel = UiKit.label(back, {
+		text = "BACK TO POOL",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	backLabel.Size = UDim2.fromScale(1, 1)
+	backLabel.ZIndex = 6
+	resultBackLabel = backLabel
+
+	UiKit.track(back, back.MouseEnter:Connect(function()
+		UiKit.tween(backLabel, Theme.Duration.fast, { TextColor3 = Theme.Color.text })
+	end))
+	UiKit.track(back, back.MouseLeave:Connect(function()
+		UiKit.tween(backLabel, Theme.Duration.normal, { TextColor3 = Theme.Color.textFaint })
+	end))
+	UiKit.track(back, back.Activated:Connect(function()
+		CratesView.dismiss()
+	end))
+end
+
+local function buildRibbon()
+	local heroFrame = hero
+	if heroFrame == nil then
+		return
+	end
+	local strip = UiKit.create("Frame", {
+		Name = "PullRibbon",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(12, HERO_H - 44),
+		Size = UDim2.new(1, -24, 0, 34),
+		ZIndex = 4,
+		Visible = false,
+	}) :: Frame
+	strip.Parent = heroFrame
+	ribbon = strip
+end
+
+local function buildHero(parent: Frame)
+	local frame = plate(parent, Theme.Color.panelSunken, Theme.Radius.md)
+	frame.Name = "Hero"
+	frame.Size = UDim2.new(1, 0, 0, HERO_H)
+	frame.ClipsDescendants = true
+	hero = frame
+
+	local crate = selectedCrate()
+	local theme = Theme.tierBackdrop(crate.tier)
+	stageTint = StageBackdrop.paint(frame, {
+		warm = crate.accent,
+		cool = theme.cool,
+		accent = crate.accent,
+		radius = Theme.Radius.md,
+		zIndex = 0,
+		depth = 0.8,
+	})
+	UiKit.stroke(frame, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.15)
+
+	buildStage()
+
+	-- The reveal's rays and the rest stage's wash both run to the right edge.
+	-- A soft vertical scrim under the info column keeps the type off the light
+	-- without putting it back inside a card.
+	local scrim = UiKit.create("Frame", {
+		Name = "InfoScrim",
+		BackgroundColor3 = Theme.Color.void,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(INFO_X - 24, 0),
+		Size = UDim2.new(1, -(INFO_X - 24), 1, 0),
+		ZIndex = 3,
+	}) :: Frame
+	fadeGradient(scrim, {
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.18, 0.86),
+		NumberSequenceKeypoint.new(1, 0.3),
+	})
+	scrim.Parent = frame
+
+	local info = UiKit.create("Frame", {
+		Name = "Info",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(INFO_X, 14),
+		Size = UDim2.new(1, -INFO_X - 20, 1, -28),
+		ZIndex = 4,
+	}) :: Frame
+	info.Parent = frame
+
+	buildRest(info)
+	buildResult(info)
+	buildRibbon()
 end
 
 local function buildOdds(parent: Frame)
@@ -929,7 +2219,7 @@ local function buildKey(parent: Frame, name: string, x: number, w: number, accen
 		color = if primary then Theme.onColor(fill) else Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
 	})
-	face.Position = UDim2.fromOffset(0, 9)
+	face.Position = UDim2.fromOffset(0, 10)
 	face.Size = UDim2.new(1, 0, 0, 22)
 	face.ZIndex = 2
 
@@ -940,28 +2230,41 @@ local function buildKey(parent: Frame, name: string, x: number, w: number, accen
 		color = if primary then Theme.onColor(fill) else Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Center,
 	})
-	cost.Position = UDim2.fromOffset(0, 34)
+	cost.Position = UDim2.fromOffset(0, 36)
 	cost.Size = UDim2.new(1, 0, 0, 16)
 	cost.ZIndex = 2
 
+	local hoverBase: Color3? = nil
 	UiKit.track(button, button.MouseEnter:Connect(function()
 		Sfx.hover()
-		UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = fill:Lerp(Theme.Color.white, 0.08) })
+		hoverBase = button.BackgroundColor3
+		UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = button.BackgroundColor3:Lerp(Theme.Color.white, 0.08) })
 	end))
 	UiKit.track(button, button.MouseLeave:Connect(function()
-		UiKit.tween(button, Theme.Duration.normal, { BackgroundColor3 = fill })
+		local base = hoverBase or fill
+		hoverBase = nil
+		UiKit.tween(button, Theme.Duration.normal, { BackgroundColor3 = base })
+	end))
+	UiKit.track(button, button.Activated:Connect(function()
+		local base = button.BackgroundColor3
+		UiKit.tween(button, Theme.Duration.instant, { BackgroundColor3 = base:Lerp(Theme.Color.ink, 0.16) })
+		task.delay(0.07, function()
+			if button.Parent then
+				UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = base })
+			end
+		end)
 	end))
 	return button, face, cost
 end
 
 local function buildKeys(parent: Frame)
 	local gap = 10
-	-- 40 / 60 split. The ten-pull is the real purchase on this page; the single
+	-- 38 / 62 split. The ten-pull is the real purchase on this page; the single
 	-- key exists for players who cannot afford ten yet, and it should look like it.
-	local oneW = math.floor((deckWidth() - gap) * 0.4)
+	local oneW = math.floor((deckWidth() - gap) * 0.38)
 	local tenW = deckWidth() - gap - oneW
 
-	rollOne, rollOneFace, rollOneCost = buildKey(parent, "RollOne", 0, oneW, Theme.Color.starMatter, false)
+	rollOne, rollOneFace, rollOneCost = buildKey(parent, "RollOne", 0, oneW, Theme.Color.panelRaised, false)
 	UiKit.track(rollOne, rollOne.Activated:Connect(function()
 		CratesView.roll(1)
 	end))
@@ -1030,7 +2333,6 @@ function CratesView.init(canvas: Frame, x: number, y: number, width: number, hei
 	-- The page owns the crate model for its whole life; mounts happen on select
 	-- and on roll, never on tab switch, so coming back to the page is instant.
 	mountCrate(selectedCrate().shape)
-	paintCrateInfo()
 	paintDeck()
 
 	unsubscribeEvent = StateStore.onEvent(function(event: Types.FeedEvent)
@@ -1038,14 +2340,15 @@ function CratesView.init(canvas: Frame, x: number, y: number, width: number, hei
 			return
 		end
 		-- A roll on the anvil is not this page's business. Only the pull this page
-		-- started owns the reveal.
+		-- started owns the reveal, and only for the pool it started on.
 		if not awaitingReveal then
 			return
 		end
-		pendingResult = event
-		if crateOpen then
-			revealNow()
+		if event.crate ~= nil and event.crate ~= selected then
+			return
 		end
+		pendingResult = event
+		tryReveal()
 	end)
 end
 
@@ -1065,18 +2368,17 @@ function CratesView.layout()
 		railPlate.Size = UDim2.new(0, RAIL_W, 1, 0)
 	end
 	if oddsHost then
-		-- The chips are rebuilt from the new width rather than scaled, so the
-		-- percentage text keeps its own size.
 		paintOdds(selectedCrate())
 	end
-	if rollOne and rollTen and deck then
+	if rollOne and rollTen then
 		local gap = 10
-		local oneW = math.floor((deckWidth() - gap) * 0.4)
+		local oneW = math.floor((deckWidth() - gap) * 0.38)
 		local tenW = deckWidth() - gap - oneW
 		rollOne.Size = UDim2.fromOffset(oneW, KEY_H)
 		rollTen.Position = UDim2.fromOffset(oneW + gap, KEYS_Y)
 		rollTen.Size = UDim2.fromOffset(tenW, KEY_H)
 	end
+	paintPity(selectedCrate())
 end
 
 function CratesView.card(): Frame?
@@ -1098,9 +2400,10 @@ function CratesView.render(payload: Types.SyncPayload)
 		adopted = true
 		if ForgeConfig.crate(payload.forgeCrate) then
 			selected = payload.forgeCrate
-			if viewport then
-				mountCrate(selectedCrate().shape)
-			end
+		end
+		if viewport then
+			mountCrate(selectedCrate().shape)
+			paintRestTint(selectedCrate())
 		end
 	end
 	if not root.Visible then
@@ -1111,18 +2414,16 @@ function CratesView.render(payload: Types.SyncPayload)
 	-- the page pricing a crate the server is not on.
 	if not rolling and ForgeConfig.crate(payload.forgeCrate) and payload.forgeCrate ~= selected then
 		selected = payload.forgeCrate
-		mountCrate(selectedCrate().shape)
-		paintCrateInfo()
+		if not showingResult then
+			unmountCrate()
+			mountCrate(selectedCrate().shape)
+			paintRestTint(selectedCrate())
+		end
 	end
 	-- While the crate is in the air the page is showing its own note, and
 	-- repainting the deck underneath would overwrite the roll's status line.
 	if rolling then
 		return
-	end
-	local note = noteLabel
-	if note and payload.forgeCosts[selected] == nil then
-		note.Text = string.format("This pool opens at %s lifetime Star-Matter.", NumberUtil.abbreviate(selectedCrate().unlock))
-		note.TextColor3 = Theme.Color.locked
 	end
 	paintDeck()
 end
@@ -1134,6 +2435,43 @@ function CratesView.select(id: string): boolean
 	end
 	pick(id)
 	return true
+end
+
+--- Studio seam: paints a reveal without charging or rolling. Used by `QF_Dev`
+--- to check the top-rarity treatment without waiting for a 0.35% pull.
+function CratesView.preview(bladeId: string, variantId: string?): boolean
+	local blade = BladeRegistry.get(bladeId)
+	if blade == nil then
+		return false
+	end
+	rollToken += 1
+	awaitingReveal = true
+	crateOpen = true
+	revealReadyAt = 0
+	pendingResult = {
+		kind = "forged",
+		blade = bladeId,
+		variant = variantId or "prismatic",
+		batch = 1,
+		crate = selected,
+		newBlade = true,
+	}
+	revealNow()
+	return true
+end
+
+--- Leaves the result without buying another pull. The crate comes back, so the
+--- page is a pool browser again rather than a reveal with no exit.
+function CratesView.dismiss()
+	if rolling then
+		return
+	end
+	local crate = selectedCrate()
+	resetStage(crate)
+	unmountCrate()
+	mountCrate(crate.shape)
+	paintRestTint(crate)
+	paintDeck()
 end
 
 function CratesView.selection(): string
@@ -1155,17 +2493,55 @@ function CratesView.destroy()
 		root = nil
 	end
 	table.clear(railRows)
+	table.clear(railChips)
+	table.clear(railPrices)
+	table.clear(railTracks)
+	table.clear(railFills)
+	table.clear(pityTicks)
+	table.clear(ribbonCells)
+	table.clear(rays)
 	deck = nil
 	railPlate = nil
+	hero = nil
 	viewport = nil
-	shortLabel = nil
-	nameLabel = nil
-	blurbLabel = nil
-	stateLabel = nil
-	costValue = nil
-	pityValue = nil
-	gateValue = nil
+	stageTint = nil
+	stageFlash = nil
+	rarityTag = nil
+	rayHost = nil
+	beam = nil
+	daisGlow = nil
+	daisLine = nil
+	chargeBar = nil
+	chargeFill = nil
+	chargeCaption = nil
+	restGroup = nil
+	restEyebrow = nil
+	restTitle = nil
+	restBlurb = nil
+	restPityValue = nil
+	restPityHint = nil
+	pityHost = nil
+	unlockBar = nil
+	unlockFill = nil
+	restCostValue = nil
+	restTenValue = nil
+	restRareValue = nil
+	restMark = nil
+	resultGroup = nil
+	resultKicker = nil
+	resultNew = nil
+	resultVariant = nil
+	resultName = nil
+	resultCondition = nil
+	resultPowerKey = nil
+	resultPowerValue = nil
+	resultEquipped = nil
+	resultAffix = nil
+	resultPity = nil
+	resultBackLabel = nil
+	ribbon = nil
 	oddsHost = nil
+	oddsPityLabel = nil
 	rollOne = nil
 	rollOneFace = nil
 	rollOneCost = nil
@@ -1173,17 +2549,11 @@ function CratesView.destroy()
 	rollTenFace = nil
 	rollTenCost = nil
 	noteLabel = nil
-	resultPlate = nil
-	resultShort = nil
-	resultName = nil
-	resultLine = nil
-	resultPower = nil
-	adoptSelection()
 	rolling = false
 	awaitingReveal = false
+	crateOpen = false
 	pendingResult = nil
+	showingResult = false
 end
-
-adoptSelection()
 
 return CratesView

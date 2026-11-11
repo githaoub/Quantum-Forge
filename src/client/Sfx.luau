@@ -298,8 +298,14 @@ end
 --- the wind-up and the payoff are in the same key.
 function Sfx.rollTick(index: number)
 	local step = math.clamp(index, 1, 8)
-	play(CLICK, jitter(1.05 * note(step), 0.02), 0.06)
-	play(PING, jitter(1.6 * note(step), 0.02), 0.05, 0.005)
+	local weight = 0.05 + step * 0.008
+	play(CLICK, jitter(1.05 * note(step), 0.02), weight)
+	play(PING, jitter(1.6 * note(step), 0.02), weight - 0.01, 0.005)
+	-- The last two beats get a low body. Without it the rattle climbs in pitch
+	-- but not in mass, and the crate reads as a timer rather than as pressure.
+	if index >= 5 then
+		play(IMPACT, jitter(0.48 + step * 0.03, 0.03), 0.1, 0)
+	end
 end
 
 --- Forge celebration: a legendary blade drawn from the quench. Heavy low thud,

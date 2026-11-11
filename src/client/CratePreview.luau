@@ -266,8 +266,8 @@ function CratePreview.mount(viewport: ViewportFrame, style: string?): Handle
 	local shape = if style and BUILDERS[style] then style else "crate"
 
 	viewport.BackgroundTransparency = 1
-	viewport.Ambient = Color3.fromRGB(120, 112, 132)
-	viewport.LightColor = Color3.fromRGB(255, 208, 158)
+	viewport.Ambient = Color3.fromRGB(156, 148, 164)
+	viewport.LightColor = Color3.fromRGB(255, 214, 170)
 	viewport.LightDirection = Vector3.new(-0.5, -0.8, -0.4)
 
 	local world = Instance.new("WorldModel")
@@ -316,6 +316,7 @@ function CratePreview.mount(viewport: ViewportFrame, style: string?): Handle
 			activeTween:Cancel()
 			activeTween = nil
 		end
+		camera.FieldOfView = 40
 		applyOffset(CFrame.new(0, -40, 0))
 	end
 
@@ -392,6 +393,10 @@ function CratePreview.mount(viewport: ViewportFrame, style: string?): Handle
 					Enum.EasingStyle.Quad,
 					Enum.EasingDirection.InOut
 				)
+				-- The camera steps in half a degree per beat. The crate's own tilt
+				-- says "it is moving"; the push-in says "we are getting closer",
+				-- which is the difference between a rattle and a wind-up.
+				Theme.tween(camera, 0.14, { FieldOfView = math.max(33, 42 - beat * 1.3) }, Enum.EasingStyle.Quad)
 				for _, seam in seams do
 					Theme.tween(seam, 0.07, { Transparency = math.max(0, 0.5 - beat * 0.09) }, Enum.EasingStyle.Quad)
 				end

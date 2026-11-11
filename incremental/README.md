@@ -44,6 +44,7 @@ with an audit and a ranked action list, and says what was actually read.
 | `build-log-forge-11.md` | shipped work | What the batch mode, the composited stage wash and the two orbit surfaces changed. |
 | `build-log-forge-12.md` | shipped work | What the 3D crate, the income-relative roll price, the modifier axes, the codex, the boards, trading, the quality ladder and the custom currency art changed. |
 | `build-log-forge-13.md` | shipped work | What the Foundry section rebuilds (crates, fleet, runes, store) and the heat lean point changed, measured. |
+| `build-log-forge-14.md` | shipped work | What the staged crate reveal, the every-copy ribbon, pity progress and the band clamp changed, measured. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
 | `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
 | `game-design-brief.md` | founding document | The game as designed, including what the first plan got wrong. |
@@ -114,18 +115,25 @@ single repainted section banner; the forge lost its deck and its roll column; he
 got a lean point at 90% instead of a lockout; and CRATES, FLEET, RUNES and STORE
 were rebuilt around one focal object each.
 
+**14:** The crate reveal became a ceremony: drop, six-beat rattle, held charge,
+crack, then the copy, with rays and a beam above rank 3. A ten-pull shows every
+copy it paid for, pity reads as progress, `BACK TO POOL` exits a result, and two
+visible rules now match what the server pays (the band clamps at 90, the gauge
+repaints from the payload).
+
 ## Reading order for a fresh session
 
 1. `code-map.md` - what every module owns, so you can jump straight to the file.
 2. `game-design-brief.md` - what the game is.
 3. `game-design-research.md` - the five fun levers and the audit of this build.
 4. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
-5. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
-6. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
-7. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
-8. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
-9. `build-log-forge-09.md` - the vault split view and the one-card guide.
-10. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
-11. `build-log-forge-07.md` - what the RNG forge pass shipped.
+5. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
+6. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
+7. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
+8. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
+9. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
+10. `build-log-forge-09.md` - the vault split view and the one-card guide.
+11. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
+12. `build-log-forge-07.md` - what the RNG forge pass shipped.
 12. `build-log-salvage-06.md` - what the previous pass shipped.
 13. `design-decisions.md` - every ADR, newest last. Read the last one first.

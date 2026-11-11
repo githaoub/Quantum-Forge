@@ -52,6 +52,7 @@ local heatPenalty: Frame? = nil
 local heatFill: Frame? = nil
 local heatFillGradient: UIGradient? = nil
 local heatVentTick: Frame? = nil
+local heatLeanTick: Frame? = nil
 local heatNeedle: Frame? = nil
 local heatBandLabel: TextLabel? = nil
 
@@ -477,6 +478,21 @@ local function buildHeat(parent: Frame)
 		Position = UDim2.fromScale(Config.PenaltyFrom / 100, 0),
 	}) :: Frame
 	heatPenalty.Parent = track
+
+	-- The lean point gets its own full-height tick. The decade ticks and the
+	-- filled red zone tell the player where they are; this tells them where the
+	-- rule changes, before they cross it. The gauge caption names the multiplier
+	-- once they are past it.
+	local leanTick = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.danger,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+		Size = UDim2.new(0, 2, 1, 0),
+		Position = UDim2.fromScale(Config.PenaltyFrom / 100, 0),
+		ZIndex = 3,
+	}) :: Frame
+	leanTick.Parent = track
+	heatLeanTick = leanTick
 
 	heatFill = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.white,
@@ -1165,6 +1181,19 @@ function ForgeView.render(payload: Types.SyncPayload)
 			-- reads its state from the number above it.
 			heatFillGradient.Color = ColorSequence.new(fillColor, fillColor)
 		end
+	end
+	if heatBand then
+		-- The band is a server fact (Thermal Calibration widens it), not the
+		-- build-time default. Before this line the gauge drew 65-85 forever
+		-- while the strike paid the wider band, so the screen disagreed with
+		-- the economy.
+		local lo = math.clamp(bandMin / 100, 0, 1)
+		local hi = math.clamp(bandMax / 100, 0, 1)
+		heatBand.Position = UDim2.fromScale(lo, 0)
+		heatBand.Size = UDim2.fromScale(math.max(0, hi - lo), 1)
+	end
+	if heatLeanTick then
+		heatLeanTick.BackgroundTransparency = if overhot then 0 else 0.3
 	end
 	if heatNeedle then
 		heatNeedle.Position = UDim2.new(heat / 100, -1, 0, -2)

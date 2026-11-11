@@ -3766,3 +3766,76 @@ artifacts, not history**.
 action is marked shipped until it is built and verified. No stale rule is left
 standing in `game-design-brief.md`, `game-design-math.md` or `project-readme.md`;
 where a doc disagrees with an ADR, the ADR wins and the doc gets a pointer.
+
+---
+
+## ADR-083 — The crate reveal is a ceremony, not a text swap
+
+**Context.** The Forge 13 pass rebuilt the crates page into a real section, but the
+reveal was still one shatter and a label swap. A ten-pull reported only its best
+copy and a `x10` caption, so nine of the ten things the player paid for were
+invisible. Pity printed its threshold (`PITY 11 ROLLS`) instead of progress. Two
+fairness bugs sat under the surface: a maxed Thermal Calibration reached a 95 band
+while the lean point started at 90, so the top five points paid half under a 2.5x
+caption; and the gauge drew the build-time 65-85 band forever, so the screen
+disagreed with the economy whenever the tech moved the band.
+
+**Decision.**
+
+- The server's `forged` event carries `results` (every copy in roll order),
+  `power`, `equipped`, `newBlade` and `newVariant`. The top-level fields remain
+  the best copy for older callers.
+- The crates page stages a five-beat reveal: drop, six-beat rattle, held charge,
+  crack, copy. The charge bar, the last tick, the anticipation ring and the
+  `REVEAL_HOLD` pause are all part of the wind-up.
+- Rank 3 and up get rays and a beam; rank 4 and up get an extra ring after the
+  first; rank 5 delays the info entrance by 0.34 s so the copy lands alone.
+- A batch pull gets a ribbon under the result, one cell per copy, variant on the
+  left edge and rarity on the bottom edge. Each cell lands 0.06 s after the last;
+  the best copy is marked by blade id and power.
+- Pity is drawn as progress: `PITY 3 / 11`, one tick per roll, and
+  `GUARANTEE NEXT ROLL` at the edge. The card explains that the counter follows
+  the profile and only resets when a Void or better lands.
+- Crate unlocks are per run. The copy says `RUN`, not `LIFETIME`.
+- Thermal Calibration clamps `sweetSpotMax` to `Config.PenaltyFrom` (90), and the
+  heat gauge repaints its band from `payload.bandMin` / `payload.bandMax` on every
+  sync. A full-height 90% tick marks the lean point.
+- Rarity colours come from `BladeRegistry.RARITY_INFO`. Quantum is mint, not the
+  gold used for Star-Matter; the same word no longer means two colours on two
+  screens.
+- `BACK TO POOL` exits a result without buying another pull. `QF_Dev` gains
+  `cratePreview` (force a reveal) and `crateDismiss` (the same path the button
+  takes).
+
+**Why.**
+
+- Anticipation is the lever the research note ranks highest for the crate. A
+  ten-pull has to show ten things or the batch is a discount, not a run.
+- Pity is a near-miss. A threshold is a rule; progress is a near-miss.
+- A rule the player can see has to match the rule the server pays. The 90 tick and
+  the band clamp make the lean point legible before the player crosses it.
+- The crate is the peak of the session. A peak needs a shape, a rise, and a
+  landing; the old reveal only had the landing.
+
+**What it costs.**
+
+- Press to result is about 2 s (drop, six beats, hold, flash). A player in a hurry
+  pays it on every pull; the ten-pull amortises it across ten copies.
+- The page is a bigger state machine: idle, charge, hold, reveal, result, ribbon,
+  dismiss. The `QF_Dev` seams are the only way to drive it without a pointer.
+- The ribbon depends on the server payload. A legacy event with no `results` falls
+  back to the best copy and hides the strip.
+
+### Honesty
+
+| Thing | State | Note |
+| --- | --- | --- |
+| Static gates | `selene src/` 0 errors, 0 warnings, 0 parse errors; `rojo build -o verify.rbxlx` succeeds | `stylua`, `wally` and `luau-lsp` are still not installed. |
+| Charge phase | Property read at 0.9 s: bar visible, fill 0.63, caption `BREACHING`, tag hidden | Not photographed at the exact beat; the screen capture latency is longer than the hold. |
+| Ten-pull ribbon | Live pull returned 10 copies; the strip showed all 10, the best cell marked, power 4.18K, auto-equipped | The stagger was seen as a completed strip, not as a mid-sequence frame. |
+| Top-rarity reveal | `cratePreview quanta_verge` forced Prismatic/Quantum; rays, ring and `NEW BLADE` rendered | The natural 0.35% path was not observed. The preview has no power, so the power row hides. |
+| Dismiss path | `crateDismiss` returned result hidden, rest visible, tag hidden, one WorldModel mounted | The `BACK TO POOL` button was not clicked with a pointer; the seam calls the same function. |
+| Heat band | 99% showed `OVERHOT YIELD x0.5`; vent to 43% showed `BAND 55-90` with the 90 tick | The band now follows the payload; the clamp is in `TechTreeConfig`. |
+| Pity label | Live page read `PITY 9 / 11` and `GUARANTEE IN 2`; ticks filled to 9 | The guarantee switch was not crossed in this session. |
+| Sounds | New heavier roll ticks and the result fanfare call are code-verified | The kit is unchanged apart from `rollTick`; the new layers were not heard in this pass. |
+| Result layout | `BackToPool` 285-299, `PullRibbon` 309-333 at the test window, so the two do not overlap | Absolute positions were checked because the screenshot scale hides 10 px. |

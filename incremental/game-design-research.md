@@ -280,24 +280,25 @@ That is the balance version of "a feature that serves no aesthetic is a chore."
 | Goal density | short and mid strong; long is thin at the top | first ascension 7–17 min; leaderboard is the only long status | keep the first ascension; make the codex completion visible | S |
 | Open loops | one appointment, one near-miss, one long arc | daily, pity, codex | do not add a second daily or energy bar | — |
 | Peak-end | the crate is a strong peak; the session has no closing beat | crate sequence; offline card is the return beat | add "best thing + next goal" to the offline card | S |
-| Randomness | odds and pity are honest; the pity label is ambiguous | `PITY 8 ROLLS` uses the threshold, not progress | `PITY 3 / 8` or `GUARANTEE IN 5` | XS |
-| Fairness | the lean point is legible and soft; no lockout | ADR-079, gauge caption, danger fill | add a 90% tick; clamp Thermal Calibration's band to 90 or paint 90–95 as lean | S |
+| Randomness | odds and pity are honest; the pity label is ambiguous | `PITY 8 ROLLS` used the threshold, not progress | `PITY 3 / 8` or `GUARANTEE IN 5` | XS, shipped |
+| Fairness | the lean point is legible and soft; no lockout | ADR-079, gauge caption, danger fill | add a 90% tick; clamp Thermal Calibration's band to 90 or paint 90–95 as lean | S, shipped |
+| Anticipation (crates) | the crate had a slam and a shatter, but the reveal was a text swap; a ten-pull showed only its best copy | `CratesView`, `FeedEvent` | staged reveal, every-copy ribbon, rarity ceremony | L, shipped |
 | UI hierarchy | Foundry system is consistent; navigation is flat | one accent, 1 px rules, 92 px rail | add a new-unlock dot; keep the rail at six | S |
 | Feedback | strike is predicted; crate has slam/wind-up/shatter | client prediction, Sfx/Vfx | none | — |
 | Monetization | convenience, not access; store reads `SOON` | 5 passes + 4 products, all ids 0 | do not gate progress; finish listings when the key allows | — |
 
 ### Ranked actions
 
-1. **Pity label progress** (`XS`). Read `StateStore.current.forgePity` /
-   `forgePityGoal` in `CratesView.paintOdds` and print `PITY 3 / 8`. One line,
-   no layout change, immediate fairness gain.
-2. **A 90% tick on the heat gauge, and a decision about the widened band** (`S`).
-   The lean point is a rule the player should see before they cross it, not only
-   after. A hairline tick plus the existing `OVERHOT YIELD x0.5` caption is enough.
-   At max Thermal Calibration the band runs to 95 but the lean point starts at 90,
-   so the top five points pay `1.25x` while the caption still says `x2.5`. Clamp
-   `sweetSpotMax` to `PenaltyFrom`, or paint `90–95` as lean, or the tech is selling
-   a multiplier it does not pay (see `game-design-math.md` §7).
+1. **Pity label progress** (`XS`, shipped 2026-11-11). Read `StateStore.current.forgePity` /
+   `forgePityGoal` in `CratesView.paintOdds` and print `PITY 3 / 8`. The page now
+   draws one tick per roll, a gold goal tick, and `GUARANTEE IN N`. One line, no
+   layout change, immediate fairness gain.
+2. **A 90% tick on the heat gauge, and a decision about the widened band** (`S`,
+   shipped 2026-11-11). The lean point is a rule the player should see before they
+   cross it, not only after. The gauge now repaints `bandMin` / `bandMax` from the
+   payload, a full-height 90% tick marks the lean point, and `sweetSpotMax` clamps
+   to `PenaltyFrom` so the top of a maxed band cannot pay `0.5x` under a `2.5x`
+   caption (see `game-design-math.md` §7).
 3. **One `NEXT` line in the rail foot** (`M`). Cheapest available unlock: next
    blade, next drone, next tech node, or the daily. This is the return-player
    answer to "what now?" and the antidote to goal smog.
