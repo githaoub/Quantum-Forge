@@ -31,6 +31,12 @@ local DroneModelBuilder = {}
 --- Asset id of the sculpted drone in `scripts/build_models.py` / the manifest.
 local DRONE_ID = "fleet_drone"
 
+-- The sculpted hull is referenced by the manifest but its MeshParts are not
+-- authorized in this place: the parts replicate with a MeshId that resolves to
+-- nothing, so the hero stage renders an empty grid. uildPrimitive is the
+-- shipped look until the asset is published here. Flip this to true then.
+local DRONE_MESH_READY = false
+
 local CORE_RADIUS = 1.05
 local HOOP_SEGMENTS = 14
 local FIN_COUNT = 4
@@ -426,7 +432,7 @@ end
 --- render the same mesh is a price list, not a fleet.
 function DroneModelBuilder.build(model: Model, tierId: string?): Model
 	local tier = DroneRegistry.get(tierId) or DroneRegistry.tiers[1]
-	if tier.tier == 1 then
+	if DRONE_MESH_READY and tier.tier == 1 then
 		local entry = AssetManifest.mesh(DRONE_ID)
 		if entry ~= nil then
 			local source = meshSource()
@@ -444,7 +450,7 @@ end
 
 --- True when the sculpted drone has replicated.
 function DroneModelBuilder.hasMesh(): boolean
-	return meshSource() ~= nil
+	return DRONE_MESH_READY and meshSource() ~= nil
 end
 
 --- Mounts a spinning drone inside `viewport`. Returns a cleanup function.

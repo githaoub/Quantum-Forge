@@ -35,10 +35,8 @@ local DroneView = {}
 
 local ExpeditionConfig = require(Shared:WaitForChild("ExpeditionConfig"))
 
--- Bands, in design pixels: hero 236, strip 64, ladder 82, then the services.
-local HERO_H = 236
-local STAGE_PAD = 8
-local STAT_H = 64
+-- Bands, in design pixels: hero 208, strip 64, ladder 82, then the services.
+local HERO_H = 208
 local LADDER_H = 82
 --- Salvage rack: 28 header/meter + 100 slots + 12 bottom.
 local SALVAGE_H = 164
@@ -185,8 +183,8 @@ local function buildStage(parent: Frame)
 	local frame = UiKit.create("ViewportFrame", {
 		Name = "DroneViewport",
 		BackgroundTransparency = 1,
-		Ambient = Color3.fromRGB(104, 118, 150),
-		LightColor = Color3.fromRGB(176, 232, 255),
+		Ambient = Color3.fromRGB(152, 168, 200),
+		LightColor = Color3.fromRGB(228, 242, 255),
 		LightDirection = Vector3.new(-0.5, -0.7, -0.5),
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 2,
@@ -194,34 +192,19 @@ local function buildStage(parent: Frame)
 	frame.Parent = stage
 	viewport = frame
 
-	-- Bottom scrim behind the buy keys. The render runs full bleed underneath;
-	-- the keys sit on a fade, not on a plate.
-	local scrim = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.void,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 78),
-		Position = UDim2.new(0, 0, 1, -78),
-		ZIndex = 3,
-	}) :: Frame
-	local fade = UiKit.gradient(scrim, { Theme.Color.void, Theme.Color.void }, 90)
-	fade.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(1, 0.12),
-	})
-	scrim.Parent = stage
-
 	return stage
 end
 
 --- One cell of the three-column stat strip.
-local function buildStat(parent: Frame, x: number, width: number, caption: string, color: Color3): TextLabel
+local function buildStat(parent: Frame, x: number, width: number, caption: string, color: Color3, y: number?): TextLabel
 	local head = UiKit.label(parent, {
 		text = caption,
 		size = Theme.Text.Micro,
 		font = Theme.Font.Black,
 		color = Theme.Color.textSecondary,
 	})
-	head.Position = UDim2.fromOffset(x, 7)
+	local top = y or 7
+	head.Position = UDim2.fromOffset(x, top)
 	head.Size = UDim2.fromOffset(width, 18)
 
 	local value = UiKit.label(parent, {
@@ -230,7 +213,7 @@ local function buildStat(parent: Frame, x: number, width: number, caption: strin
 		font = Theme.Font.Numeric,
 		color = color,
 	})
-	value.Position = UDim2.fromOffset(x, 27)
+	value.Position = UDim2.fromOffset(x, top + 20)
 	value.Size = UDim2.fromOffset(width, 28)
 	return value
 end
@@ -684,8 +667,8 @@ local function buildLadder(parent: Instance)
 		key.Parent = row
 
 		local name = UiKit.label(key, {
-			text = tier.short,
-			size = 14,
+			text = string.upper(tier.name),
+			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
 			color = Theme.Color.locked,
 			align = Enum.TextXAlignment.Center,
@@ -736,8 +719,8 @@ local function buildLadder(parent: Instance)
 	end
 end
 
---- Remounts the viewport at a rung. The camera pulls back a little and aims low
---- so the hull sits above the buy keys in the 220px stage.
+--- Remounts the viewport at a rung. The camera frames the hull in the 42%-wide
+--- stage beside the purchase column.
 local function mountTier(id: string)
 	if viewport == nil then
 		return
@@ -747,16 +730,20 @@ local function mountTier(id: string)
 		cleanupModel = nil
 	end
 	cleanupModel = DroneModelBuilder.mount(viewport, id, {
-		-- 8.8 units of stand-off, aimed below the hull: every rung then fits
-		-- between the name plate (top 30px) and the buy keys (bottom 42px).
-		distance = 8.8,
-		centre = Vector3.new(0, -0.42, 0),
+		-- 6.4 units of stand-off on a 42%-wide stage, aimed just below the hull.
+		-- The old 8.8 was measured for a full-width 220px stage; in the smaller stage
+		-- it left the drone the size of a postage stamp.
+		distance = 6.4,
+		centre = Vector3.new(0, -0.15, 0),
 	})
 	mountedTier = id
 end
 
 function DroneView.init(parent: Instance)
-	-- Band 1: hero.
+	-- Band 1: hero. Two columns instead of one empty hangar band: the drone on the
+	-- left, the numbers and the buy keys on the right. The wide stage put the
+	-- name plate at the top, the keys at the bottom and the hull in a 34px gap
+	-- between them.
 	local hero = UiKit.panel(parent, {
 		tier = "raised",
 		radius = Theme.Radius.card,
@@ -766,76 +753,81 @@ function DroneView.init(parent: Instance)
 	hero.LayoutOrder = 1
 
 	local stage = buildStage(hero)
-	stage.Position = UDim2.fromOffset(STAGE_PAD, STAGE_PAD)
-	stage.Size = UDim2.new(1, -STAGE_PAD * 2, 1, -STAGE_PAD * 2)
+	stage.Position = UDim2.fromOffset(8, 8)
+	stage.Size = UDim2.new(0.42, -12, 1, -16)
 
-	-- Name plate, top left: rung name and owned count on one solid pill.
-	local plate = UiKit.create("Frame", {
-		Name = "TierPlate",
-		BackgroundColor3 = Theme.Color.slate,
-		BackgroundTransparency = 0.06,
-		BorderSizePixel = 0,
-		Size = UDim2.fromOffset(320, 30),
-		Position = UDim2.fromOffset(12, 12),
-		ZIndex = 4,
+	local info = UiKit.create("Frame", {
+		Name = "FleetInfo",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0.42, 6, 0, 12),
+		Size = UDim2.new(0.58, -22, 1, -24),
+		ZIndex = 3,
 	}) :: Frame
-	UiKit.corner(plate, Theme.Radius.round)
-	UiKit.stroke(plate, Theme.Color.outline, 2, 0)
-	plate.Parent = stage
+	info.Parent = hero
 
-	tierNameLabel = UiKit.label(plate, {
+	local eye = UiKit.eyebrow(info, "SELECTED RUNG")
+	eye.Position = UDim2.fromOffset(0, 0)
+
+	tierNameLabel = UiKit.label(info, {
 		text = "SCRAP DRONE",
-		size = 14,
-		font = Theme.Font.Black,
+		size = Theme.Text.Title - 6,
+		font = Theme.Font.Heading,
 		color = Theme.Color.aether,
 	})
-	tierNameLabel.Position = UDim2.fromOffset(12, 0)
-	tierNameLabel.Size = UDim2.fromOffset(200, 30)
-	tierNameLabel.ZIndex = 5
+	tierNameLabel.Name = "TierName"
+	tierNameLabel.Position = UDim2.fromOffset(0, 16)
+	tierNameLabel.Size = UDim2.new(1, -130, 0, 28)
 
-	tierOwnedLabel = UiKit.label(plate, {
+	tierOwnedLabel = UiKit.label(info, {
 		text = "0 OWNED",
-		size = 13,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
+	})
+	tierOwnedLabel.Name = "TierOwned"
+	tierOwnedLabel.Position = UDim2.fromOffset(0, 46)
+	tierOwnedLabel.Size = UDim2.fromOffset(180, 14)
+
+	tierIndexLabel = UiKit.label(info, {
+		text = "TIER 1/5",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Right,
 	})
-	tierOwnedLabel.Position = UDim2.new(1, -120, 0, 0)
-	tierOwnedLabel.Size = UDim2.fromOffset(108, 30)
-	tierOwnedLabel.ZIndex = 5
+	tierIndexLabel.Name = "TierIndex"
+	tierIndexLabel.Position = UDim2.new(1, -130, 0, 46)
+	tierIndexLabel.Size = UDim2.fromOffset(130, 14)
 
-	-- Rung index, top right.
-	local indexPill = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.slate,
-		BackgroundTransparency = 0.06,
-		BorderSizePixel = 0,
-		Size = UDim2.fromOffset(96, 30),
-		Position = UDim2.new(1, -108, 0, 12),
-		ZIndex = 4,
-	}) :: Frame
-	UiKit.corner(indexPill, Theme.Radius.round)
-	UiKit.stroke(indexPill, Theme.Color.outline, 2, 0)
-	indexPill.Parent = stage
+	UiKit.rule(info, { position = UDim2.fromOffset(0, 70) })
 
-	tierIndexLabel = UiKit.label(indexPill, {
-		text = "TIER 1/5",
-		size = 13,
-		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Center,
-	})
-	tierIndexLabel.Size = UDim2.fromScale(1, 1)
-	tierIndexLabel.ZIndex = 5
+	-- Three figures on one line: how many drones, what they produce, and what the
+	-- next one is worth. Same order as the decision the player is making.
+	fleetLabel = buildStat(info, 0, 112, "FLEET", Theme.Color.text, 78)
+	outputLabel = buildStat(info, 124, 112, "OUTPUT", Theme.Color.starMatter, 78)
+	perDroneLabel = buildStat(info, 248, 108, "PER DRONE", Theme.Color.aether, 78)
+	for _, x in { 112, 238 } do
+		local divider = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.stroke,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(1, 38),
+			Position = UDim2.fromOffset(x, 78),
+			ZIndex = 3,
+		}) :: Frame
+		divider.Parent = info
+	end
 
-	-- Buy keys, inside the stage on the bottom scrim.
+	-- Buy keys, bottom of the information column. The single is the primary key;
+	-- the ten-pack is a quiet plate beside it, so the column has one verb.
 	local dock = UiKit.create("Frame", {
 		Name = "FleetDock",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -24, 0, 46),
-		Position = UDim2.new(0, 12, 1, -58),
+		Position = UDim2.new(0, 0, 1, -46),
+		Size = UDim2.new(1, 0, 0, 46),
 		ZIndex = 4,
 	}) :: Frame
-	dock.Parent = stage
+	dock.Parent = info
 	UiKit.hlist(dock, 8, Enum.VerticalAlignment.Center)
 
 	local oneHandle = UiKit.actionButton(dock, {
@@ -852,50 +844,24 @@ function DroneView.init(parent: Instance)
 		end,
 	})
 	oneHandle.button.Name = "BuyDrone"
-	oneHandle.button.Size = UDim2.new(0.5, -4, 0, 46)
+	oneHandle.button.Size = UDim2.new(0.44, -4, 0, 46)
 	oneHandle.button.ZIndex = 5
 	buyOneHandle = oneHandle
 
 	local tenHandle = UiKit.actionButton(dock, {
-		accent = Theme.Color.deepBlue,
+		accent = Theme.Color.aether,
 		height = 46,
 		radius = Theme.Radius.md,
 		size = 15,
-		solid = true,
-		labelColor = Theme.Color.gold,
 		label = "BUILD 10",
 		handler = function()
 			buy(10)
 		end,
 	})
 	tenHandle.button.Name = "BuyDroneTen"
-	tenHandle.button.Size = UDim2.new(0.5, -4, 0, 46)
+	tenHandle.button.Size = UDim2.new(0.56, -4, 0, 46)
 	tenHandle.button.ZIndex = 5
 	buyTenHandle = tenHandle
-
-	-- Band 2: the three numbers a purchase decision needs.
-	local strip = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.md,
-	})
-	strip.Name = "FleetStrip"
-	strip.Size = UDim2.new(1, -4, 0, STAT_H)
-	strip.LayoutOrder = 2
-
-	fleetLabel = buildStat(strip, 14, 132, "FLEET", Theme.Color.text)
-	outputLabel = buildStat(strip, 166, 140, "OUTPUT", Theme.Color.starMatter)
-	perDroneLabel = buildStat(strip, 320, 132, "PER DRONE", Theme.Color.aether)
-
-	for _, x in { 158, 312 } do
-		local divider = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.stroke,
-			BackgroundTransparency = 0.35,
-			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(1, 42),
-			Position = UDim2.fromOffset(x, 11),
-		}) :: Frame
-		divider.Parent = strip
-	end
 
 	-- Band 3: the ladder.
 	buildLadder(parent)
@@ -1187,7 +1153,7 @@ function DroneView.render(payload: Types.SyncPayload)
 			if rung.unlocked then
 				unlockedCount += 1
 			end
-			key.name.Text = rungTier.short
+			key.name.Text = string.upper(rungTier.name)
 			key.name.TextColor3 = if rung.unlocked then rungTier.glow else Theme.Color.locked
 			key.count.Text = NumberUtil.abbreviate(rung.owned)
 			key.count.TextColor3 = if rung.owned > 0 then Theme.Color.text else Theme.Color.textDim

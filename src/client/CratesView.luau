@@ -43,7 +43,7 @@ local CratesView = {}
 -- ---------------------------------------------------------------------------
 
 local PAD = 18
-local HEADER_H = 46
+local HEADER_H = 64
 local RAIL_W = 300
 local ROW_H = 82
 local ROW_GAP = 6
@@ -59,7 +59,7 @@ local DECK_X = RAIL_W + 18
 --- Same five hues the blade cards use, so "VOID 26%" here and a purple card in
 --- the vault are the same fact.
 local RARITY_COLOR: { [string]: Color3 } = {
-	Scrap = Theme.Color.textDim,
+	Scrap = Theme.Color.locked,
 	Forged = Theme.Color.cyan,
 	Astral = Theme.Color.quantum,
 	Void = Theme.Color.magenta,
@@ -301,53 +301,86 @@ local function paintOdds(crate: ForgeConfig.Tier)
 		end
 	end
 
+	local width = deckWidth()
 	local entries = ForgeConfig.odds(crate)
-	local width = math.floor((deckWidth() - 4 * 8) / 5)
-	for index, entry in entries do
-		local chip = plate(host, Theme.Color.panelSunken, Theme.Radius.sm)
-		chip.Name = "Odds_" .. entry.rarity
-		chip.Position = UDim2.fromOffset((index - 1) * (width + 8), 0)
-		chip.Size = UDim2.fromOffset(width, ODDS_H)
-		UiKit.stroke(chip, Theme.Color.strokeFaint, Theme.Stroke.hair, 0.3)
 
+	local eye = UiKit.label(host, {
+		text = "DROP ODDS",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	eye.Size = UDim2.fromOffset(200, 14)
+
+	local pity = UiKit.label(host, {
+		text = string.format("PITY %d ROLLS", crate.pity),
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	pity.Position = UDim2.new(1, -220, 0, 0)
+	pity.Size = UDim2.fromOffset(220, 14)
+
+	-- One stacked bar, not five cards. Five equal cards said every outcome was
+	-- equally likely; a single bar makes the 0.35% sliver look like what it is.
+	-- Drawn common to rare, so the legend under it reads in the same order.
+	local barY = 22
+	local barH = 22
+	local cursor = 0
+	for index = #entries, 1, -1 do
+		local entry = entries[index]
 		local color = RARITY_COLOR[entry.rarity] or Theme.Color.text
+		local px = math.max(math.floor(width * entry.chance), 2)
+		local seg = plate(host, color, 1)
+		seg.Name = "Seg_" .. entry.rarity
+		seg.Position = UDim2.fromOffset(math.floor(cursor), barY)
+		seg.Size = UDim2.fromOffset(px, barH)
+		seg.ZIndex = 2
+		cursor += px
+	end
 
-		local wash = plate(chip, color, 2)
-		wash.Size = UDim2.fromScale(1, 1)
-		wash.BackgroundTransparency = 0.92
-		wash.ZIndex = 2
+	local frame = UiKit.create("Frame", {
+		Name = "OddsFrame",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, barY),
+		Size = UDim2.fromOffset(width, barH),
+	}) :: Frame
+	frame.ZIndex = 3
+	UiKit.stroke(frame, Theme.Color.stroke, Theme.Stroke.hair, 0.2)
+	frame.Parent = host
 
-		local rarity = UiKit.label(chip, {
+	-- Legend: colour, name, chance. Five even columns under the bar.
+	local columns = #entries
+	local gap = 10
+	local colW = math.floor((width - gap * (columns - 1)) / columns)
+	for slot = 1, columns do
+		local entry = entries[columns - slot + 1]
+		local color = RARITY_COLOR[entry.rarity] or Theme.Color.text
+		local x = (slot - 1) * (colW + gap)
+
+		local dot = plate(host, color, 1)
+		dot.Position = UDim2.fromOffset(x, 56)
+		dot.Size = UDim2.fromOffset(8, 8)
+		dot.ZIndex = 3
+
+		local name = UiKit.label(host, {
 			text = string.upper(entry.rarity),
 			size = Theme.Text.Tiny,
-			font = Theme.Font.Heading,
-			color = color,
+			font = Theme.Font.Black,
+			color = Theme.Color.textDim,
 		})
-		rarity.Position = UDim2.fromOffset(12, 12)
-		rarity.Size = UDim2.new(1, -24, 0, 16)
-		rarity.ZIndex = 3
+		name.Position = UDim2.fromOffset(x + 14, 50)
+		name.Size = UDim2.fromOffset(colW - 14, 14)
 
-		local chance = UiKit.label(chip, {
+		local chance = UiKit.label(host, {
 			text = string.format("%.2f%%", entry.chance * 100),
-			size = Theme.Text.Heading,
+			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.text,
 		})
-		chance.Position = UDim2.fromOffset(12, 32)
-		chance.Size = UDim2.new(1, -24, 0, 28)
-		chance.ZIndex = 3
-
-		local bar = UiKit.bar(chip, {
-			height = 6,
-			fill = color,
-			radius = 3,
-		})
-		bar.track.Position = UDim2.fromOffset(12, ODDS_H - 22)
-		bar.track.Size = UDim2.new(1, -24, 0, 6)
-		bar.track.ZIndex = 3
-		-- A 0.35% slice is a hairline on a 200px bar; the floor keeps the rarest
-		-- row visible instead of reading as an empty well.
-		bar.set(math.max(entry.chance, 0.04))
+		chance.Position = UDim2.fromOffset(x + 14, 66)
+		chance.Size = UDim2.fromOffset(colW - 14, 14)
 	end
 end
 
@@ -381,34 +414,39 @@ local function paintDeck()
 
 	if rollOne then
 		local ready = q ~= nil and state ~= nil and state.sm >= q.one
-		rollOne.BackgroundColor3 = if ready then crate.accent else Theme.Color.slate
+		rollOne.BackgroundColor3 = if ready then Theme.Color.panelRaised else Theme.Color.slate
 		local stroke = rollOne:FindFirstChildOfClass("UIStroke")
 		if stroke then
-			stroke.Color = if ready then Theme.Color.outline else Theme.Color.stroke
+			stroke.Color = if ready then Theme.Color.strokeBright else Theme.Color.stroke
 		end
 		if rollOneFace then
 			rollOneFace.Text = if q then "ROLL" else "LOCKED"
+			rollOneFace.TextColor3 = if ready then Theme.Color.text else Theme.Color.locked
 			rollOneFace.TextTransparency = if ready then 0 else 0.35
 		end
 		if rollOneCost then
 			rollOneCost.Text = if q then string.format("%s SM", NumberUtil.abbreviate(q.one)) else "--"
+			rollOneCost.TextColor3 = if ready then Theme.Color.textFaint else Theme.Color.locked
 			rollOneCost.TextTransparency = if ready then 0 else 0.45
 		end
 	end
 
 	if rollTen then
 		local ready = q ~= nil and state ~= nil and state.sm >= q.ten
-		rollTen.BackgroundColor3 = if ready then Theme.Color.quantumDeep else Theme.Color.slate
+		local tint = crate.accent
+		rollTen.BackgroundColor3 = if ready then tint else Theme.Color.slate
 		local stroke = rollTen:FindFirstChildOfClass("UIStroke")
 		if stroke then
 			stroke.Color = if ready then Theme.Color.outline else Theme.Color.stroke
 		end
 		if rollTenFace then
 			rollTenFace.Text = if q then "ROLL x10" else "LOCKED"
+			rollTenFace.TextColor3 = if ready then Theme.onColor(tint) else Theme.Color.locked
 			rollTenFace.TextTransparency = if ready then 0 else 0.35
 		end
 		if rollTenCost then
 			rollTenCost.Text = if q then string.format("%s SM", NumberUtil.abbreviate(q.ten)) else "--"
+			rollTenCost.TextColor3 = if ready then Theme.onColor(tint) else Theme.Color.locked
 			rollTenCost.TextTransparency = if ready then 0 else 0.45
 		end
 	end
@@ -612,25 +650,14 @@ end
 local function header(parent: Frame)
 	local banner = UiKit.banner(parent, {
 		text = "CRATE VAULT",
+		subtitle = "FIVE POOLS  ·  ONE ROLL  ·  ODDS ON THE TABLE",
 		width = UDim2.new(1, 0, 0, HEADER_H),
 		height = HEADER_H,
-		size = 22,
+		size = Theme.Text.Title - 4,
 		accent = Theme.Color.quantum,
 		icon = "★",
 	})
 	banner.Name = "Header"
-
-	local sub = UiKit.label(banner, {
-		text = "FIVE POOLS  ·  ONE ROLL  ·  ODDS ON THE TABLE",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Label,
-		color = Theme.Color.textDim,
-		align = Enum.TextXAlignment.Right,
-	})
-	sub.Name = "Caption"
-	sub.Position = UDim2.new(0, 0, 0, 0)
-	sub.Size = UDim2.new(1, -60, 1, 0)
-	sub.ZIndex = 3
 end
 
 local function buildRail(parent: Frame)
@@ -877,11 +904,14 @@ local function buildOdds(parent: Frame)
 	oddsHost = band
 end
 
---- One roll key: a big verb with its price underneath, in the crate's accent.
-local function buildKey(parent: Frame, name: string, x: number, w: number, accent: Color3): (TextButton, TextLabel, TextLabel)
+--- One roll key. `primary` gets the saturated fill and the heavy outline; the
+--- secondary key is a quiet plate beside it. Two equally loud keys made the page
+--- ask "which one is the real button" on every visit.
+local function buildKey(parent: Frame, name: string, x: number, w: number, accent: Color3, primary: boolean): (TextButton, TextLabel, TextLabel)
+	local fill = if primary then accent else Theme.Color.panelRaised
 	local button = UiKit.create("TextButton", {
 		Name = name,
-		BackgroundColor3 = accent,
+		BackgroundColor3 = fill,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
@@ -889,27 +919,25 @@ local function buildKey(parent: Frame, name: string, x: number, w: number, accen
 		Size = UDim2.fromOffset(w, KEY_H),
 	}) :: TextButton
 	UiKit.corner(button, Theme.Radius.md)
-	UiKit.gradient(button, { accent, accent:Lerp(Theme.Color.void, 0.35) }, 90)
-	UiKit.stroke(button, Theme.Color.outline, Theme.Stroke.thick, 0)
+	UiKit.stroke(button, if primary then Theme.Color.outline else Theme.Color.strokeBright, if primary then Theme.Stroke.bold else Theme.Stroke.thin, 0)
 	button.Parent = parent
 
 	local face = UiKit.label(button, {
 		text = "ROLL",
-		size = 20,
+		size = Theme.Text.Subheading,
 		font = Theme.Font.Black,
-		color = Theme.Color.white,
+		color = if primary then Theme.onColor(fill) else Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
-		stroke = true,
 	})
-	face.Position = UDim2.fromOffset(0, 8)
-	face.Size = UDim2.new(1, 0, 0, 24)
+	face.Position = UDim2.fromOffset(0, 9)
+	face.Size = UDim2.new(1, 0, 0, 22)
 	face.ZIndex = 2
 
 	local cost = UiKit.label(button, {
 		text = "--",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
-		color = Theme.Color.white,
+		color = if primary then Theme.onColor(fill) else Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Center,
 	})
 	cost.Position = UDim2.fromOffset(0, 34)
@@ -918,20 +946,27 @@ local function buildKey(parent: Frame, name: string, x: number, w: number, accen
 
 	UiKit.track(button, button.MouseEnter:Connect(function()
 		Sfx.hover()
+		UiKit.tween(button, Theme.Duration.fast, { BackgroundColor3 = fill:Lerp(Theme.Color.white, 0.08) })
+	end))
+	UiKit.track(button, button.MouseLeave:Connect(function()
+		UiKit.tween(button, Theme.Duration.normal, { BackgroundColor3 = fill })
 	end))
 	return button, face, cost
 end
 
 local function buildKeys(parent: Frame)
 	local gap = 10
-	local w = (deckWidth() - gap) / 2
+	-- 40 / 60 split. The ten-pull is the real purchase on this page; the single
+	-- key exists for players who cannot afford ten yet, and it should look like it.
+	local oneW = math.floor((deckWidth() - gap) * 0.4)
+	local tenW = deckWidth() - gap - oneW
 
-	rollOne, rollOneFace, rollOneCost = buildKey(parent, "RollOne", 0, w, Theme.Color.starMatterDeep)
+	rollOne, rollOneFace, rollOneCost = buildKey(parent, "RollOne", 0, oneW, Theme.Color.starMatter, false)
 	UiKit.track(rollOne, rollOne.Activated:Connect(function()
 		CratesView.roll(1)
 	end))
 
-	rollTen, rollTenFace, rollTenCost = buildKey(parent, "RollTen", w + gap, w, Theme.Color.quantumDeep)
+	rollTen, rollTenFace, rollTenCost = buildKey(parent, "RollTen", oneW + gap, tenW, Theme.Color.starMatter, true)
 	UiKit.track(rollTen, rollTen.Activated:Connect(function()
 		CratesView.roll(10)
 	end))
@@ -1036,10 +1071,11 @@ function CratesView.layout()
 	end
 	if rollOne and rollTen and deck then
 		local gap = 10
-		local w = (deckWidth() - gap) / 2
-		rollOne.Size = UDim2.fromOffset(w, KEY_H)
-		rollTen.Position = UDim2.fromOffset(w + gap, KEYS_Y)
-		rollTen.Size = UDim2.fromOffset(w, KEY_H)
+		local oneW = math.floor((deckWidth() - gap) * 0.4)
+		local tenW = deckWidth() - gap - oneW
+		rollOne.Size = UDim2.fromOffset(oneW, KEY_H)
+		rollTen.Position = UDim2.fromOffset(oneW + gap, KEYS_Y)
+		rollTen.Size = UDim2.fromOffset(tenW, KEY_H)
 	end
 end
 

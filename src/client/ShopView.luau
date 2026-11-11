@@ -206,21 +206,25 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 	return row
 end
 
-local function buildHeader(parent: Instance, text: string, order: number)
+--- Group header. A 14px caption over a stack of 104px plates was invisible, so
+--- the header is now a 15px black rule-of-the-store sign with the count beside
+--- it. It stays a TextLabel because the row distributor uses that class to keep
+--- a header attached to the rows it introduces.
+local function buildHeader(parent: Instance, text: string, count: number, order: number)
 	local label = UiKit.label(parent, {
-		text = text,
-		size = Theme.Text.Micro,
-		font = Theme.Font.Heading,
-		color = Theme.Color.textSecondary,
+		text = string.format("%s   /   %d", text, count),
+		size = Theme.Text.Small,
+		font = Theme.Font.Black,
+		color = Theme.Color.textDim,
 	})
-	label.Size = UDim2.new(1, -4, 0, 20)
+	label.Size = UDim2.new(1, -4, 0, 24)
 	label.LayoutOrder = order
 end
 
 function ShopView.init(parent: Instance)
 	local order = 0
 
-	buildHeader(parent, "GAME PASSES", order)
+	buildHeader(parent, "GAME PASSES", #MonetizationConfig.PassOrder, order)
 	order += 1
 
 	-- Stable display order: a Lua table's iteration order is not guaranteed, so
@@ -247,7 +251,7 @@ function ShopView.init(parent: Instance)
 		end
 	end
 
-	buildHeader(parent, "BOOSTS & UTILITY", order)
+	buildHeader(parent, "BOOSTS & UTILITY", #MonetizationConfig.ProductOrder, order)
 	order += 1
 
 	local productOrder = MonetizationConfig.ProductOrder

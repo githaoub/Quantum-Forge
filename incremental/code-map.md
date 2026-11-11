@@ -49,11 +49,14 @@ Client, `src/client/Main.client.luau`:
 1. `UiKit.screen("QuantumForge")` creates the ScreenGui, the elastic canvas
    (`Layout.MIN_WIDTH` 1320, UIScale to fit) and the event sink.
 2. `Vfx.init`, `SpriteFx.init`, `Notifications.init`, `Modals.init`.
-3. `HudController.init`, `ForgeView.init`, then `CratesView.init` (the CRATES page
-   card), then `Sections.init(canvas, ForgeView.card(), { crates = ... })`,
-   `OrbitalLobby.init`.
+3. `ForgeView.init` and `CratesView.init` build the two page cards, then
+   `Sections.init(canvas, ForgeView.card(), { crates = CratesView.card() })`
+   builds the rail, host and banner. `HudController.init(canvas,
+   Sections.railFoot())` then paints the full-width top bar and drops the rate
+   readout into the rail foot.
 4. `InventoryModal`, `CodexView`, `LeaderboardView`, `TradeView`,
-   `HandbookView`, `DailyView`, `TutorialController`, `FeedbackView`.
+   `HandbookView`, `DailyView`, `OrbitalLobby`, `TutorialController`,
+   `FeedbackView`.
 5. `StateStore.init()` last: it links the remotes, requests the first state, and
    starts the sync/event subscriptions. Nothing above this point may yield on a
    remote.
@@ -68,7 +71,7 @@ Client, `src/client/Main.client.luau`:
 | `ForgeConfig.luau` | Five crate records (`Tiers`, each with `id`/`short`/`blurb`/`weights`/`accent`/`shape`/`pity`/`cost`/`unlock`), plus `crate`, `tierFor`, `tierAt`, `crateUnlocked`, `odds`, `pityWeights`, the variant table, reroll costs, salvage values, `power()`, `rollCost(tier, rolls, scale?, income?)`, `bulkRollCost(tier, rolls, count, ...)` and `floorStrikes` (18 per crate rung). | Tuning RNG, variants, duplicate economy, a crate's odds or the roll price curve. The account multiplier and income are passed in by the server; the module is shared. |
 | `ModifierConfig.luau` | The four modifier axes (13 elements, 8 grades, 20 prefixes at 30%, 20 suffixes at 22%), `roll()`, `power()`, `bonus()`, `condition()`, `displayName()`, and the derived 32-band quality ladder (`qualityId`, `qualityOf`, `qualityLadder`). 5,733,000 catalogue combinations. | Adding an element, grade or affix, or moving the quality thresholds. Never add a second multiplier here: `power` is the product the copy already carries. |
 | `TechTreeConfig.luau` | Eight prestige nodes and `compute()`, the single stat derivation. | Adding a tech node or a stat. |
-| `RuneConfig.luau` | Mastery thresholds, socket counts, the twelve runes and `sum()`. | Rune balance or mastery pacing. |
+| `RuneConfig.luau` | Mastery thresholds, socket counts, the four runes (ember/tempo/edge/prism) and `sum()`. | Rune balance or mastery pacing. |
 | `SalvageConfig.luau` | Cache rarities, crack clocks, reward tables, twelve sigils in four sets, `bonus()`. | Cache drops or codex bonuses. |
 | `ExpeditionConfig.luau` | Mission squads, durations, payouts. | Adding or rebalancing a mission. |
 | `DroneRegistry.luau` | The five drone rungs (cost, growth, yield, unlock gate, hull and glow), `cost(tier, owned, scale?)`, `bulkCost(tier, owned, count, scale?)`, `unlocked`, `next`, `bestUnlocked`, `SaneMax`. | Adding a rung or moving a price. Both the server and the Fleet tab read it; the account multiplier is passed in, never read here. |
@@ -85,7 +88,7 @@ Client, `src/client/Main.client.luau`:
 | `Net.luau` | Remote creation, `onAction`, `onRequest`, payload provider, event send. | The transport changes. |
 | `DataManager.luau` | Save schema (currently 7), defaults, sanitisers (including `sanitiseFleet`, `sanitiseCodex`, `forgeCrate` and `starterBoostAt`), session lock, autosave, offline grant, `markDirty`, `get`. | A persisted field is added or migrated. |
 | `ProgressionService.luau` | Derived stats, blade multiplier, `progressScale` / `dronePriceScale` / `runScale`, forge roll (crate + batch priced by `bulkRollCost`), `selectCrate`, equip, salvage, reroll, the drone fleet (`fleetTotal`, `droneCostFor`, `buyDrones`), tech, ascension, the daily track (`claimDaily`, seven records), `grantStarterBoost`, `addAether` / `addCores`, codex marking (`markCodex`, `syncCodex`), payload assembly (including `forgeCosts` per crate and `forgeCrate`). | Any economy rule or payload field. Every price the client sees is computed here, once, with the account multiplier applied. |
-| `ForgeService.luau` | Heat physics, click validation and prediction reconcile, vent, crit, anomaly, auto-clicks, cache meter. `isLocked` gates strikes only; the crate roll is priced and gated elsewhere. | The strike loop or heat rules. |
+| `ForgeService.luau` | Heat physics, click validation and prediction reconcile, vent, crit, anomaly, auto-clicks, cache meter. Heat caps at 100 and never gates a strike: past `Config.PenaltyFrom` the *yield* halves until the player purges. The crate roll is priced and gated elsewhere. | The strike loop or heat rules. |
 | `LeaderboardService.luau` | Five OrderedDataStores, 8s read cache, 45s submit, name resolution, the parallel `QF_BestBlade_v1` copy record, mock preview fallback. | Adding a board or changing what a row carries. |
 | `TradeService.luau` | Trade invites (20s, `request` / `respond` / `dropInvitesFor`), sessions (240s), offer validation and clamping, trade locks, atomic commit, vault-capacity check, and the `playersFor` roster with `busy` / `pending` / `trades` flags. | Trading rules, the invite handshake, or the privacy gate. |
 | `MonetizationService.luau` | Receipt handling, pass checks, prompts. | Store behaviour. |
@@ -98,28 +101,28 @@ Client, `src/client/Main.client.luau`:
 | file | owns | change it when |
 | --- | --- | --- |
 | `Main.client.luau` | Boot, event feed, settings application, 10 Hz smoothing loop, Spacebar input, teardown. | A new top-level system or feed event. |
-| `Theme.luau` | Colours, type scale, spacing, radii, durations, `reducedMotion()`, `tween`, `fade`, `tierBackdrop`, `rarityColor`. | Any global style change. |
-| `UiKit.luau` | Every widget: panel, label, button, action button, tab, bar, badge well, scroll, modal screen, dissolve. All UI goes through it. | A widget's behaviour or a new primitive. |
-| `Layout.luau` | Design-space geometry for the full-width column: top bar, nav strip, content rect, tab and rate geometry, `init(width)` for the elastic canvas. | The screen split changes or the chrome gains a row. |
+| `Theme.luau` | Foundry Instrument tokens: five surfaces (`void`/`backdrop`/`panel`/`panelRaised`/`panelSunken`), three stroke weights plus `hair`/`thin`/`thick`/`bold`, one ember accent (`actionOrange`), cool cyan, gold, quantum, the lowered type ladder (13–46), radius 3–8, `onColor(fill)`, `reducedMotion()`, `tween`, `fade`, `tierBackdrop`, `rarityColor`. | Any global style change. |
+| `UiKit.luau` | Every widget: flat `panel` (bevel/lip are opt-in), 1px `stroke`, `banner` with `subtitle`, flat `button` / `actionButton` / underline `tab`, bar, badge well, scroll, modal screen, dissolve, plus `rule`, `eyebrow`, `figure` and `header`. All UI goes through it. | A widget's behaviour or a new primitive. |
+| `Layout.luau` | Design-space geometry: 92px left rail (`RAIL_W`, `RAIL_ITEM_H`, `RAIL_FOOT_H`), full-width top bar (`BAR_X`/`BAR_W`), content rect computed from the rail, `init(width)` for the elastic canvas. `NAV_H` is 0; there is no horizontal tab strip. | The screen split changes or the chrome gains a row. |
 | `StateStore.luau` | Mirrored payload, pending-credit prediction, inventory fetch and cache, sync/event/inventory listeners, `setting()`. | The client needs a new stream. |
-| `ForgeView.luau` | Anvil, full-height strike stage, `buildHud` (heat rail, streak pips, yield, prompt, full-bleed `StrikeButton`), blade viewport, roll column, crate viewport and scanner window, forge showcase, ambient embers. | The primary screen. |
-| `HudController.luau` | Top bar: identity plate, three currency pills (PNG badge over a drawn fallback), seven 50x62 utility keys (vault, codex, boards, trade, notes, guide, setup) with vector icons over 13px labels, ASCEND and DAILY verbs with badges, the rate readout (over the nav strip) including the `x2 BOOST` chip, smoothing and the stall detector, `layout()`. Handler table: `vaultHandler` / `codexHandler` / `boardsHandler` / `tradeHandler` / `feedbackHandler` / `settingsHandler` / `dailyHandler`. | Top-bar layout or a new currency. Overlay keys are wired by `Main`, not here. |
+| `ForgeView.luau` | The primary screen: 64px blade banner, full-bleed strike stage, `buildHud` (240x64 strike key, centered heat dial with band + lean point, 136x64 purge key), blade viewport, streak and strike-speed readouts. The roll column is gone: rolling lives on CRATES. `roll` / `rollAnchor` / `crateFor` survive only for the `QF_Dev` seam and `CratesView`. | The primary screen. |
+| `HudController.luau` | Full-width top bar: identity plate, three currency pills (PNG badge over a drawn fallback), seven 50x62 utility keys (vault, codex, boards, trade, notes, guide, setup) with vector icons over 13px labels, ASCEND and DAILY verbs with badges, smoothing and the stall detector, `layout()`. The rate readout moved into the rail foot (`init(canvas, foot)`), so the bar is chrome only. Handler table: `vaultHandler` / `codexHandler` / `boardsHandler` / `tradeHandler` / `feedbackHandler` / `settingsHandler` / `dailyHandler`. | Top-bar layout or a new currency. Overlay keys are wired by `Main`, not here. |
 | `ProfilePlate.luau` | Identity plate: `GetUserThumbnailAsync` head shot, display name, `@handle`, rank chip, progress to the next ascension from `Config.AscendThreshold`. Readout only. | The top-left identity block. |
 | `CratePreview.luau` | The 3D crate models: five families (`crate` / `capsule` / `relic` / `core` / `vault`) with `styles()`, the drop/land/rattle/hold timeline, `play(tint, cues)`, `stop`, `destroy`. | Crate geometry or the roll timeline. |
-| `CratesView.luau` | The CRATES section page: 300px pool rail, 268px model viewport, five-chip odds strip, result plate with batch/name/affixes/pity, single and ten roll keys, the reveal sequence, and the `onSelect` callback into `ForgeView`. Selecting a pool also sends the `crate` action. | The multi-crate surface, odds display, or the roll reveal. |
+| `CratesView.luau` | The CRATES section page: 64px banner, 300px pool rail, crate viewport, facts column (cost/pity/state), one stacked odds bar with a five-column legend, and two roll keys (`ROLL` quiet, `ROLL x10` dominant in the crate accent). Owns the reveal sequence and the `onSelect` callback into `ForgeView`; selecting a pool also sends the `crate` action. | The multi-crate surface, odds display, or the roll reveal. |
 | `DailyView.luau` | The Daily Ritual: a seven-card track from `Config.DailyTrack`, streak head, claim key, claimed/today/next-up states, repaint on sync. | Daily rewards UI. |
-| `Icons.luau` | Drawn vector header marks (vault, codex, boards, trade, feedback, guide, gear, ascend, daily). | A header icon. |
+| `Icons.luau` | Drawn vector marks: the seven header utilities (vault, codex, boards, trade, feedback, guide, gear) plus the two verbs (ascend, daily) and the six rail section marks (forge, crates, fleet, runes, tech, store). | A header or rail icon. |
 | `ModalShell.luau` | Dim, panel, banner, close, Escape, ZIndex for codex, boards and trade. Panels rebuild only their `body`. | A new full-screen panel. |
 | `CodexView.luau` | Discovery index: 6 tabs, silhouettes, the 24-band quality grid, `setTab`. | Codex content. |
 | `LeaderboardView.luau` | Five board tabs, currency rows, BEST BLADE rows with a 64px model, PREVIEW badge, `setBoard`, signature-gated repaint. | Board presentation. |
 | `TradeView.luau` | Trade desk: partner rail with `ASK` / `WAIT` / `OFF`, two offer columns with live turntables, 208px picker grid on static thumbnails, shard stepper, accept/withdraw footer. Repaints are gated by `sessionKey`, `theirSignatureOf` and `inventorySignature`. A single local draft is pushed on every toggle. | Trading UI or the desk's sync cadence. |
-| `Sections.luau` | The nav strip (elastic tabs and the rate band slot) plus the section host: two columns, banner and kicker per section, scroll restore, tab badges, `layout()`. Page sections (`forge`, `crates`) are registered as `page = true` and handed full-bleed cards through `Sections.init(canvas, forgeCard, pageCards)`; the host hides the row columns for them. | Adding a section, a page card, or a header control. |
+| `Sections.luau` | The 92px left rail (six drawn marks, dim/lit pairs, foot rate slot) plus the section host: two columns, one repainted 64px banner (accent mark, title, kicker, index), scroll restore, tab badges, `layout()`, `railFoot()`. Page sections (`forge`, `crates`) are registered as `page = true` and handed full-bleed cards through `Sections.init(canvas, forgeCard, pageCards)`; the host hides the banner and row columns for them. | Adding a section, a page card, or a header control. |
 | `InventoryModal.luau` | The blade vault: split view, banner, toolbar (scrap, owned, filters, sort), 4-column grid with live thumbnails, permanent inspector with a two-column stat drawer, the `EQUIP BEST` / `MELT MULTIPLE` batch strip, and the four drawer verbs (EQUIP, FAVORITE, REROLL, MELT). | Inventory UI or any vault action. `groupMeltable` is the one place the three melt exclusions are mirrored; `detailMeltTarget` picks a spare copy while REROLL acts on the copy on the turntable; the mode owns the card click, the confirm plate owns the melt. |
 | `InventoryModel.luau` | Copy grouping by the six-axis key `id\|variant\|grade\|element\|prefix\|suffix`, meltable picks (equipped, favorite and last-copy guards), melt value, `displayName` / `condition`. Shared by the grid, the inspector and the batch bar. | What counts as "the same blade" or "may be melted". |
-| `DroneView.luau` | Fleet stage, the five-rung ladder, drone purchase, expeditions, salvage band, codex band. `select` / `selected` preview a locked rung. | Fleet, missions, caches. |
-| `RuneView.luau` | Mastery bar, socket rack, rune shelf. | Runes or sockets. |
+| `DroneView.luau` | Two-column 208px hero (42% drone stage, identity/figures/BUILD keys), five-rung ladder with full rung names, expeditions, salvage rack, sigil codex. `select` / `selected` preview a locked rung. | Fleet, missions, caches. |
+| `RuneView.luau` | 470px blade bay (equipped blade, rank, mastery meter, three sockets, live socketed-bonus grid, Void Shard wallet) beside the rune shelf. | Runes or sockets. |
 | `TechTreeView.luau` | Tech nodes and ascend entry. | Tech tree UI. |
-| `ShopView.luau` | Passes and products. | Store UI. |
+| `ShopView.luau` | Two-column catalog (5 passes / 4 products) with `GAME PASSES / n` group headers, circular badge art, one price plate per row. | Store UI. |
 | `Modals.luau` | Offline grant, the locked starter card (no close key, one `START FORGING`), generic confirm, settings sheet (each row is the switch). | A new blocking dialog. |
 | `FeedbackView.luau` | Feedback form. | Feedback fields. |
 | `Notifications.luau` | Toasts, throttling. | Toast behaviour. |
@@ -127,7 +130,7 @@ Client, `src/client/Main.client.luau`:
 | `TutorialController.luau` | One first-join card whose CTA opens `HandbookView` at the loop page, `guideSeen` latch. The spotlight chain is gone. | Onboarding. |
 | `BladePreview.luau` | Viewport framing (`framingOf` with fill and aim bias), turntable, orbit, glow flash, variant tint, and the static `thumbnail` path with `THUMB_YAW = 90 - AZIMUTH - 18` and full-white ambient. | How a blade is shown. The thumbnail pose is shared by the vault, codex, boards, handbook and both trade strips. |
 | `BladeModelBuilder.luau` | Procedural blade recipes and mesh hot-swap. | Blade geometry. |
-| `DroneModelBuilder.luau` | Per-rung procedural hull, `build(model, tierId)` and `mount(viewport, tierId, opts)`. | Drone geometry. |
+| `DroneModelBuilder.luau` | Per-rung procedural hull, `build(model, tierId)` and `mount(viewport, tierId, opts)`. `DRONE_MESH_READY = false` forces the primitive path: the sculpted hull's MeshParts are not authorized here, so the mesh route renders an empty stage. | Drone geometry, or after the mesh is published. |
 | `ViewportOrbitController.luau` | Drag/orbit/idle motion for a viewport. Presses come from `Options.surface` when a control sits over the render; `handle.dragTravel` separates a tap from a drag. | Camera feel. |
 | `StageBackdrop.luau` | The gradient wash behind a 3D stage: opaque base ramp, crossed gradient bands, accent shaft, vignette, optional settle plate; `setColors` re-tints in place. | The look of a stage or card art well. |
 | `Vfx.luau` | Floaters, bursts, spark cones, shockwave rings, lightning, ambient embers, shake, flash. | Screen juice. |

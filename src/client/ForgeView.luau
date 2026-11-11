@@ -831,13 +831,6 @@ function ForgeView.strike()
 		return
 	end
 
-	if current.locked then
-		-- Local echo so the player understands instantly; the server will also
-		-- reject it, which is the authority.
-		Notifications.push("Core locked, wait or vent.", "bad")
-		return
-	end
-
 	if ForgeView.onStrike then
 		ForgeView.onStrike()
 	end
@@ -1164,10 +1157,13 @@ function ForgeView.render(payload: Types.SyncPayload)
 
 	if heatFill then
 		heatFill.Size = UDim2.fromScale(heat / 100, 1)
+		local fillColor = if overhot then Theme.Color.danger else heatColor(heat, bandMin, bandMax)
+		heatFill.BackgroundColor3 = fillColor
 		if heatFillGradient then
-			-- The ramp is measured across the filled portion: the act of filling
-			-- is what heats the colour, so there is no second animation to sync.
-			heatFillGradient.Color = ColorSequence.new(Theme.Color.heatCool, heatColor(heat, bandMin, bandMax))
+			-- One state, one colour. The old blue-to-state ramp printed a rainbow
+			-- inside the bar, which is a gauge from a different game: this one
+			-- reads its state from the number above it.
+			heatFillGradient.Color = ColorSequence.new(fillColor, fillColor)
 		end
 	end
 	if heatNeedle then
@@ -1205,9 +1201,10 @@ function ForgeView.render(payload: Types.SyncPayload)
 		strikeButton.Active = true
 	end
 	if strikeHint then
-		-- The key's sublabel is the live payout. In the band it prints the
-		-- doubled number, because that is what the next press is worth.
-		strikeHint.Text = NumberUtil.abbreviateRate(payload.clickYield)
+		-- The key's sublabel is the live payout: what the next press pays, in
+		-- Star-Matter. Not a rate. `/s` belongs on the auto-click readout, which
+		-- already has its own line in the top right of the stage.
+		strikeHint.Text = string.format("+%s SM", NumberUtil.abbreviate(payload.clickYield))
 		strikeHint.TextColor3 = Theme.Color.ink
 		strikeHint.TextTransparency = 0.3
 	end

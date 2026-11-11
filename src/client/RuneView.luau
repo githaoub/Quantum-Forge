@@ -29,7 +29,7 @@ local RuneView = {}
 -- here is `Theme.Text.Micro` (14) or `Theme.Text.Tiny` (13), so each block gets
 -- a 20px band for a 14px line rather than the 14px band the old 10px labels
 -- were given. Nothing on this screen drops below 13.
-local MASTERY_H = 178
+local MASTERY_H = 470
 --- 104, not 78. The 88px rune badge is the point of the shelf now: it is the
 --- only art on the row, and at 60px the disc was doing the job of a bullet
 --- point. Three text lines plus 8px of air above and below is what the height
@@ -44,6 +44,8 @@ local socketNote: TextLabel? = nil
 local socketButtons: { TextButton } = {}
 local socketLabels: { TextLabel } = {}
 local shardLabel: TextLabel? = nil
+local bayShardLabel: TextLabel? = nil
+local bonusLabels: { [string]: TextLabel } = {}
 local runeRows: { [string]: { count: TextLabel, handle: UiKit.ActionHandle } } = {}
 local unsubscribe: (() -> ())? = nil
 
@@ -69,6 +71,10 @@ local function decisionFor(state: Types.SyncPayload, runeId: string, cost: numbe
 end
 
 local function buildMastery(parent: Instance)
+	-- Blade bay. The left column used to be a 178px card in a 470px column, so
+	-- two thirds of the widest column on the page was empty. The bay now tells
+	-- the whole story of the blade in hand: what it is, how far mastery has come,
+	-- which runes are socketed, and what those runes are worth right now.
 	local card = UiKit.panel(parent, {
 		tier = "raised",
 		radius = Theme.Radius.card,
@@ -77,32 +83,35 @@ local function buildMastery(parent: Instance)
 	card.Size = UDim2.new(1, -4, 0, MASTERY_H)
 	card.LayoutOrder = 1
 
+	local eye = UiKit.eyebrow(card, "EQUIPPED BLADE")
+	eye.Position = UDim2.fromOffset(14, 10)
+
 	bladeName = UiKit.label(card, {
 		text = "BLADE",
-		size = Theme.Text.Subheading,
+		size = Theme.Text.Title - 4,
 		font = Theme.Font.Black,
 		color = Theme.Color.starMatter,
 	})
-	bladeName.Position = UDim2.fromOffset(14, 8)
-	bladeName.Size = UDim2.new(1, -134, 0, 26)
+	bladeName.Position = UDim2.fromOffset(14, 26)
+	bladeName.Size = UDim2.new(1, -150, 0, 30)
 
 	rankChip = UiKit.label(card, {
 		text = "RANK 0",
-		size = 15,
+		size = Theme.Text.Micro,
 		font = Theme.Font.Black,
 		color = Theme.Color.gold,
 		align = Enum.TextXAlignment.Right,
 	})
-	rankChip.Position = UDim2.new(1, -130, 0, 11)
-	rankChip.Size = UDim2.fromOffset(116, 20)
+	rankChip.Position = UDim2.new(1, -150, 0, 32)
+	rankChip.Size = UDim2.fromOffset(136, 20)
 
 	masteryBar = UiKit.bar(card, {
-		height = 12,
-		radius = 6,
+		height = 10,
+		radius = 5,
 		gradient = { Theme.Color.starMatterDeep, Theme.Color.starMatter },
 	})
-	masteryBar.track.Position = UDim2.fromOffset(14, 42)
-	masteryBar.track.Size = UDim2.new(1, -28, 0, 12)
+	masteryBar.track.Position = UDim2.fromOffset(14, 64)
+	masteryBar.track.Size = UDim2.new(1, -28, 0, 10)
 
 	masteryText = UiKit.label(card, {
 		text = "",
@@ -110,23 +119,21 @@ local function buildMastery(parent: Instance)
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
 	})
-	masteryText.Position = UDim2.fromOffset(14, 58)
+	masteryText.Position = UDim2.fromOffset(14, 80)
 	masteryText.Size = UDim2.new(1, -28, 0, 18)
 
-	socketNote = UiKit.label(card, {
-		text = "SOCKETS",
-		size = Theme.Text.Micro,
-		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
-	})
-	socketNote.Position = UDim2.fromOffset(14, 84)
-	socketNote.Size = UDim2.new(1, -28, 0, 18)
+	local ruleA = UiKit.rule(card, { position = UDim2.fromOffset(14, 108) })
+	ruleA.Size = UDim2.new(1, -28, 0, 1)
+
+	socketNote = UiKit.eyebrow(card, "SOCKETS")
+	socketNote.Position = UDim2.fromOffset(14, 118)
+	socketNote.Size = UDim2.new(1, -28, 0, 14)
 
 	local rack = UiKit.create("Frame", {
 		Name = "SocketRack",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -28, 0, 52),
-		Position = UDim2.fromOffset(14, 108),
+		Size = UDim2.new(1, -28, 0, 84),
+		Position = UDim2.fromOffset(14, 136),
 	}) :: Frame
 	rack.Parent = card
 
@@ -142,7 +149,7 @@ local function buildMastery(parent: Instance)
 			Position = UDim2.new((index - 1) / 3, 4, 0, 0),
 		}) :: TextButton
 		UiKit.corner(button, Theme.Radius.sm)
-		UiKit.stroke(button, Theme.Color.stroke, 2, 0.2)
+		UiKit.stroke(button, Theme.Color.stroke, Theme.Stroke.thin, 0.2)
 		button.Parent = rack
 
 		local label = UiKit.label(button, {
@@ -163,8 +170,75 @@ local function buildMastery(parent: Instance)
 		socketButtons[index] = button
 		socketLabels[index] = label
 	end
-end
 
+	local ruleB = UiKit.rule(card, { position = UDim2.fromOffset(14, 232) })
+	ruleB.Size = UDim2.new(1, -28, 0, 1)
+
+	local bonusEye = UiKit.eyebrow(card, "SOCKETED BONUS")
+	bonusEye.Position = UDim2.fromOffset(14, 242)
+	bonusEye.Size = UDim2.new(1, -28, 0, 14)
+
+	-- Four live figures, two by two. The maths is already on the rows; this is
+	-- the sum, and it is the number the player is buying runes for.
+	local cells = {
+		{ key = "click", label = "STRIKE YIELD", color = Theme.Color.starMatter },
+		{ key = "cool", label = "HEAT COOLING", color = Theme.Color.cyan },
+		{ key = "crit", label = "CRIT CHANCE", color = Theme.Color.gold },
+		{ key = "vent", label = "VENT AETHER", color = Theme.Color.aether },
+	}
+	for index, cell in cells do
+		local col = (index - 1) % 2
+		local row = math.floor((index - 1) / 2)
+		local posX = if col == 0
+			then UDim2.fromOffset(14, 262 + row * 50)
+			else UDim2.new(0.5, 8, 0, 262 + row * 50)
+		local cap = UiKit.eyebrow(card, cell.label, { color = Theme.Color.textFaint })
+		cap.Position = posX
+		cap.Size = UDim2.new(0.5, -22, 0, 14)
+		local value = UiKit.label(card, {
+			text = "+0%",
+			size = Theme.Text.Subheading,
+			font = Theme.Font.Numeric,
+			color = cell.color,
+		})
+		value.Position = posX + UDim2.fromOffset(0, 16)
+		value.Size = UDim2.new(0.5, -22, 0, 22)
+		bonusLabels[cell.key] = value
+	end
+
+	local ruleC = UiKit.rule(card, { position = UDim2.fromOffset(14, 366) })
+	ruleC.Size = UDim2.new(1, -28, 0, 1)
+
+	local shardEye = UiKit.eyebrow(card, "VOID SHARDS")
+	shardEye.Position = UDim2.fromOffset(14, 376)
+
+	bayShardLabel = UiKit.label(card, {
+		text = "0",
+		size = Theme.Text.Title,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.quantum,
+	})
+	bayShardLabel.Position = UDim2.fromOffset(14, 392)
+	bayShardLabel.Size = UDim2.new(0.5, -22, 0, 34)
+
+	local shardHint = UiKit.label(card, {
+		text = "Dropped from hot-core anomalies.\nSpend them on the shelf to the right.",
+		size = Theme.Text.Tiny,
+		color = Theme.Color.textFaint,
+		wrap = true,
+	})
+	shardHint.Position = UDim2.new(0.5, 8, 0, 392)
+	shardHint.Size = UDim2.new(0.5, -22, 0, 34)
+
+	local hint = UiKit.label(card, {
+		text = "STRIKE WITH THIS BLADE TO EARN MASTERY",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	hint.Position = UDim2.new(0, 14, 1, -22)
+	hint.Size = UDim2.new(1, -28, 0, 14)
+end
 local function buildShelf(parent: Instance)
 	local head = UiKit.label(parent, {
 		text = "RUNE SHELF",
@@ -349,6 +423,32 @@ function RuneView.render(payload: Types.SyncPayload)
 		shardLabel.TextColor3 = if payload.shards > 0 then Theme.Color.quantum else Theme.Color.textFaint
 	end
 
+	if bayShardLabel then
+		bayShardLabel.Text = tostring(payload.shards)
+		bayShardLabel.TextColor3 = if payload.shards > 0 then Theme.Color.quantum else Theme.Color.textFaint
+	end
+
+	-- The sum of every socketed rune, which is the number the shelf is selling.
+	-- `NONE` rather than `+0%`: a live meter reading zero is a broken meter.
+	local bonus = RuneConfig.sum(payload.equippedSockets)
+	local function bonusText(mult: number): string
+		local points = math.floor((mult - 1) * 100 + 0.5)
+		return if points > 0 then string.format("+%d%%", points) else "NONE"
+	end
+	for key, label in bonusLabels do
+		if key == "crit" then
+			local points = math.floor(bonus.critChance * 100 + 0.5)
+			label.Text = if points > 0 then string.format("+%d%%", points) else "NONE"
+		elseif key == "click" then
+			label.Text = bonusText(bonus.clickMult)
+		elseif key == "cool" then
+			label.Text = bonusText(bonus.coolMult)
+		elseif key == "vent" then
+			label.Text = bonusText(bonus.ventMult)
+		end
+		label.TextTransparency = if label.Text == "NONE" then 0.55 else 0
+	end
+
 	for _, rune in RuneConfig.list() do
 		local row = runeRows[rune.id]
 		if row then
@@ -377,6 +477,8 @@ function RuneView.destroy()
 	masteryText = nil
 	socketNote = nil
 	shardLabel = nil
+	bayShardLabel = nil
+	table.clear(bonusLabels)
 	table.clear(socketButtons)
 	table.clear(socketLabels)
 	table.clear(runeRows)

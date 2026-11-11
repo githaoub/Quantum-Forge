@@ -3595,3 +3595,124 @@ which is one of the new prefixes in the existing format.
 | The daily claim was observed as already-collected, not as a fresh payout | `claimDaily` had already run on this profile | The seven cards, the streak count, the next-up label and the dimmed claimed days were verified on screen. |
 | The forge card's crate chip was verified in code, not by tapping | It calls `ForgeView.openCrates`, assigned by `Main` to `Sections.select("crates")` | The same selection is exercised through `openCrates` on the seam. |
 | `selene` is still the only static pass | `stylua`, `wally`, `luau-lsp` are not installed | 0 errors, 0 warnings, 0 parse errors; `rojo build` writes `verify.rbxlx`. |
+
+---
+
+## ADR-076 - The Foundry Instrument system
+
+The UI read as "vibe coded" because every screen was built from a different
+vocabulary: gradients on buttons, bevels on panels, text strokes on labels, four
+radii, five accents. The refactor replaces the vocabulary instead of repainting
+the screens.
+
+`Theme` now ships one palette with five surfaces (`void`, `backdrop`, `panel`,
+`panelRaised`, `panelSunken`), four stroke weights (`hair` 1, `thin` 1, `thick`
+2, `bold` 3), and one action accent: ember `#FF7A2F`. Cyan is the cool/vent
+signal, gold is mastery and Quantum, and every other hue is a rarity tint. The
+type ladder was lowered so the smallest player-facing string is 13 design px:
+46 / 30 / 22 / 18 / 16 / 15 / 14 / 13. `Theme.Font.Black` is GothamBold; the old
+Black face was the source of the shouty headings.
+
+`UiKit.panel` no longer bevels or lips by default. `UiKit.button`,
+`actionButton` and `tab` are flat fills with a 1px rule; the tab is an underline,
+not a pill. `UiKit.banner` is a flat steel plate with a left-aligned title, an
+optional subtitle and an optional accent plaque. `Theme.onColor(fill)` picks ink
+or white, so a saturated key never carries white text on a light fill.
+
+Measured: the top bar is 1198 x 76 design px at a 1665px canvas; the rail is 92
+wide; the content rect starts at `RAIL_X + RAIL_W + RAIL_GAP`.
+
+## ADR-077 - A rail replaces the tab strip, and the rate moves to its foot
+
+Seven tabs, a rate band, three overlays and two verbs competed for one row. The
+rail takes navigation off the top: six 56px items with drawn marks (dim/lit
+pairs), a 108px foot that now carries the rate readout, and a full-width top bar
+that is chrome only. `Layout.NAV_H` is 0 and `CONTENT_X` is computed from the
+rail, so a section change never moves the frame.
+
+The section header is one 64px plate repainted on select, not seven banner
+plates built and hidden. It carries an accent mark, the section title, the
+kicker and an index (`RUNES / 6`). Page sections (forge, crates) hide it and
+draw their own 64px banner, because their cards are full-bleed.
+
+## ADR-078 - The forge loses the deck and the roll column
+
+The gray scrim under the stage is gone. The strike stage now runs to the bottom
+edge and three controls float over it: a 240x64 ember strike key at bottom-left
+with a heavy 3px outline, a centered 380x78 heat dial (label, 30px figure, 12px
+ruled bar, one caption), and a 136x64 purge key at bottom-right. Nothing is a
+full-width plate, so no control covers the blade.
+
+The roll column (ROLL, x10, crate chip, scrap/pity footer, pity meter) was
+deleted. Rolling is a purchase decision and it has a page; the forge's job is the
+strike. `ForgeView.roll` / `rollAnchor` / `crateFor` remain only for the `QF_Dev`
+seam and `CratesView`.
+
+The strike key's sublabel changed from `N /s` to `+N SM`: a click pays once, and
+`/s` belongs on the strike-speed readout.
+
+## ADR-079 - Heat gets a lean point instead of a lockout
+
+The lockout was removed in the previous pass; this pass makes heat matter again
+without taking the anvil away. `Config.PenaltyFrom = 90`, `PenaltyMult = 0.5`.
+Past 90% every strike pays half until the player purges. The gauge prints
+`OVERHOT YIELD x0.5` in danger, the fill turns danger, and the purge key is the
+way back. A clicker that stops accepting clicks loses the player; a clicker that
+pays half for standing in the red is a rule they can read and leave.
+
+The gauge itself changed shape twice in this refactor: the old full-width rail
+read as a loading bar, a number-only dial lost the sweet-spot position, and the
+shipped version is a 12px ruled bar under a 30px figure. One caption follows the
+state (`BAND 65-85`, `SWEET SPOT x2.5`, `PURGE TO COOL`, `OVERHOT YIELD x0.5`).
+The fill is a solid state colour, not a blue-to-red ramp.
+
+## ADR-080 - Crates, Fleet, Runes and Store rebuilt on the Foundry grid
+
+CRATES: the header is a 64px banner. The five odds chips became one stacked bar
+(drawn common to rare) with a five-column legend, because five equal cards said
+every outcome was equally likely. The rare 0.35% sliver is now a sliver. Two
+equal roll keys became one quiet `ROLL` (40%) and one dominant `ROLL x10` (60%)
+in the crate accent.
+
+FLEET: the 150px full-width hero was an empty hangar. It is now 208px, two
+columns: a 42% drone stage on the left and identity, three figures and the BUILD
+keys on the right. The ladder prints full rung names (`CELESTIAL SWARM`, not
+`CEL`) because three-letter codes are a debug readout.
+
+RUNES: the left column was a 178px card in a 470px column. It is now a 470px
+blade bay: equipped blade, rank, mastery meter, three 84px sockets, a live
+`socketed bonus` grid (strike/cool/crit/vent) and the Void Shard wallet. The
+bonus grid is the number the shelf is selling and it was not on the screen
+before.
+
+STORE: group headers became `GAME PASSES / 5` and `BOOSTS & UTILITY / 4` at 15px
+instead of 14px captions. Prices still read `SOON` because no listing id is
+configured; that is honest, not unfinished.
+
+The Fleet stage exposed a dead asset: the sculpted drone's MeshParts are not
+authorized in this place, so the viewport was empty. `DRONE_MESH_READY = false`
+forces the procedural hull until the mesh is published. The viewport ambient
+also rose to (152,168,200) and the camera to 6.4 units so the hull reads against
+the stage.
+
+## ADR-081 - The vault gets a Map of Content
+
+`incremental/quantum-forge.md` is the vault's start-here note: a table of the
+live docs, the current build state, ADR and build-log links, and three method
+habits. YAML frontmatter (`type`, `status`, `updated`, `aliases`, `tags`) was
+added to `code-map.md`, `ui-refactor-direction.md`, `build-log-forge-12.md` and
+`game-design-math.md`; `game-design-brief.md` already had it. The vault is a
+junction to `incremental/`; the repo stays the source of truth, so no note moves
+into the vault.
+
+### Honesty
+
+| Thing | State | Note |
+| --- | --- | --- |
+| Forge, crates, fleet, runes and store were photographed in a live play session | 1536 x 864 captures after the module reload | The canvas carries UIScale 0.7193, so screen pixels are not design pixels. |
+| Heat penalty is observable and applied | Gauge read 99%, `OVERHOT YIELD x0.5` and the danger fill were on screen | The 0.5x number was read from `Config`, not measured across two controlled payouts. |
+| Roll keys were driven through `QF_Dev`, not clicked | `openCrates` / `sideTab` select the page; `CratesView.roll` was not invoked | No pointer synthesis in this environment. The keys' `Activated` handlers are the same calls the seam uses. |
+| The sculpted drone mesh is invisible here | A red test part rendered in the same viewport; the mesh parts did not | The source model's MeshParts carry a MeshId that does not resolve in this place. The primitive hull is now forced. |
+| `DROP ODDS` bar was read visually | Segment widths match the five weights at 55.14 / 29.87 / 13.83 / 2.41 / 0.35% | The legend and the sorted order were checked against `ForgeConfig.odds`. |
+| Store listings still read `SOON` | No Marketplace id is configured | The API key lacks `game-pass:write` / `developer-product:write`; `scripts/create_store_items.py --apply` has not run. |
+| `selene` is still the only static pass | 0 errors, 0 warnings, 0 parse errors | `stylua`, `wally` and `luau-lsp` are not installed; `rojo build -o verify.rbxlx` succeeds. |
