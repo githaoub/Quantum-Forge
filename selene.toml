@@ -1,0 +1,8 @@
+std = "roblox"
+
+[lints]
+# Roblox codebase: globals like `workspace`, `task`, and `Instance` come from the
+# roblox std. These three are noise in a game project with a fixed layout.
+global_usage = "allow"
+multiple_statements = "allow"
+shadowing = "warn"

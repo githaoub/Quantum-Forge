@@ -1,0 +1,911 @@
+{
+  "generated_with": "scripts/build_models.py",
+  "export_version": 2,
+  "triangle_budget": 2500,
+  "axis": {
+    "up": "+Y",
+    "forward": "-Z"
+  },
+  "origin": "base of hilt (blades) / model centre (drone)",
+  "blades": [
+    {
+      "id": "rusted_cleaver",
+      "name": "Rusted Cleaver",
+      "tier": 1,
+      "shape": "straight",
+      "material": "Metal",
+      "tris": 678,
+      "verts": 357,
+      "heightStuds": 4.028,
+      "widthStuds": 2.16,
+      "depthStuds": 0.475,
+      "originZ": -0.0284,
+      "geometryHash": "6c91bbdd0a086bf283edcbccedf2263f0ca76fc7040010bebce4a7971fa76c9c",
+      "fbx": "rusted_cleaver.fbx",
+      "obj": "rusted_cleaver.obj",
+      "parts": [
+        "rusted_cleaver",
+        "rusted_cleaver_glow"
+      ],
+      "bladeColor": [
+        122,
+        84,
+        58
+      ],
+      "glowColor": [
+        255,
+        138,
+        61
+      ],
+      "gripColor": [
+        46,
+        38,
+        33
+      ]
+    },
+    {
+      "id": "scrap_fang",
+      "name": "Scrap Fang",
+      "tier": 1,
+      "shape": "curved",
+      "material": "Metal",
+      "tris": 600,
+      "verts": 318,
+      "heightStuds": 4.158,
+      "widthStuds": 1.383,
+      "depthStuds": 0.428,
+      "originZ": -0.1584,
+      "geometryHash": "0865bd70e691e6978515e487ba8cde920561d62046398de6dce6bdd1e9d825a6",
+      "fbx": "scrap_fang.fbx",
+      "obj": "scrap_fang.obj",
+      "parts": [
+        "scrap_fang",
+        "scrap_fang_glow"
+      ],
+      "bladeColor": [
+        138,
+        96,
+        64
+      ],
+      "glowColor": [
+        255,
+        160,
+        84
+      ],
+      "gripColor": [
+        52,
+        42,
+        36
+      ]
+    },
+    {
+      "id": "rivet_edge",
+      "name": "Rivet Edge",
+      "tier": 1,
+      "shape": "straight",
+      "material": "DiamondPlate",
+      "tris": 586,
+      "verts": 309,
+      "heightStuds": 4.024,
+      "widthStuds": 1.522,
+      "depthStuds": 0.475,
+      "originZ": -0.0244,
+      "geometryHash": "5d9814f0ea273824ed951c5c326ed007ae92537c854968772e150bece03b25f9",
+      "fbx": "rivet_edge.fbx",
+      "obj": "rivet_edge.obj",
+      "parts": [
+        "rivet_edge"
+      ],
+      "bladeColor": [
+        150,
+        110,
+        78
+      ],
+      "glowColor": [
+        255,
+        176,
+        96
+      ],
+      "gripColor": [
+        58,
+        48,
+        40
+      ]
+    },
+    {
+      "id": "coil_shard",
+      "name": "Coil Shard",
+      "tier": 1,
+      "shape": "curved",
+      "material": "Metal",
+      "tris": 738,
+      "verts": 391,
+      "heightStuds": 4.16,
+      "widthStuds": 1.509,
+      "depthStuds": 0.44,
+      "originZ": -0.1601,
+      "geometryHash": "cea370c66d31a93e105c1ada1abd096107eb6bf0ad6fc30a1eec741df9ae90d6",
+      "fbx": "coil_shard.fbx",
+      "obj": "coil_shard.obj",
+      "parts": [
+        "coil_shard",
+        "coil_shard_glow"
+      ],
+      "bladeColor": [
+        168,
+        128,
+        92
+      ],
+      "glowColor": [
+        255,
+        196,
+        110
+      ],
+      "gripColor": [
+        62,
+        52,
+        44
+      ]
+    },
+    {
+      "id": "cinder_spike",
+      "name": "Cinder Spike",
+      "tier": 1,
+      "shape": "straight",
+      "material": "Metal",
+      "tris": 624,
+      "verts": 334,
+      "heightStuds": 4.158,
+      "widthStuds": 0.883,
+      "depthStuds": 0.428,
+      "originZ": -0.1584,
+      "geometryHash": "2c51c31e97f806d5f41bbcc9a33026d3419af0be4f03867660f36acdbc5dae26",
+      "fbx": "cinder_spike.fbx",
+      "obj": "cinder_spike.obj",
+      "parts": [
+        "cinder_spike",
+        "cinder_spike_glow"
+      ],
+      "bladeColor": [
+        186,
+        146,
+        104
+      ],
+      "glowColor": [
+        255,
+        214,
+        128
+      ],
+      "gripColor": [
+        68,
+        56,
+        46
+      ]
+    },
+    {
+      "id": "iron_vigil",
+      "name": "Iron Vigil",
+      "tier": 2,
+      "shape": "straight",
+      "material": "Metal",
+      "tris": 798,
+      "verts": 417,
+      "heightStuds": 4.77,
+      "widthStuds": 1.478,
+      "depthStuds": 0.506,
+      "originZ": -0.1703,
+      "geometryHash": "49c50b5ef2a1d8a47cbd7aaac7b65a351440bb83f1a8c7e75e9fdbf92c5b260a",
+      "fbx": "iron_vigil.fbx",
+      "obj": "iron_vigil.obj",
+      "parts": [
+        "iron_vigil",
+        "iron_vigil_glow"
+      ],
+      "bladeColor": [
+        148,
+        158,
+        172
+      ],
+      "glowColor": [
+        255,
+        186,
+        92
+      ],
+      "gripColor": [
+        44,
+        48,
+        56
+      ]
+    },
+    {
+      "id": "forgebrand",
+      "name": "Forgebrand",
+      "tier": 2,
+      "shape": "greatsword",
+      "material": "Metal",
+      "tris": 738,
+      "verts": 397,
+      "heightStuds": 4.798,
+      "widthStuds": 2.17,
+      "depthStuds": 0.492,
+      "originZ": -0.198,
+      "geometryHash": "f1478b30d2c48ea1ed5da3a81643a3cc99e9579416d2ff1932d622787e21e7e6",
+      "fbx": "forgebrand.fbx",
+      "obj": "forgebrand.obj",
+      "parts": [
+        "forgebrand",
+        "forgebrand_glow"
+      ],
+      "bladeColor": [
+        162,
+        170,
+        184
+      ],
+      "glowColor": [
+        255,
+        168,
+        72
+      ],
+      "gripColor": [
+        52,
+        50,
+        58
+      ]
+    },
+    {
+      "id": "temperline",
+      "name": "Temperline",
+      "tier": 2,
+      "shape": "curved",
+      "material": "Metal",
+      "tris": 710,
+      "verts": 379,
+      "heightStuds": 4.633,
+      "widthStuds": 1.797,
+      "depthStuds": 0.546,
+      "originZ": -0.0327,
+      "geometryHash": "113965f49b871f4f5e084901967ff8e837451f2e6e357bc8a4164ec13097ae06",
+      "fbx": "temperline.fbx",
+      "obj": "temperline.obj",
+      "parts": [
+        "temperline",
+        "temperline_glow"
+      ],
+      "bladeColor": [
+        176,
+        184,
+        196
+      ],
+      "glowColor": [
+        255,
+        152,
+        60
+      ],
+      "gripColor": [
+        56,
+        54,
+        62
+      ]
+    },
+    {
+      "id": "anvils_oath",
+      "name": "Anvil's Oath",
+      "tier": 2,
+      "shape": "greatsword",
+      "material": "DiamondPlate",
+      "tris": 704,
+      "verts": 374,
+      "heightStuds": 4.755,
+      "widthStuds": 2.155,
+      "depthStuds": 0.492,
+      "originZ": -0.1546,
+      "geometryHash": "85648f6b789a69be2805e347942d5ad0d046d14aa0aadabf26f666231fabc37b",
+      "fbx": "anvils_oath.fbx",
+      "obj": "anvils_oath.obj",
+      "parts": [
+        "anvils_oath",
+        "anvils_oath_glow"
+      ],
+      "bladeColor": [
+        190,
+        196,
+        208
+      ],
+      "glowColor": [
+        255,
+        140,
+        48
+      ],
+      "gripColor": [
+        60,
+        58,
+        66
+      ]
+    },
+    {
+      "id": "slagspite",
+      "name": "Slagspite",
+      "tier": 2,
+      "shape": "curved",
+      "material": "Metal",
+      "tris": 658,
+      "verts": 357,
+      "heightStuds": 4.798,
+      "widthStuds": 1.888,
+      "depthStuds": 0.492,
+      "originZ": -0.198,
+      "geometryHash": "9a4adc07c3378b43d810b0d7fa6cc0690fad464037fef86730009fd5e31a2dda",
+      "fbx": "slagspite.fbx",
+      "obj": "slagspite.obj",
+      "parts": [
+        "slagspite",
+        "slagspite_glow"
+      ],
+      "bladeColor": [
+        204,
+        210,
+        220
+      ],
+      "glowColor": [
+        255,
+        128,
+        40
+      ],
+      "gripColor": [
+        64,
+        60,
+        70
+      ]
+    },
+    {
+      "id": "nova_reaver",
+      "name": "Nova Reaver",
+      "tier": 3,
+      "shape": "glaive",
+      "material": "Neon",
+      "tris": 924,
+      "verts": 491,
+      "heightStuds": 5.424,
+      "widthStuds": 2.637,
+      "depthStuds": 0.556,
+      "originZ": -0.2239,
+      "geometryHash": "cfc41a031a5d612926e1b26c13af6979b35690ac6107609547c0b11eb63845cb",
+      "fbx": "nova_reaver.fbx",
+      "obj": "nova_reaver.obj",
+      "parts": [
+        "nova_reaver",
+        "nova_reaver_glow"
+      ],
+      "bladeColor": [
+        120,
+        214,
+        255
+      ],
+      "glowColor": [
+        90,
+        232,
+        255
+      ],
+      "gripColor": [
+        26,
+        44,
+        66
+      ]
+    },
+    {
+      "id": "starlight_falchion",
+      "name": "Starlight Falchion",
+      "tier": 3,
+      "shape": "curved",
+      "material": "Neon",
+      "tris": 1020,
+      "verts": 535,
+      "heightStuds": 5.403,
+      "widthStuds": 2.126,
+      "depthStuds": 0.572,
+      "originZ": -0.2029,
+      "geometryHash": "51fc27af0da1df7c107566f911d411b4e44ac8696c0792ba43bc86525bfc0fdb",
+      "fbx": "starlight_falchion.fbx",
+      "obj": "starlight_falchion.obj",
+      "parts": [
+        "starlight_falchion",
+        "starlight_falchion_glow"
+      ],
+      "bladeColor": [
+        148,
+        226,
+        255
+      ],
+      "glowColor": [
+        132,
+        244,
+        255
+      ],
+      "gripColor": [
+        30,
+        50,
+        74
+      ]
+    },
+    {
+      "id": "comets_wake",
+      "name": "Comet's Wake",
+      "tier": 3,
+      "shape": "straight",
+      "material": "Glass",
+      "tris": 906,
+      "verts": 478,
+      "heightStuds": 5.401,
+      "widthStuds": 1.834,
+      "depthStuds": 0.556,
+      "originZ": -0.2007,
+      "geometryHash": "53c02522c631c81f666beab028c3293622e13afbdbf6f4416dc87c577f47cd60",
+      "fbx": "comets_wake.fbx",
+      "obj": "comets_wake.obj",
+      "parts": [
+        "comets_wake",
+        "comets_wake_glow"
+      ],
+      "bladeColor": [
+        176,
+        238,
+        255
+      ],
+      "glowColor": [
+        168,
+        252,
+        255
+      ],
+      "gripColor": [
+        34,
+        56,
+        82
+      ]
+    },
+    {
+      "id": "gravwell_sabre",
+      "name": "Gravwell Sabre",
+      "tier": 3,
+      "shape": "curved",
+      "material": "Neon",
+      "tris": 928,
+      "verts": 493,
+      "heightStuds": 5.424,
+      "widthStuds": 1.881,
+      "depthStuds": 0.556,
+      "originZ": -0.2239,
+      "geometryHash": "0fc6c6162c7fbcc6b3002ae20c21c62cd4557380901620ba02fe294b34d21d0d",
+      "fbx": "gravwell_sabre.fbx",
+      "obj": "gravwell_sabre.obj",
+      "parts": [
+        "gravwell_sabre",
+        "gravwell_sabre_glow"
+      ],
+      "bladeColor": [
+        204,
+        246,
+        255
+      ],
+      "glowColor": [
+        200,
+        255,
+        255
+      ],
+      "gripColor": [
+        38,
+        62,
+        90
+      ]
+    },
+    {
+      "id": "astral_cutter",
+      "name": "Astral Cutter",
+      "tier": 3,
+      "shape": "glaive",
+      "material": "Neon",
+      "tris": 1052,
+      "verts": 549,
+      "heightStuds": 5.424,
+      "widthStuds": 2.136,
+      "depthStuds": 0.556,
+      "originZ": -0.2239,
+      "geometryHash": "f62a78b433ba4c52747f4baf69f17aa4ef89d6957e70aea346e3a24c72a0054e",
+      "fbx": "astral_cutter.fbx",
+      "obj": "astral_cutter.obj",
+      "parts": [
+        "astral_cutter",
+        "astral_cutter_glow"
+      ],
+      "bladeColor": [
+        228,
+        250,
+        255
+      ],
+      "glowColor": [
+        232,
+        255,
+        255
+      ],
+      "gripColor": [
+        42,
+        68,
+        98
+      ]
+    },
+    {
+      "id": "nullbreaker",
+      "name": "Nullbreaker",
+      "tier": 4,
+      "shape": "greatsword",
+      "material": "Neon",
+      "tris": 906,
+      "verts": 478,
+      "heightStuds": 6.006,
+      "widthStuds": 2.847,
+      "depthStuds": 0.62,
+      "originZ": -0.2065,
+      "geometryHash": "bc986a2386b0075a95ee0c34b587c7a9530222ce88865dd4994ef5e48404fade",
+      "fbx": "nullbreaker.fbx",
+      "obj": "nullbreaker.obj",
+      "parts": [
+        "nullbreaker",
+        "nullbreaker_glow"
+      ],
+      "bladeColor": [
+        138,
+        92,
+        255
+      ],
+      "glowColor": [
+        190,
+        92,
+        255
+      ],
+      "gripColor": [
+        30,
+        22,
+        52
+      ]
+    },
+    {
+      "id": "voidfang",
+      "name": "Voidfang",
+      "tier": 4,
+      "shape": "curved",
+      "material": "Neon",
+      "tris": 682,
+      "verts": 373,
+      "heightStuds": 6.05,
+      "widthStuds": 2.538,
+      "depthStuds": 0.62,
+      "originZ": -0.2497,
+      "geometryHash": "4986599e438bd1f023b2dc0c888af92c1cc54cbd675d9ec2a9baf46f1ee7e034",
+      "fbx": "voidfang.fbx",
+      "obj": "voidfang.obj",
+      "parts": [
+        "voidfang",
+        "voidfang_glow"
+      ],
+      "bladeColor": [
+        158,
+        108,
+        255
+      ],
+      "glowColor": [
+        206,
+        104,
+        255
+      ],
+      "gripColor": [
+        34,
+        26,
+        58
+      ]
+    },
+    {
+      "id": "entropy_edge",
+      "name": "Entropy Edge",
+      "tier": 4,
+      "shape": "straight",
+      "material": "Glass",
+      "tris": 1012,
+      "verts": 529,
+      "heightStuds": 6.021,
+      "widthStuds": 1.993,
+      "depthStuds": 0.638,
+      "originZ": -0.2205,
+      "geometryHash": "24bf73d68293436c020287b87aec241dae46122476b38f6ff7aab58970af4f46",
+      "fbx": "entropy_edge.fbx",
+      "obj": "entropy_edge.obj",
+      "parts": [
+        "entropy_edge",
+        "entropy_edge_glow"
+      ],
+      "bladeColor": [
+        180,
+        124,
+        255
+      ],
+      "glowColor": [
+        222,
+        116,
+        255
+      ],
+      "gripColor": [
+        38,
+        30,
+        64
+      ]
+    },
+    {
+      "id": "event_horizon",
+      "name": "Event Horizon",
+      "tier": 4,
+      "shape": "glaive",
+      "material": "Neon",
+      "tris": 1052,
+      "verts": 549,
+      "heightStuds": 6.161,
+      "widthStuds": 2.661,
+      "depthStuds": 0.62,
+      "originZ": -0.3608,
+      "geometryHash": "700bf916caacef392e3b93bd45c2e485f6ef6ade6bfc36ca6dc5b6881f41b299",
+      "fbx": "event_horizon.fbx",
+      "obj": "event_horizon.obj",
+      "parts": [
+        "event_horizon",
+        "event_horizon_glow"
+      ],
+      "bladeColor": [
+        202,
+        140,
+        255
+      ],
+      "glowColor": [
+        238,
+        128,
+        255
+      ],
+      "gripColor": [
+        42,
+        34,
+        70
+      ]
+    },
+    {
+      "id": "blackstar_glaive",
+      "name": "Blackstar Glaive",
+      "tier": 4,
+      "shape": "glaive",
+      "material": "Neon",
+      "tris": 914,
+      "verts": 484,
+      "heightStuds": 6.018,
+      "widthStuds": 2.712,
+      "depthStuds": 0.62,
+      "originZ": -0.2181,
+      "geometryHash": "0d275683f6e6d5740d309a51375bcb759d9dac27b93ab600afeb72d0442a6e81",
+      "fbx": "blackstar_glaive.fbx",
+      "obj": "blackstar_glaive.obj",
+      "parts": [
+        "blackstar_glaive",
+        "blackstar_glaive_glow"
+      ],
+      "bladeColor": [
+        224,
+        156,
+        255
+      ],
+      "glowColor": [
+        252,
+        140,
+        255
+      ],
+      "gripColor": [
+        46,
+        38,
+        76
+      ]
+    },
+    {
+      "id": "hadron_splitter",
+      "name": "Hadron Splitter",
+      "tier": 5,
+      "shape": "greatsword",
+      "material": "Neon",
+      "tris": 940,
+      "verts": 501,
+      "heightStuds": 6.676,
+      "widthStuds": 3.244,
+      "depthStuds": 0.684,
+      "originZ": -0.2755,
+      "geometryHash": "22bb0baac15a694d88c1d218e48657c06426a5fb5dcfcb6b9fe93ddc5847e96e",
+      "fbx": "hadron_splitter.fbx",
+      "obj": "hadron_splitter.obj",
+      "parts": [
+        "hadron_splitter",
+        "hadron_splitter_glow"
+      ],
+      "bladeColor": [
+        126,
+        255,
+        200
+      ],
+      "glowColor": [
+        92,
+        255,
+        190
+      ],
+      "gripColor": [
+        20,
+        48,
+        44
+      ]
+    },
+    {
+      "id": "quanta_verge",
+      "name": "Quanta Verge",
+      "tier": 5,
+      "shape": "straight",
+      "material": "Neon",
+      "tris": 1064,
+      "verts": 557,
+      "heightStuds": 6.676,
+      "widthStuds": 2.713,
+      "depthStuds": 0.684,
+      "originZ": -0.2755,
+      "geometryHash": "67d08c13fc45b6ee1441ba5083386cf4e83b0187d12a9b4e797a1cf075dca335",
+      "fbx": "quanta_verge.fbx",
+      "obj": "quanta_verge.obj",
+      "parts": [
+        "quanta_verge",
+        "quanta_verge_glow"
+      ],
+      "bladeColor": [
+        156,
+        255,
+        214
+      ],
+      "glowColor": [
+        120,
+        255,
+        202
+      ],
+      "gripColor": [
+        24,
+        54,
+        50
+      ]
+    },
+    {
+      "id": "singularity_blade",
+      "name": "Singularity Blade",
+      "tier": 5,
+      "shape": "curved",
+      "material": "Glass",
+      "tris": 948,
+      "verts": 507,
+      "heightStuds": 6.676,
+      "widthStuds": 3.408,
+      "depthStuds": 0.684,
+      "originZ": -0.2755,
+      "geometryHash": "c358be9b677800c60e778a9d7116963e496df5dfbed2531c639db9cefc89d738",
+      "fbx": "singularity_blade.fbx",
+      "obj": "singularity_blade.obj",
+      "parts": [
+        "singularity_blade",
+        "singularity_blade_glow"
+      ],
+      "bladeColor": [
+        186,
+        255,
+        228
+      ],
+      "glowColor": [
+        148,
+        255,
+        214
+      ],
+      "gripColor": [
+        28,
+        60,
+        56
+      ]
+    },
+    {
+      "id": "entangle_scythe",
+      "name": "Entangle Scythe",
+      "tier": 5,
+      "shape": "scythe",
+      "material": "Neon",
+      "tris": 930,
+      "verts": 494,
+      "heightStuds": 6.455,
+      "widthStuds": 3.22,
+      "depthStuds": 0.684,
+      "originZ": -0.055,
+      "geometryHash": "e2b80af3e85c9ed71665efece0be9ba94fe902a541c908c15ad3624ae4886dcf",
+      "fbx": "entangle_scythe.fbx",
+      "obj": "entangle_scythe.obj",
+      "parts": [
+        "entangle_scythe",
+        "entangle_scythe_glow"
+      ],
+      "bladeColor": [
+        214,
+        255,
+        240
+      ],
+      "glowColor": [
+        176,
+        255,
+        226
+      ],
+      "gripColor": [
+        32,
+        66,
+        62
+      ]
+    },
+    {
+      "id": "forge_eternal",
+      "name": "The Forge Eternal",
+      "tier": 5,
+      "shape": "greatsword",
+      "material": "Neon",
+      "tris": 952,
+      "verts": 509,
+      "heightStuds": 6.676,
+      "widthStuds": 3.433,
+      "depthStuds": 0.684,
+      "originZ": -0.2755,
+      "geometryHash": "e534a1a1b2d8000ef8291f2d7208a7a0929a9c19907d9fff4444796d6b5a6d78",
+      "fbx": "forge_eternal.fbx",
+      "obj": "forge_eternal.obj",
+      "parts": [
+        "forge_eternal",
+        "forge_eternal_glow"
+      ],
+      "bladeColor": [
+        240,
+        255,
+        250
+      ],
+      "glowColor": [
+        210,
+        255,
+        238
+      ],
+      "gripColor": [
+        36,
+        72,
+        68
+      ]
+    }
+  ],
+  "props": [
+    {
+      "id": "fleet_drone",
+      "name": "Autonomous Fleet Drone",
+      "tier": 0,
+      "shape": "drone",
+      "material": "Metal",
+      "tris": 476,
+      "verts": 254,
+      "heightStuds": 1.552,
+      "widthStuds": 3.322,
+      "depthStuds": 2.945,
+      "originZ": -0.68,
+      "geometryHash": "0b98ce41023328c6b0d1c0bc6d65030be70b9dba593495a0bd825394f6277c2e",
+      "fbx": "fleet_drone.fbx",
+      "obj": "fleet_drone.obj",
+      "parts": [
+        "fleet_drone",
+        "fleet_drone_glow"
+      ],
+      "bladeColor": null,
+      "glowColor": null,
+      "gripColor": null
+    }
+  ]
+}

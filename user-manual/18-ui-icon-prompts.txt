@@ -1,0 +1,292 @@
+================================================================================
+ QUANTUM FORGE - TOP-BAR ICON REFERENCES
+ Seven utility keys, two verb badges. Drawn as vectors in Icons.luau.
+ Same contract as 16-salvage-art-prompts.txt: intent, prompt, negative,
+ settings, save path.
+================================================================================
+
+READ THIS FIRST
+These keys are NOT uploaded images. Icons.luau draws them at runtime from Frames
+and labels, so a 22px mark scales cleanly, tint into any accent, and costs no
+asset request. The prompts below produce a REFERENCE SHEET used to redraw the
+vector, not a file that ships. Do not add these PNGs to AssetManifest.
+
+WHAT THE SHEET HAS TO FIX
+- the silhouette at 22px, which is the size the top bar actually uses
+- the amount of interior detail that survives at 22px (almost none)
+- the stroke weight relative to the 22px box: one 3px stem, never two thin ones
+- where the accent colour sits, if anywhere
+
+THE HOUSE RULES
+- Solid single-colour marks on a flat light field, drawn as if inked with a
+  2.2mm pen: slightly uneven, one line weight, rounded ends.
+- No gradients, no bevels, no shadows, no glow, no two-tone interior.
+- 45-degree and 90-degree strokes only. No curves tighter than the pen can cut.
+- The sheet is a drawing to copy, so show construction lines and a 3x enlargement
+  beside the 22px version. The small one is the test.
+- No text, no letters, no numbers in the image.
+
+WHERE THEY GO
+Reference only. Redraw in src/client/Icons.luau as a function returning a Frame of
+bars. When the vector is done, delete the sheet from the repo (keep it in Drive if
+you want a record). The manifest must not gain an id for these.
+
+HOW THE KEYS ARE USED
+50 x 62 key, 22px icon at the top (roughly y 10 to 32), 13px label under it.
+Seven keys in a row: VAULT, CODEX, BOARDS, TRADE, NOTES, GUIDE, SETUP. Then ASCEND
+(88 wide) and DAILY (78 wide) with a small vector badge, not an icon.
+
+COMMON NEGATIVE (every prompt)
+text, letters, numbers, words, logo, watermark, signature, gradient, bevel, drop
+shadow, glow, bloom, two-tone, outline only, sketchy hatching, perspective,
+isometric, 3D render, photograph, colour background, multiple icons per prompt
+unless the sheet asks for a row.
+
+
+================================================================================
+ 1. vault  -  the blade vault
+================================================================================
+
+Intent: a strongbox you would keep a weapon in. Not a padlock: this bank is a chest
+with a keyhole, and the keyhole is what makes it read at 22px.
+
+SILHOUETTE AT 22PX
+A squat rectangle, wider than tall, with a shallow arched lid and one round hole
+low centre. The hole must be at least 4px at 22px or it disappears.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of the lid arch. A squat strongbox with a shallow arched lid, a full
+width band across the top third and a keyhole cut clean through the lower centre.
+The lid band is a solid bar, the body is a solid block, the keyhole is the only
+hole. Pen line is one weight, slightly uneven, rounded ends. No interior hatching.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone. One version may show the
+accent placement as a single flat cyan (#5AD1E6) bar across the lid band.
+
+SETTINGS: 1024 x 1024. High contrast, flat fill, no gradients.
+
+SAVE: assets/icons/reference/vault.png
+
+
+================================================================================
+ 2. codex  -  the discovery index
+================================================================================
+
+Intent: a closed book with a bookmark, seen from the front. The bookmark is the
+read at 22px; the cover is the mass.
+
+SILHOUETTE AT 22PX
+A tall rectangle with one corner nipped, one vertical bar down the left edge for
+the spine, and a small tab hanging out of the top.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of the bookmark. A closed book standing upright, spine on the left with
+two raised bands, a nipped lower right corner and a single bookmark tab hanging
+over the top edge. The cover is a solid block with one horizontal rule. Pen line
+is one weight, rounded ends. No page edges, no hatching.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone.
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/codex.png
+
+
+================================================================================
+ 3. boards  -  the leaderboards
+================================================================================
+
+Intent: three ranked bars. It is the only mark in the set that is a chart, and
+that is allowed because nobody mistakes a chart for anything else.
+
+SILHOUETTE AT 22PX
+Three vertical bars, stepped tall to short, each with a flat cap, standing on one
+baseline. Gaps equal to the bar width.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of bar count. Three vertical bars of stepped height standing on a
+single baseline, the tallest on the left, each bar capped flat. One thin rule runs
+under all three as the axis. Pen line is one weight, rounded ends. No numbers, no
+axis labels.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone. One version may show the
+tallest bar in flat gold (#F2C14E).
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/boards.png
+
+
+================================================================================
+ 4. trade  -  the trading desk
+================================================================================
+
+Intent: two arrows swapping. In one colour at 22px the pair reads as exchange, and
+it is the only mark with a diagonal, so it stands out in the row.
+
+SILHOUETTE AT 22PX
+Two parallel arrows, one up-right, one down-left, offset so the heads do not
+collide. Heads are solid triangles, shafts are 3px at 22px.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of arrow offset. Two exchange arrows: the upper one points up-right, the
+lower one points down-left, both with solid triangular heads and straight shafts,
+offset so the heads clear each other. Pen line is one weight, rounded shafts. No
+curves, no circle around them.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone. One version may show one
+arrow in flat cyan (#5AD1E6) and the other in ink.
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/trade.png
+
+
+================================================================================
+ 5. notes  -  feedback and bug reports
+================================================================================
+
+Intent: a speech bubble, squared off, with three dots. The dots are the read; the
+tail tells you it is a message and not a card.
+
+SILHOUETTE AT 22PX
+A rounded square with a short tail at the lower left and three 2.5px dots in a
+row. The tail has to be at least 5px long at 22px to survive.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of tail. A squared speech bubble with softly rounded corners, a short
+tail at the lower left, and three round dots in a horizontal row across the middle.
+The bubble is a solid block; the dots are holes through it. Pen line is one
+weight, rounded ends.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone.
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/notes.png
+
+
+================================================================================
+ 6. guide  -  the handbook
+================================================================================
+
+Intent: an open book, shown as two pages with a visible gutter. Distinct from the
+codex at 22px because it is wide and has no bookmark.
+
+SILHOUETTE AT 22PX
+A wide shape, two pages, a deep V gutter in the middle and two shallow dips at the
+top. Wider than tall by about 1.3.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of the gutter. An open book seen from above: two facing pages, a deep V
+gutter down the centre, the outer edges curling slightly, and a thin spine under
+the gutter. Each page carries one short horizontal rule. Pen line is one weight,
+rounded ends. No text, no page numbers.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone.
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/guide.png
+
+
+================================================================================
+ 7. setup  -  settings
+================================================================================
+
+Intent: a gear. It is the least interesting mark in the set and that is correct:
+it should be recognised instantly and never looked at.
+
+SILHOUETTE AT 22PX
+Eight square teeth around a solid ring with a hole. Teeth must be no smaller than
+3px at 22px; eight is the floor for reading as a gear.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 132px, one 66px, one 22px, and six small
+variations of tooth count. A gear with eight blunt square teeth, a thick solid ring
+and a clear round hole in the centre. No interior hatching, no keyway, no second
+gear. Pen line is one weight, rounded ends.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone.
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/setup.png
+
+
+================================================================================
+ 8. ascend  -  the verb badge
+================================================================================
+
+Intent: upward. It sits in an 88 wide purple key and the badge is small, so it is
+one chevron over one bar, nothing more.
+
+SILHOUETTE AT 20PX
+A wide chevron over a 3px bar, both the same width. The gap between them is the
+same as the bar height.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 120px, one 60px, one 20px, and six small
+variations of chevron angle. A single wide upward chevron with square-cut ends,
+sitting over one horizontal bar of the same width. No arrowhead, no second
+chevron, no circle. Pen line is one weight, rounded ends.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone. One version may show both
+marks in flat gold (#F2C14E).
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/ascend.png
+
+
+================================================================================
+ 9. daily  -  the daily ritual badge
+================================================================================
+
+Intent: a calendar leaf with one corner folded. The fold is the read at 20px; the
+two pins are the second read.
+
+SILHOUETTE AT 20PX
+A rounded square with two pins on the top edge and the lower right corner folded
+back on a 45 degree line.
+
+PROMPT
+Hand-inked one-colour icon reference sheet on a flat bone field (#E8E0D0). Nine
+constructions of the same mark: one large 120px, one 60px, one 20px, and six small
+variations of fold size. A calendar leaf: a rounded square with two short pins on
+the top edge, one horizontal rule under them, and the lower right corner folded
+back on a clean 45 degree line. No dates, no numbers, no ring binding. Pen line is
+one weight, rounded ends.
+
+PALETTE: ink only, deep navy-black (#0F1117) on bone. One version may show the
+fold in flat emerald (#4CD68A).
+
+SETTINGS: 1024 x 1024. High contrast, flat.
+
+SAVE: assets/icons/reference/daily.png
+
+
+================================================================================
+ CHECKLIST BEFORE REDRAWING
+================================================================================
+[ ] At 22px the mark is still recognisable as itself and not as its neighbour.
+[ ] One line weight, 3px in the 22px box; no 1px detail anywhere.
+[ ] The mark is a solid fill, not an outline of a shape.
+[ ] Nothing depends on colour to be legible.
+[ ] The seven marks are distinguishable in a row at arm's length from the screen.
+[ ] The codex and guide marks are different silhouettes, not the same book twice.
+[ ] No PNG is added to AssetManifest for any of these.

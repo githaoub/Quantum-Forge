@@ -1,0 +1,44 @@
+{
+  "band": {
+    "assetId": "102992694705193",
+    "assetType": "Image",
+    "file": "band.png",
+    "hash": "f61435834af75b264f828ce75461d5c07ee094a977d89fcd211faca55cfc231f"
+  },
+  "sky_bk": {
+    "assetId": "127948154052495",
+    "assetType": "Image",
+    "file": "bk.png",
+    "hash": "c5e6cd440fc4dde7c4ed851a1797c748909b8c2ec65cc3db02eeea895251a342"
+  },
+  "sky_dn": {
+    "assetId": "127509473987572",
+    "assetType": "Image",
+    "file": "dn.png",
+    "hash": "6cd3cf916ff99fb824ff79a18f888d846d09ec05bab42a1c6dde853ec5262a90"
+  },
+  "sky_ft": {
+    "assetId": "93704348378287",
+    "assetType": "Image",
+    "file": "ft.png",
+    "hash": "a2e138dd82263813986003ed6eb5dd05beea4009c6739f673020eeca9a28b997"
+  },
+  "sky_lf": {
+    "assetId": "114213263580640",
+    "assetType": "Image",
+    "file": "lf.png",
+    "hash": "738213249e5a137869a495bb1e6c7e70d29da8ea52d160fa9c9ae5b59a6766e5"
+  },
+  "sky_rt": {
+    "assetId": "76004822288802",
+    "assetType": "Image",
+    "file": "rt.png",
+    "hash": "912a72c62d7c95935024efaa16202998e48c84c52177a876f2c91fb1fa5da8a2"
+  },
+  "sky_up": {
+    "assetId": "71420941898331",
+    "assetType": "Image",
+    "file": "up.png",
+    "hash": "6c95b48b5a65cc95146545cb65f96b1fec94614d257b2bead2aef11950025423"
+  }
+}

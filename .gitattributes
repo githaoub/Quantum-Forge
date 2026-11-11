@@ -1,0 +1,17 @@
+# Normalize text to LF in the index; keep .luau LF in the working tree.
+* text=auto
+*.luau text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+
+# Binary assets: never diff, never convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.rbxlx binary
+*.rbxm binary
+*.rbxmx binary
+*.blend binary

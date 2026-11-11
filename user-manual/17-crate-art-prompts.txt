@@ -1,0 +1,346 @@
+================================================================================
+ QUANTUM FORGE - CRATE MODEL SHEETS + THE BOOST BADGE
+ Five crate families for CratePreview.luau, plus the x2 badge redraw.
+ Same contract as 16-salvage-art-prompts.txt: intent, prompt, negative,
+ settings, save path.
+================================================================================
+
+WHY THIS SET EXISTS
+The five crates are built in-engine from parts (CratePreview.luau), so the game
+never needs these files to run. What it needs is a reference sheet that fixes the
+silhouette, the part count and the palette before the builder is tuned. One sheet
+per crate means the procedural model and a later mesh upload are the same object,
+not two guesses.
+
+WHAT TO DELIVER
+Each prompt asks for a MODEL SHEET, not a beauty render:
+  - one three-quarter view, large, centre
+  - one front elevation, small, lower left, same height
+  - one top-down silhouette, small, lower right
+  - a flat mid-dark background so the shape reads
+  - no text, no numbers, no watermark, no logo
+The sheet is a drawing to build from, so exposed seams, hinge counts and panel
+breaks matter more than lighting.
+
+THE HOUSE RULES (same as every other asset in this project)
+- Painted by a person: gouache, ink and coloured pencil. Tabletop game box
+  register, the same hand as the salvage badges.
+- The ink contour is the only true black. Every shadow is coloured umber, indigo
+  or deep green.
+- The crate sits on a dark panel in game at 192-268px, so the silhouette has to
+  read at 96px and the palette has to survive a dark surround.
+- Human tells are requirements: one pass of paint over the contour, dry-brush
+  edges, pigment specks, a slightly off hinge. Clean vector edges are a machine
+  tell and are wrong for this set.
+- No text, no letters, no numbers, ever. No Roblox logo, no QR, no signature.
+
+WHERE THEY GO
+Reference sheets only. Save to assets/crates/reference/<slug>.png and keep them
+out of the build; if a crate is ever promoted to a mesh, run the render through
+  python scripts/prepare_gamepass_art.py --src <file> --dst assets/crates/<slug>.png
+and add the id under AssetManifest.CrateArt.<slug>. Until then the procedural
+builder is the shipping path.
+
+
+================================================================================
+ 1. crate_standard  -  "Standard Forge Crate"
+================================================================================
+
+Intent: the yard crate. Bolted, banded, and honest about the odds. This is the
+first object a new player opens, so it has to look like it was built by someone
+who had a nail gun and a deadline.
+
+MODEL NOTES
+- A squat box, slightly wider than tall, 4 x 3.2 x 4 studs.
+- Corrugated steel sides with a visible vertical seam; three horizontal bands.
+- Lid hinged at the back with two crude hinges, lid sits 2cm proud.
+- One latch, centred, oversized, the only brass on the object.
+- A stencilled chevron on the front that is worn, not printed. It must be a
+  painted shape, never a letterform.
+
+PROMPT
+Hand-painted model sheet for a game object, drawn by a professional illustrator
+in gouache, ink and coloured pencil on a flat charcoal field (#23262E), the kind
+of original concept plate printed in a tabletop game art book. Three-quarter view
+large in the centre, a small front elevation lower left and a small top-down
+silhouette lower right, all the same design at the same scale, evenly spaced on
+one sheet. Not a vector icon, not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a squat industrial loot crate made of corrugated steel, wider than it is
+tall. Three horizontal steel bands wrap the body, each with two visible rivets.
+Two stubby hinges at the back hold a lid that sits slightly proud, and a single
+oversized brass latch sits dead centre at the front. The lid carries a worn
+hand-painted chevron, chipped at the edges. One corner is dented and the paint has
+flaked there to show bare steel. No background detail, no ground shadow, no second
+object.
+
+PALETTE: warm ochre field on the crate, steel blue-grey body (#5C6B7A to #8FA0B0),
+oxidised brass latch (#C8923A), rust creeping from two rivets (#A85C33). The
+charcoal sheet field (#23262E) is flat and even. Ink contour over everything, then
+one pass of paint across it so the line breaks at the corners.
+
+NEGATIVE
+photograph, 3D render, octane, glossy plastic, vector, flat design, minimal,
+gradient mesh, neon, glow, bloom, text, letters, numbers, logo, watermark,
+signature, drop shadow, floor, background scenery, extra crates, hands, person.
+
+SETTINGS
+1024 x 1024, square. High detail, medium contrast. No transparency needed: the
+sheet is a plate. If the tool supports a reference, feed the standard crate render
+from the live game for palette only.
+
+SAVE
+assets/crates/reference/crate_standard.png
+
+
+================================================================================
+ 2. crate_void  -  "Void Capsule"
+================================================================================
+
+Intent: sealed in the dark. Something inside is still counting. This is the first
+crate that costs real money to open, so it must look like it was made by someone
+who does not want it opened.
+
+MODEL NOTES
+- A vertical capsule, 2.2 x 4 x 2.2 studs, rounded shoulders, flat base.
+- Two halves split on the long axis with a hairline seam and a single keyed band.
+- The band carries three small indicator lights, all the same size, none lit.
+- A recessed circular port on the front, the only circular shape on the object.
+- The base has four claws that bite into the floor, not legs.
+- Void is a colour, not a fog effect: deep indigo and black with one cold edge.
+
+PROMPT
+Hand-painted model sheet for a game object, drawn by a professional illustrator
+in gouache, ink and coloured pencil on a flat charcoal field (#23262E), the kind
+of original concept plate printed in a tabletop game art book. Three-quarter view
+large in the centre, a small front elevation lower left and a small top-down
+silhouette lower right, all the same design at the same scale. Not a vector icon,
+not clipart, not a 3D render.
+
+SUBJECT: a sealed vertical capsule, rounded at the shoulders, flat at the base,
+split into two halves by a hairline seam that runs the full height. A wide keyed
+band wraps the middle, holding three identical unlit glass indicators no larger
+than a thumbnail. A recessed circular port sits on the front, slightly below the
+band, with no handle and no obvious way to turn it. Four short claws at the base
+bite downward. The surface is matte and cold, with one polished edge catching
+light at the seam. No fog, no particles, no light beams, no second object.
+
+PALETTE: deep indigo body (#241E3B to #3B2E5C), a violet edge at the seam
+(#7B4BC4), black-blue shadow (#14111F), one cold highlight in pale lilac
+(#C9B8E8). The three indicators are unlit smoked glass (#4A4258). The charcoal
+sheet field stays flat around the object.
+
+NEGATIVE
+fog, smoke, particles, glow, bloom, neon tube, sci-fi interface, hologram, text,
+letters, numbers, logo, watermark, photograph, 3D render, glossy plastic, vector,
+clipart, floor, background scenery, extra objects, person.
+
+SETTINGS
+1024 x 1024, square. High detail, low-key lighting described in paint, not bloom.
+
+SAVE
+assets/crates/reference/crate_void.png
+
+
+================================================================================
+ 3. crate_quantum  -  "Quantum Relic"
+================================================================================
+
+Intent: two states at once, both of them sharp. The joke is that the crate is an
+obelisk that cannot decide whether it is open or closed, and the drawing should
+show both readings at once without any effects.
+
+MODEL NOTES
+- An obelisk, 1.8 x 4.4 x 1.8 studs, four faces, slight taper to a blunt top.
+- A single vertical channel cut down the front, offset one face to the left.
+- The channel holds a floating blade-like sliver that never touches the walls.
+- The top face is cut at an angle, as if a corner were sliced off and set aside.
+- Shards orbit the base, frozen mid-fall, none touching the ground.
+- Quantum is the pink-violet band already used in the HUD, not a new colour.
+
+PROMPT
+Hand-painted model sheet for a game object, drawn by a professional illustrator
+in gouache, ink and coloured pencil on a flat charcoal field (#23262E), the kind
+of original concept plate printed in a tabletop game art book. Three-quarter view
+large in the centre, a small front elevation lower left and a small top-down
+silhouette lower right, all the same design at the same scale. Not a vector icon,
+not clipart, not a 3D render.
+
+SUBJECT: a narrow stone obelisk with four faces, tapering to a blunt sliced top.
+A channel is cut down the front face, off centre, and inside it a blade-shaped
+sliver floats with a clear gap on every side. Three small shards hang around the
+base at different heights, frozen in the air, none of them touching the ground.
+The surface is dark polished stone with chipped edges and a visible fracture line
+that does not reach the top. No glow, no rays, no energy arcs, no second object.
+
+PALETTE: near-black basalt (#1B1820 to #2E2937), the channel interior in deep
+wine (#3A1F35), the floating sliver in hot magenta (#E24BB4) with a pale edge
+(#FFC2EA), the shards in the same magenta at a duller value. The charcoal sheet
+field stays flat. Every shadow is painted in indigo, not black.
+
+NEGATIVE
+glow, bloom, light rays, energy arcs, lightning, particles, sci-fi interface,
+hologram, text, letters, numbers, logo, watermark, photograph, 3D render, glossy
+plastic, chrome, vector, clipart, floor, background scenery, person.
+
+SETTINGS
+1024 x 1024, square. High detail. The magenta must hold at 96px, so do not let it
+become a thin outline.
+
+SAVE
+assets/crates/reference/crate_quantum.png
+
+
+================================================================================
+ 4. crate_celestial  -  "Celestial Core"
+================================================================================
+
+Intent: a sphere in a cage. The core is the prize and the cage is the promise that
+it can be held, and the drawing has to make the cage look older than the sphere.
+
+MODEL NOTES
+- A near-perfect sphere, 2.6 studs across, sitting in a three-ring cage.
+- The rings are at three different angles, each one a flat band, not a tube.
+- Two rings are complete, one is broken at the front with the loose end curled.
+- The sphere is opaque, pale, and clearly solid; it is not a light source.
+- The cage sits on a low plinth with a stepped edge, 0.4 studs tall.
+- Celestial uses the gold band, not white; white would read as a UI element.
+
+PROMPT
+Hand-painted model sheet for a game object, drawn by a professional illustrator
+in gouache, ink and coloured pencil on a flat charcoal field (#23262E), the kind
+of original concept plate printed in a tabletop game art book. Three-quarter view
+large in the centre, a small front elevation lower left and a small top-down
+silhouette lower right, all the same design at the same scale. Not a vector icon,
+not clipart, not a 3D render.
+
+SUBJECT: a solid pale sphere held inside a cage of three flat metal rings set at
+three different angles. Two rings are complete; the third is broken at the front
+and its loose end curls outward. The cage rests on a low stepped plinth. The sphere
+is matte and opaque, with a faint marbled vein running across it, and it does not
+glow. The rings are dented and one is repaired with a darker splice. No stars, no
+orbit lines, no light, no second object.
+
+PALETTE: bone-white sphere (#EDE4D2) with a warm marbled vein (#C9A96B), the cage
+in old gold (#B08A3E) with a darker splice (#6E5526), the plinth in grey-brown
+stone (#6A6258). Shadows in umber. The charcoal sheet field stays flat.
+
+NEGATIVE
+glow, bloom, halo, stars, constellation lines, orbit trails, sparkles, lens flare,
+text, letters, numbers, logo, watermark, photograph, 3D render, glossy plastic,
+chrome, vector, clipart, floor, background scenery, person.
+
+SETTINGS
+1024 x 1024, square. High detail. The sphere must read as solid, not as a lamp.
+
+SAVE
+assets/crates/reference/crate_celestial.png
+
+
+================================================================================
+ 5. crate_singularity  -  "Singularity Vault"
+================================================================================
+
+Intent: a door that was built to stay shut. The last crate in the ladder should
+look like infrastructure, not loot: heavy, bolted, and slightly too large for the
+room.
+
+MODEL NOTES
+- A rectangular vault door, 3.6 x 4.2 x 0.9 studs, standing upright on a base.
+- A central wheel with four spokes, the only circular element.
+- Eight bolt heads around the rim, unevenly spaced by a finger's width.
+- A vertical seam down the middle that does not open: the door is one piece.
+- Two hinges on the left, each the size of a forearm.
+- The door face carries three horizontal ribs, one bent out of line.
+- Singularity is the deepest purple in the set, almost black at the edges.
+
+PROMPT
+Hand-painted model sheet for a game object, drawn by a professional illustrator
+in gouache, ink and coloured pencil on a flat charcoal field (#23262E), the kind
+of original concept plate printed in a tabletop game art book. Three-quarter view
+large in the centre, a small front elevation lower left and a small top-down
+silhouette lower right, all the same design at the same scale. Not a vector icon,
+not clipart, not a 3D render.
+
+SUBJECT: a heavy rectangular vault door standing upright on a short welded base,
+thicker than a door has any right to be. A four-spoke wheel sits dead centre. Eight
+oversized bolt heads ring the face, spaced slightly unevenly, one of them chewed by
+a wrench. A vertical seam runs down the middle but does not open: it is one cast
+piece. Three horizontal ribs cross the upper half and the lowest is bent out of
+line. Two massive hinges hang on the left edge. The face is scratched by something
+that was dragged across it. No opening, no light behind it, no second object.
+
+PALETTE: deep violet-black face (#211A2E to #332646), the wheel and bolts in cold
+iron (#4C4658) with worn edges (#8B8299), the weld seam in burnt umber (#6B4326).
+The charcoal sheet field stays flat. Highlights are narrow and hard, never glossy.
+
+NEGATIVE
+glow, bloom, portal, light behind the door, smoke, sparks, sci-fi interface, text,
+letters, numbers, logo, watermark, photograph, 3D render, glossy plastic, chrome,
+vector, clipart, floor, background scenery, person.
+
+SETTINGS
+1024 x 1024, square. High detail. The door must read at 96px as a slab with a
+wheel, so keep the silhouette heavy and simple.
+
+SAVE
+assets/crates/reference/crate_singularity.png
+
+
+================================================================================
+ 6. x2_star_matter  -  the boost badge (redraw)
+================================================================================
+
+Intent: one hour of double Star-Matter should feel like a gift, not a coupon. The
+existing badge (AssetManifest.UiArt.x2_star_matter, id 118909357848534) already
+sits at the centre of the starter card and the Store shelf, so the redraw keeps its
+silhouette: a round gold plate with a bolt cut through it. The art is shown at
+96px on the starter card, so it is drawn for that size first.
+
+MODEL NOTES
+- Perfect circle, 1:1, transparent corners.
+- The bolt is a single cut-out, not an outline over the plate.
+- One highlight sweep at upper left, one shadow at lower right.
+- No text: the "x2" is a UI label under the plate, never baked into the art.
+- The plate must still read as gold at 48px.
+
+PROMPT
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box. Rich, saturated, hand-mixed colour. Not a vector icon, not clipart, not
+a 3D render, not an app icon.
+
+SUBJECT: a thick gold medallion with a raised rim and a single lightning bolt cut
+clean through the face. The bolt is a hole, so the background shows through it.
+The rim has three small notches, one at the top, two at the lower sides. The face
+is slightly domed and one edge of the bolt is chipped. Nothing else in the frame:
+no background, no ground, no second object.
+
+PALETTE: warm gold face (#F2C14E) deepening to amber at the rim (#B9791F), the cut
+edge of the bolt in pale cream (#FFF0C4), the inner shadow in burnt umber
+(#7A4A17). The ink contour is the only true black and it is painted over once.
+
+NEGATIVE
+text, letters, numbers, "x2", star, sparkle, glow, bloom, lens flare, gradient
+mesh, vector, flat design, clipart, 3D render, glossy plastic, chrome, background,
+ground, second object, watermark, signature.
+
+SETTINGS
+1024 x 1024, square, transparent background. High detail at the rim, flat centre.
+
+SAVE
+assets/badges/source/x2_star_matter.png, then
+  python scripts/prepare_gamepass_art.py --src assets/badges/source/x2_star_matter.png
+    --dst assets/badges/x2_star_matter.png --no-preview
+and replace AssetManifest.UiArt.x2_star_matter with the new id.
+
+================================================================================
+ CHECKLIST BEFORE UPLOAD
+================================================================================
+[ ] The sheet reads at 96px without the caption.
+[ ] No letterforms anywhere, including the stencil on the standard crate.
+[ ] The ink line breaks where paint crosses it; no uniform vector weight.
+[ ] Shadows are umber or indigo, never neutral black.
+[ ] The five crates are five different silhouettes in a row at 96px.
+[ ] The bolt on the boost badge is a hole, not a painted shape.

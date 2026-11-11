@@ -1,0 +1,143 @@
+{
+  "assets": {
+    "assets": {
+      "assets": {
+        "band": {
+          "bytes": 726902,
+          "file": "band.png",
+          "hash": "f61435834af75b264f828ce75461d5c07ee094a977d89fcd211faca55cfc231f",
+          "source": "Materials\\gold\\gold_antiquehammered_003\\Color.png"
+        },
+        "sky_bk": {
+          "bytes": 1009026,
+          "file": "sky/bk.png",
+          "hash": "c5e6cd440fc4dde7c4ed851a1797c748909b8c2ec65cc3db02eeea895251a342",
+          "source": "Skies\\night_stars_indigo_001\\SkyBk.png"
+        },
+        "sky_dn": {
+          "bytes": 737055,
+          "file": "sky/dn.png",
+          "hash": "6cd3cf916ff99fb824ff79a18f888d846d09ec05bab42a1c6dde853ec5262a90",
+          "source": "Skies\\night_stars_indigo_001\\SkyDn.png"
+        },
+        "sky_ft": {
+          "bytes": 1005060,
+          "file": "sky/ft.png",
+          "hash": "a2e138dd82263813986003ed6eb5dd05beea4009c6739f673020eeca9a28b997",
+          "source": "Skies\\night_stars_indigo_001\\SkyFt.png"
+        },
+        "sky_lf": {
+          "bytes": 991345,
+          "file": "sky/lf.png",
+          "hash": "738213249e5a137869a495bb1e6c7e70d29da8ea52d160fa9c9ae5b59a6766e5",
+          "source": "Skies\\night_stars_indigo_001\\SkyLf.png"
+        },
+        "sky_rt": {
+          "bytes": 1020489,
+          "file": "sky/rt.png",
+          "hash": "912a72c62d7c95935024efaa16202998e48c84c52177a876f2c91fb1fa5da8a2",
+          "source": "Skies\\night_stars_indigo_001\\SkyRt.png"
+        },
+        "sky_up": {
+          "bytes": 1306527,
+          "file": "sky/up.png",
+          "hash": "6c95b48b5a65cc95146545cb65f96b1fec94614d257b2bead2aef11950025423",
+          "source": "Skies\\night_stars_indigo_001\\SkyUp.png"
+        }
+      },
+      "band": {
+        "bytes": 726902,
+        "file": "band.png",
+        "hash": "f61435834af75b264f828ce75461d5c07ee094a977d89fcd211faca55cfc231f",
+        "source": "Materials\\gold\\gold_antiquehammered_003\\Color.png"
+      },
+      "licence": "LihFolk Asset Pack licence - use in an experience, private uploads, no redistribution",
+      "pack": "LihFolk Vault V2",
+      "sky": "night_stars_indigo_001",
+      "sky_bk": {
+        "bytes": 1009026,
+        "file": "sky/bk.png",
+        "hash": "c5e6cd440fc4dde7c4ed851a1797c748909b8c2ec65cc3db02eeea895251a342",
+        "source": "Skies\\night_stars_indigo_001\\SkyBk.png"
+      },
+      "sky_dn": {
+        "bytes": 737055,
+        "file": "sky/dn.png",
+        "hash": "6cd3cf916ff99fb824ff79a18f888d846d09ec05bab42a1c6dde853ec5262a90",
+        "source": "Skies\\night_stars_indigo_001\\SkyDn.png"
+      },
+      "sky_ft": {
+        "bytes": 1005060,
+        "file": "sky/ft.png",
+        "hash": "a2e138dd82263813986003ed6eb5dd05beea4009c6739f673020eeca9a28b997",
+        "source": "Skies\\night_stars_indigo_001\\SkyFt.png"
+      },
+      "sky_lf": {
+        "bytes": 991345,
+        "file": "sky/lf.png",
+        "hash": "738213249e5a137869a495bb1e6c7e70d29da8ea52d160fa9c9ae5b59a6766e5",
+        "source": "Skies\\night_stars_indigo_001\\SkyLf.png"
+      },
+      "sky_rt": {
+        "bytes": 1020489,
+        "file": "sky/rt.png",
+        "hash": "912a72c62d7c95935024efaa16202998e48c84c52177a876f2c91fb1fa5da8a2",
+        "source": "Skies\\night_stars_indigo_001\\SkyRt.png"
+      },
+      "sky_up": {
+        "bytes": 1306527,
+        "file": "sky/up.png",
+        "hash": "6c95b48b5a65cc95146545cb65f96b1fec94614d257b2bead2aef11950025423",
+        "source": "Skies\\night_stars_indigo_001\\SkyUp.png"
+      }
+    },
+    "band": {
+      "bytes": 726902,
+      "file": "band.png",
+      "hash": "f61435834af75b264f828ce75461d5c07ee094a977d89fcd211faca55cfc231f",
+      "source": "Materials\\gold\\gold_antiquehammered_003\\Color.png"
+    },
+    "licence": "LihFolk Asset Pack licence - use in an experience, private uploads, no redistribution",
+    "pack": "LihFolk Vault V2",
+    "sky": "night_stars_indigo_001",
+    "sky_bk": {
+      "bytes": 1009026,
+      "file": "sky/bk.png",
+      "hash": "c5e6cd440fc4dde7c4ed851a1797c748909b8c2ec65cc3db02eeea895251a342",
+      "source": "Skies\\night_stars_indigo_001\\SkyBk.png"
+    },
+    "sky_dn": {
+      "bytes": 737055,
+      "file": "sky/dn.png",
+      "hash": "6cd3cf916ff99fb824ff79a18f888d846d09ec05bab42a1c6dde853ec5262a90",
+      "source": "Skies\\night_stars_indigo_001\\SkyDn.png"
+    },
+    "sky_ft": {
+      "bytes": 1005060,
+      "file": "sky/ft.png",
+      "hash": "a2e138dd82263813986003ed6eb5dd05beea4009c6739f673020eeca9a28b997",
+      "source": "Skies\\night_stars_indigo_001\\SkyFt.png"
+    },
+    "sky_lf": {
+      "bytes": 991345,
+      "file": "sky/lf.png",
+      "hash": "738213249e5a137869a495bb1e6c7e70d29da8ea52d160fa9c9ae5b59a6766e5",
+      "source": "Skies\\night_stars_indigo_001\\SkyLf.png"
+    },
+    "sky_rt": {
+      "bytes": 1020489,
+      "file": "sky/rt.png",
+      "hash": "912a72c62d7c95935024efaa16202998e48c84c52177a876f2c91fb1fa5da8a2",
+      "source": "Skies\\night_stars_indigo_001\\SkyRt.png"
+    },
+    "sky_up": {
+      "bytes": 1306527,
+      "file": "sky/up.png",
+      "hash": "6c95b48b5a65cc95146545cb65f96b1fec94614d257b2bead2aef11950025423",
+      "source": "Skies\\night_stars_indigo_001\\SkyUp.png"
+    }
+  },
+  "licence": "LihFolk Asset Pack licence - use in an experience, private uploads, no redistribution",
+  "pack": "LihFolk Vault V2",
+  "sky": "night_stars_indigo_001"
+}

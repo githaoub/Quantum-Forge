@@ -1,0 +1,1278 @@
+================================================================================
+ QUANTUM FORGE - 15 BADGE PROMPTS
+ Fleet, Runes, Tech. Every block is complete: intent, prompt, negative,
+ settings, save path.
+================================================================================
+
+
+================================================================================
+ 1. sweep  -  "Debris Sweep"
+================================================================================
+
+Intent: a five-minute run through the near belt. Cheap, safe, and back before the
+kettle boils. The picture is the haul, not the travel: the drone has already
+grabbed something ridiculous and is dragging it home.
+
+The difference from Deep Salvage matters: that badge is a vertical cable with a
+hull hanging under it. This one is horizontal, low and light, a small tug hauling
+a compact ball of junk sideways.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a chunky salvage tug drone seen from the side, leaning back against a
+load. Its body is a squat riveted box of burnt orange and brass, with one big
+round lens eye at the front and a stubby thruster at the back, small braced legs
+underneath. A horseshoe magnet hangs from a short arm under its nose, and stuck to
+the magnet is a compact ball of junk about half the drone's size: a bent bathtub,
+a traffic cone, a satellite dish, half a bicycle wheel, all in different colours
+so the clump reads as a collection rather than a mass. The drone's eye is squinted
+with effort. One bolt has popped off the junk ball and hangs in the air beside it.
+Nothing else in the frame: no stars, no planet, no second drone, no ground, no
+scenery.
+
+PALETTE: a complementary pairing, cool field against a warm machine. Field
+turquoise (#2ED3C6) with deep teal (#0B6B6B) at the rim and two paler sweeps
+where the paper shows through. The drone is burnt orange (#E2703A) over brass
+(#F0A64B), its junk ball a mix of rust (#B4552A), mustard (#E8B23C), sage
+(#8FA98A) and cream (#FFF3D6). Shadows are umber (#6B3A1E), never grey. The ink
+contour is near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the orange body goes to umber-plum in
+shadow, not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+turquoise rim, a scatter of pigment specks, one dry-brush scratch along the junk
+ball. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 40 pixels in an expedition row. One drone, one magnet,
+one junk ball. Minimum feature size 4% of the canvas. The junk must read as a
+clump with hard silhouettes, not as dust, when the badge is 29 real pixels wide.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the load sits a
+touch low, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, second drone, fleet,
+cockpit, pilot, rocket flame, exhaust cloud, AI-generated look, machine-smooth
+gradients, uniform line weight, plastic 3D render, generic mobile game icon,
+glossy app icon, neon glow, black drop shadows, perfect symmetry, digital
+airbrush, photo texture overlay, vector, flat sticker, clipart, corporate
+illustration, gradient mesh, glossy plastic, chrome, photograph, 3D render, lens
+flare, bloom, noise, grain, halftone, thin scratchy pencil lines, crosshatching,
+engraving, muddy or desaturated colour, sepia, dark or black background, filled
+corners, multiple objects, clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/fleet_sweep.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 2. deep  -  "Deep Salvage"
+================================================================================
+
+Intent: a fifteen-minute cut into the wreck field. More drones, more risk, a real
+payout. The picture is weight: something enormous has been hooked and is coming
+up whether it wants to or not.
+
+The difference from Debris Sweep matters: this one is vertical. The cable is a
+single straight line from the drone's drum down to a heavy hull, and the hull is
+the biggest shape in the badge.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a winch drone seen from the side, braced hard on two stubby legs, with a
+drum on its back and a cable running straight down from the drum. The drone is a
+squat copper box with one round lens eye squeezed shut and a small thruster
+venting heat. The cable is thick, taut, and ends in a heavy hook buried in the
+spine of a derelict battleship hull hanging below. The hull is a blunt deep-plum
+wedge with a broken antenna mast, one open breach, and a fat seam of molten gold
+light leaking from the crack along its back. One strand of the cable has snapped
+and curls away. Nothing else in the frame: no wreck field, no debris cloud, no
+second drone, no ground, no scenery.
+
+PALETTE: a split-complementary story, cool blue field, warm copper machine, plum
+hull. Field sea blue (#3FA9D6) with deep marine (#14506B) at the rim and two
+paler sweeps where the paper shows through. The drone is copper (#D97B3F) over
+brass (#F0A64B), the cable cream (#FFF3D6), the hull deep plum (#3A2440) lit by
+one molten gold (#FFC23C) seam. Shadows are warm umber (#6B3A1E) on the machine
+and cold indigo (#2A2A5C) on the hull. The ink contour is near-black (#141018)
+and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: copper goes to umber-plum, plum goes to
+indigo, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+blue rim, a scatter of pigment specks, one dry-brush scratch along the cable. The
+paint sits slightly over the contour in one or two places, the way a hand works.
+Perfectly clean edges are a machine tell. The texture is a whisper, never a layer
+of noise.
+
+LEGIBILITY: this prints at 40 pixels in an expedition row. One drone, one cable,
+one hull. Minimum feature size 4% of the canvas. The cable must stay visible at
+29 real pixels, so keep it at least 4% wide for its whole length, and let the hull
+read as a solid dark wedge rather than a collection of detail.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the hull hangs
+a touch right of centre, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, second drone, fleet,
+cockpit, pilot, rocket flame, exhaust cloud, wreck field, debris cloud, anchor,
+crane, excavator, AI-generated look, machine-smooth gradients, uniform line
+weight, plastic 3D render, generic mobile game icon, glossy app icon, neon glow,
+black drop shadows, perfect symmetry, digital airbrush, photo texture overlay,
+vector, flat sticker, clipart, corporate illustration, gradient mesh, glossy
+plastic, chrome, photograph, 3D render, lens flare, bloom, noise, grain, halftone,
+thin scratchy pencil lines, crosshatching, engraving, muddy or desaturated
+colour, sepia, dark or black background, filled corners, multiple objects,
+clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/fleet_deep.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 3. void  -  "Void Run"
+================================================================================
+
+Intent: the one-hour mission past the last marker. Thirty drones, and it always
+comes back changed. The picture is recklessness: a drone surfing the edge of
+something that should not be surfable.
+
+The difference from the other two fleet badges matters: Sweep is horizontal,
+Salvage is vertical, and this one is a curl. The wave is the biggest shape and
+the drone is small on top of it.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a small copper drone standing on a scrap-metal board, riding the curl of
+a wave made of starlight. The wave is drawn like a rubber-hose ocean wave: a thick
+peach-cream curl that rises up the left of the disc, bends over the drone's head,
+and ends in a spray of fat four-point stars. The board is a bent mint-green plate
+with one visible rivet, tilted under the drone's feet, and the drone leans with
+one arm out for balance, eye wide, grinning. Behind the curl, a black hole is a
+flat inked ring with a plum inner edge, small and low in the frame so it reads as
+distance, not as a second subject. Nothing else: no stars scattered in the field,
+no planet, no fleet, no ground, no scenery.
+
+PALETTE: an analogous cool field with one warm complement. Field periwinkle
+(#7C8CFF) with deep indigo (#33307A) at the rim and two paler sweeps where the
+paper shows through. The wave is peach cream (#FFE9C9) with coral (#FF7A5C)
+shadow in its hollows and a mint (#6FD9B0) underside. The drone is copper
+(#D97B3F) and brass (#F0A64B), the board mint green (#6FD9B0), the black hole
+plum (#4B2A5E) with a violet (#B79CFF) inner ring. Shadows are coloured, never
+grey or black. The ink contour is near-black (#141018) and it is the only true
+black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+wave. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: peach goes to coral, copper goes
+to umber-plum, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+periwinkle rim, a scatter of pigment specks, one dry-brush scratch along the wave
+lip where the foam frays. The paint sits slightly over the contour in one or two
+places, the way a hand works. Perfectly clean edges are a machine tell. The
+texture is a whisper, never a layer of noise.
+
+LEGIBILITY: this prints at 40 pixels in an expedition row. One curl, one drone,
+one board. Minimum feature size 4% of the canvas. The curl has to read as a curl
+and not as a cloud at 29 real pixels, so the lip must be thick and the hollow
+under it must stay open.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the curl leans
+left, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, second drone, fleet,
+cockpit, pilot, surfboard fin, water droplet spray, rocket flame, exhaust cloud,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon glow, black drop shadows,
+perfect symmetry, digital airbrush, photo texture overlay, vector, flat sticker,
+clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/fleet_void.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 4. ember  -  "Ember Rune"
+================================================================================
+
+Intent: the first rune anyone crafts. Eight percent strike yield for three shards.
+It is the friendly one, and the picture is a hot little stone with a mouth.
+
+The difference from the other runes matters: Ember is the only vertical tablet,
+the only one with a flame, and the only one that is stone rather than metal.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a tall chipped obsidian tablet standing upright, its surface split by a
+network of cracks that open into one wide flat mouth and two slit eyes, with
+molten orange light packed into the cracks. A flame plume curls off the top edge
+of the stone like a moustache, drawn as one thick peach-and-gold ribbon with blunt
+rounded ends. A gaunt iron gauntlet with a verdigris patina grips the tablet from
+below, knuckles pale, wrist wrapped in scorched leather, fingers clearly separated
+so the grip reads at small size. Three fat ember dots rise in a curve beside the
+plume. Nothing else: no forge, no anvil, no ground, no scenery.
+
+PALETTE: a warm stone on a cool violet field, with the flame as the accent.
+Field orchid (#C86BFF) with plum (#5E1F8A) at the rim and two paler sweeps where
+the paper shows through. The stone is dark plum-black (#2A1B33) with a wet cream
+shine, the cracks tangerine (#FF8A3C) with a gold (#FFC23C) core, the flame peach
+(#FFD9A8) with a tangerine root. The gauntlet is teal-iron (#3E6B6B) with a
+cream (#FFF3D6) knuckle highlight. Shadows are plum, never black. The ink contour
+is near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: the stone goes to ink-plum, the
+gauntlet goes to deep teal, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+violet rim, a scatter of pigment specks, one dry-brush scratch where the flame
+frays. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 52 pixels in the rune shelf. One tablet, one plume,
+one hand. Minimum feature size 4% of the canvas. The mouth must read as a black
+oval with orange inside at 37 real pixels, not as just another crack.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the plume leans
+a touch right, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, carved
+letters, runic alphabet, glyphs, sigils, UI elements, frame or border around the
+square, forge, anvil, hammer, second stone, scenery, mist, ground, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, neon glow, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/rune_ember.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 5. tempo  -  "Tempo Rune"
+================================================================================
+
+Intent: six percent heat cooling for three shards. The patient one. The picture is
+cold precision: a clock that froze itself to keep the forge from running hot.
+
+The difference from the other runes matters: Tempo is the only circular
+silhouette, built around a halo ring, and the only one with no fire in it.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a blackened bronze skull with clock hands for eyes, the hour hand bent
+upward, the jaw hanging open. A flat halo ring orbits the skull, carrying a cog, a
+pendulum and a cracked pocket watch, all inked as simple flat shapes with clear
+gaps between them and each one a slightly different metal colour. Three hard mint
+frost spikes grow off the jaw. One coolant droplet hangs below the chin, drawn as
+a cream teardrop with a cyan core, about to fall. The skull is the centre of the
+disc; the ring is wider than the skull but stays inside the paint. Nothing else:
+no clock face behind it, no snow, no ground, no scenery.
+
+PALETTE: a cool violet field with warm bronze and one mint accent. Field lavender
+(#B79CFF) with deep violet (#4B2E8A) at the rim and two paler sweeps where the
+paper shows through. The skull is bronze (#C98A3E) with verdigris (#4E8C7A)
+settled in the hollows, the ring brass (#E0A33C), the frost mint (#BFF3E0), the
+droplet cyan (#43D7F5) with a cream (#FFF3D6) highlight. Shadows are umber and
+deep teal, never black. The ink contour is near-black (#141018) and it is the only
+true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one cool key from the upper left, one warm bounce from the
+bronze. Shading is painted as flat shapes with crisp edges, two tones per
+material, never airbrushed. Cool light means warm shadows: bronze goes to umber,
+the frost goes to pale cyan, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+lavender rim, a scatter of pigment specks, one dry-brush scratch along the ring.
+The paint sits slightly over the contour in one or two places, the way a hand
+works. Perfectly clean edges are a machine tell. The texture is a whisper, never
+a layer of noise.
+
+LEGIBILITY: this prints at 52 pixels in the rune shelf. One skull, one ring, one
+droplet. Minimum feature size 4% of the canvas. The ring has to stay a clean
+circle at 37 real pixels, so keep it thick and keep real gaps between the objects
+riding on it.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the ring is
+tilted a few degrees, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, carved
+letters, runic alphabet, glyphs, sigils, UI elements, frame or border around the
+square, clock face behind the skull, snow, ice cave, scenery, mist, ground,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon glow, black drop shadows,
+perfect symmetry, digital airbrush, photo texture overlay, vector, flat sticker,
+clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/rune_tempo.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 6. edge  -  "Edge Rune"
+================================================================================
+
+Intent: three percent crit chance for four shards. The violent one, and the only
+rune that is a weapon fragment rather than a stone or a skull.
+
+The difference from the other runes matters: Ember is a tablet, Tempo is a skull,
+Prism is a crystal. Edge is a single snapped blade shard, floating, with nothing
+behind it and nothing under it.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: one broken blade shard, snapped diagonally, floating point-down at a
+slight tilt. The shard is a wedge of steel blue with a chipped spine and one clean
+factory edge, and the broken end is a hard cream-hot plane. Three fat tangerine
+sparks leave the edge in a short fan, drawn as blunt strokes with rounded ends,
+not as thin lines. Two small coral chips hang in the air beside the shard, each
+with its own ink contour. The shard itself is the whole subject: no stone, no
+anvil, no hand, no ground, no scenery.
+
+PALETTE: a cool steel subject on a violet field with a warm spark accent. Field
+violet (#8A5CFF) with deep indigo (#3A1F7A) at the rim and two paler sweeps where
+the paper shows through. The shard is steel blue (#5C7A99) over deep slate
+(#2E3E52), its broken edge cream (#FFF3D6) with a peach (#FFD9A8) heat halo. The
+sparks are tangerine (#FF9A4D) with a gold core (#FFC23C), the chips coral
+(#FF7A5C). Shadows are indigo, never black. The ink contour is near-black
+(#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: the steel goes to indigo, the
+sparks go to coral, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+violet rim, a scatter of pigment specks, one dry-brush scratch along the shard's
+flat face. The paint sits slightly over the contour in one or two places, the way
+a hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 52 pixels in the rune shelf. One shard, three sparks,
+two chips. Minimum feature size 4% of the canvas. The shard must read as a blade
+and not as a lightning bolt at 37 real pixels, so keep the spine straight and the
+break angled the same way on both sides.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the shard is
+tilted off vertical, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, carved
+letters, runic alphabet, glyphs, sigils, UI elements, frame or border around the
+square, boulder, anvil, hand, sword hilt, guard, second blade, lightning bolt,
+scenery, mist, ground, AI-generated look, machine-smooth gradients, uniform line
+weight, plastic 3D render, generic mobile game icon, glossy app icon, neon glow,
+black drop shadows, perfect symmetry, digital airbrush, photo texture overlay,
+vector, flat sticker, clipart, corporate illustration, gradient mesh, glossy
+plastic, chrome, photograph, 3D render, lens flare, bloom, noise, grain, halftone,
+thin scratchy pencil lines, crosshatching, engraving, muddy or desaturated
+colour, sepia, dark or black background, filled corners, multiple objects,
+clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/rune_edge.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 7. prism  -  "Prism Rune"
+================================================================================
+
+Intent: ten percent Aether from venting for five shards. The expensive one, and
+the only rune that produces something bigger than itself.
+
+The difference from the other runes matters: Prism is a fan, not an object. The
+crystal is small at the bottom and the five ribbon rays are the shape that fills
+the badge.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a faceted crystal shard standing upright at the lower centre of the disc,
+splitting one thick cream beam into a fan of five flat ribbon rays. The crystal is
+deep plum at its base and cream at the split point, with three visible facets cut
+by clean contour lines. The fan opens upward and outward, each ribbon a different
+saturated colour, each one ending in a blunt hand-rounded tip, with clear gaps
+between them. Small prismatic chips orbit the crystal in a flat ring at its base.
+One tiny teal armoured boot is planted at the bottom edge as a scale gag, no leg
+above it, just the boot. Nothing else: no room, no prism stand, no ground, no
+scenery.
+
+PALETTE: a full-spectrum fan held together by a violet field. Field magenta violet
+(#D96BFF) with deep plum (#6B1F8A) at the rim and two paler sweeps where the paper
+shows through. The five ribbons run coral (#FF7A5C), saffron (#FFC23C), mint
+(#6FD9B0), cyan (#43D7F5) and violet (#B79CFF), each with a deeper shadow tone of
+its own hue, not grey. The crystal is plum (#3A2440) at the base, mint cream
+(#FFF3D6) at the split. The boot is teal (#2E6B66). The ink contour is near-black
+(#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Each ribbon has its own coloured shadow, and nothing on the page
+shades to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+magenta rim, a scatter of pigment specks, one dry-brush scratch along the widest
+ribbon. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 52 pixels in the rune shelf. One crystal, five rays,
+one boot. Minimum feature size 4% of the canvas. The fan must read as five
+separate ribbons at 37 real pixels, so each gap has to be at least as wide as the
+contour line beside it.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the fan opens a
+little wider to the right, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, carved
+letters, runic alphabet, glyphs, sigils, UI elements, frame or border around the
+square, rainbow arc, prism stand, room, scenery, mist, ground, extra objects,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon glow, black drop shadows,
+perfect symmetry, digital airbrush, photo texture overlay, vector, flat sticker,
+clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/rune_prism.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 8. momentum  -  "Forged Momentum"
+================================================================================
+
+Intent: plus twenty-five percent click yield per level, and the first node a new
+prestige buys. The picture is a machine that cannot wait to hit something.
+
+The difference from Phantom Hammer matters: that badge is a loose hammer swinging
+itself. This one is a whole body, mid-stride, with the hammer as its head.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a blacksmith automaton built out of an anvil, caught mid-stride. Its body
+is a squat copper anvil with two stubby arms and two small anvil feet, one foot
+forward and one back, both off the ground. The hammer is held overhead in both
+hands and is wide, blunt and heavy, its head steel blue with a brass band. Eye
+slits are two hot tangerine dashes and the mouth is a flat near-black slot, open.
+A short chain of three broken anvils trails behind it, one link flying loose.
+Nothing else: no forge, no sparks cloud, no ground, no scenery.
+
+PALETTE: a warm field with a cool machine and one hot accent. Field saffron
+(#FFB03C) with burnt amber (#8A4A0A) at the rim and two paler sweeps where the
+paper shows through. The automaton is copper (#D97B3F) over brass (#F0A64B), the
+hammer head steel blue (#5C7A99), the chain mint (#6FD9B0) where it catches light.
+The eye slits and the open mouth are tangerine (#FF6B2C). Shadows are umber and
+deep teal, never black. The ink contour is near-black (#141018) and it is the
+only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: copper goes to umber, steel goes
+to indigo, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+saffron rim, a scatter of pigment specks, one dry-brush scratch along the trailing
+chain. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One body, one hammer, one
+chain. Minimum feature size 4% of the canvas. The stride has to read as movement
+at 40 real pixels, so the two feet must be clearly apart and the hammer clearly
+above the head.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the body leans
+forward, off centre, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, forge, workshop, blueprint grid, floating
+gears, smoke clouds, spark storm, second machine, scenery, ground, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, neon glow, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_momentum.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 9. thermal  -  "Thermal Calibration"
+================================================================================
+
+Intent: widens the sweet spot and raises its multiplier. The picture is a gauge
+that is being abused: the needle has been pushed past the end of the scale by
+someone with a wrench and no sense.
+
+The difference from Vent Efficiency matters: that badge is a pipe with a jet. This
+one is a dial with a body, and the bent needle is the whole joke.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a squat brass pressure gauge with two stubby legs, seen head-on. Its
+cream glass face is cracked in a spiderweb and the needle is bent past the end of
+the coral red zone, the tip curling up. A small engineer in a plum leather apron
+hangs from the bent needle with both hands, boots off the ground, mouth a perfect
+black oval, body dangling. Two steam vents on the gauge's shoulders blow flat
+peach moustache curls. One loose bolt sits on the rim of the case. Nothing else:
+no pipe, no tank, no workshop, no ground, no scenery.
+
+PALETTE: a warm brass subject on a honey field with one cool accent. Field honey
+(#FFC85C) with burnt amber (#8A5A0A) at the rim and two paler sweeps where the
+paper shows through. The gauge case is brass (#E0A33C) with verdigris (#4E8C7A)
+settled in the seams, the dial cream (#FFF3D6), the danger zone coral (#FF5C5C),
+the steam peach (#FFE9C9). The engineer is plum (#4B2A5E) with a cream apron
+highlight and a teal (#2E6B66) cap. Shadows are umber, never black. The ink
+contour is near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: brass goes to umber, cream goes
+to peach, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+honey rim, a scatter of pigment specks, one dry-brush scratch across the cracked
+glass. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One case, one dial, one
+hanging figure. Minimum feature size 4% of the canvas. The bent needle has to read
+as bent at 40 real pixels, so give the bend real travel past the red wedge, and
+keep the engineer a simple dark silhouette against the cream dial.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the gauge sits
+a touch high, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, pipe, tank, workshop, blueprint grid, floating
+gears, smoke clouds, spark storm, second machine, scenery, ground, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, neon glow, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_thermal.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 10. lattice  -  "Drone Lattice"
+================================================================================
+
+Intent: plus twenty percent drone yield per level. The picture is a structure made
+of drones that has just discovered it can lose one.
+
+The difference from Head Start matters: that badge is a blade breaking out of a
+gate. This one is a sphere shedding a single piece, so the break is at the top and
+the sphere stays whole.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a honeycomb sphere welded from a dozen small drones, every drone a flat
+mint lens eye, the lattice between them inked as a thick net of copper struts. One
+drone is popping out of the top of the sphere, tilted, with a coral cable trailing
+from its back in a loose curl, mouth open in a little black slot. Three bolts and
+one hexagonal panel float around the break. The sphere is the whole subject: no
+background machinery, no swarm outside it, no ground, no scenery.
+
+PALETTE: a deep teal machine on a warm amber field, with mint as the accent. Field
+amber (#FFA83C) with burnt amber (#8A4A0A) at the rim and two paler sweeps where
+the paper shows through. The sphere is deep teal (#1F4B4B) with copper (#D97B3F)
+struts and mint (#6FF0C0) eyes burning in each drone. The escaping drone is copper
+with a cream (#FFF3D6) highlight, its cable coral (#FF7A5C). The floating bolts
+are steel blue (#5C7A99). Shadows are indigo, never black. The ink contour is
+near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: teal goes to indigo, copper goes
+to umber-plum, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+amber rim, a scatter of pigment specks, one dry-brush scratch along the cable. The
+paint sits slightly over the contour in one or two places, the way a hand works.
+Perfectly clean edges are a machine tell. The texture is a whisper, never a layer
+of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One sphere, one escapee, one
+cable. Minimum feature size 4% of the canvas. The honeycomb has to read as cells
+at 40 real pixels, so keep the struts thick and the cells large, and do not let
+the escaping drone merge into the sphere's outline.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the sphere sits
+a touch low, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, swarm, fleet, workshop, blueprint grid,
+floating gears, smoke clouds, spark storm, second machine, scenery, ground,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon glow, black drop shadows,
+perfect symmetry, digital airbrush, photo texture overlay, vector, flat sticker,
+clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_lattice.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 11. vent  -  "Vent Efficiency"
+================================================================================
+
+Intent: plus twenty-five percent shards when venting heat. The picture is a heat
+sink doing its job too well, shedding steam out of every gap at once.
+
+The difference from the two store valves matters. Auto-Vent is a standing valve
+with one upward plume. Instant Vent is an elbow pipe firing one horizontal jet.
+This one is a vertical ribbed tower with three short side jets, no lever, no
+single nozzle.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a vertical heat-sink tower, a stack of five thick horizontal fins with
+rounded ends, standing on a small bolted foot. Steam escapes sideways from the
+gaps between the fins as three short blunt jets, one to the left, two to the
+right, each with dry-brush edges where it frays. The top of the tower is capped
+with a coral-red hot plate and one small round gauge on the side is pegged, its
+needle flat against the stop. One rivet has popped out of the base and hangs in
+the air. Nothing else: no pipes, no tanks, no lever, no single nozzle, no ground,
+no scenery.
+
+PALETTE: a cool teal machine on a warm amber field with a coral heat accent.
+Field warm amber (#FFB84D) with burnt amber (#8A4A0A) at the rim and two paler
+sweeps where the paper shows through. The tower is deep teal (#22484B) over
+indigo (#2A2E52), its fins edged in copper (#D97B3F). The heat cap and the glow
+between the lower fins are coral (#FF6B4A) with a tangerine (#FF8A3C) core, the
+steam peach (#FFE9C9), the gauge face cream (#FFF3D6). Shadows are indigo, never
+black. The ink contour is near-black (#141018) and it is the only true black in
+the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: teal goes to indigo, copper goes
+to umber, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+amber rim, a scatter of pigment specks, one dry-brush scratch where a jet frays.
+The paint sits slightly over the contour in one or two places, the way a hand
+works. Perfectly clean edges are a machine tell. The texture is a whisper, never
+a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One tower, three jets, one
+gauge. Minimum feature size 4% of the canvas. The fins have to read as separate
+horizontal bars at 40 real pixels, so keep the gaps between them wide and dark,
+and keep the jets blunt rather than wispy.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the tower leans
+a degree or two, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, lever handle, handwheel, single nozzle, elbow
+pipe, rising plume, fire, flames, workshop, blueprint grid, floating gears, smoke
+clouds, spark storm, second machine, scenery, ground, AI-generated look,
+machine-smooth gradients, uniform line weight, plastic 3D render, generic mobile
+game icon, glossy app icon, neon glow, black drop shadows, perfect symmetry,
+digital airbrush, photo texture overlay, vector, flat sticker, clipart, corporate
+illustration, gradient mesh, glossy plastic, chrome, photograph, 3D render, lens
+flare, bloom, noise, grain, halftone, thin scratchy pencil lines, crosshatching,
+engraving, muddy or desaturated colour, sepia, dark or black background, filled
+corners, multiple objects, clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_vent.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 12. offline  -  "Offline Core"
+================================================================================
+
+Intent: plus twenty-five percent offline yield per level. The picture is a core
+that keeps working while nobody is watching, and it is dreaming about it.
+
+The difference from the other tech badges matters: every other one is awake and
+mid-action. This is the only one at rest, so the posture is a curl and the
+byproduct is a leak rather than a strike.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a colossal reactor core curled up asleep inside an iron vault, knees to
+chest, under a blanket of thick sienna cables. The core is a rounded plum mass
+with thick plate seams glowing gold, one eye half open as a narrow gold slit,
+and a mouth open just enough for a small storm cloud to leak out. The cloud is a
+flat mint lump with one fat violet bolt hanging from it. A clock face hangs above
+the core, hands stopped, drawn as a plain cream disc with a near-black rim. The
+cable blanket ends in one loose curl. Nothing else: no room, no machinery around
+the vault, no ground, no scenery.
+
+PALETTE: a warm gold field with a plum core and a mint storm. Field gold (#FFD166)
+with burnt amber (#8A6A0A) at the rim and two paler sweeps where the paper shows
+through. The core is plum (#3A2440) with gold seams (#FFC23C) and a copper
+(#D97B3F) rim light along its curled back. The storm is mint (#6FF0C0) with a
+violet (#B79CFF) bolt, the blanket sienna (#A05A2C), the clock cream (#FFF3D6)
+with a near-black rim. Shadows are indigo, never black. The ink contour is
+near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: plum goes to indigo, sienna goes
+to umber, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+gold rim, a scatter of pigment specks, one dry-brush scratch along the cable
+blanket. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One curled core, one cloud,
+one clock. Minimum feature size 4% of the canvas. The curl has to read as a body
+at 40 real pixels, so keep the knee and the head as two clear masses and let the
+gold seams describe the fold.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the core is
+curled toward the right, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, vault room, bed, pillow, workshop, blueprint
+grid, floating gears, smoke clouds, spark storm, second machine, scenery, ground,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon glow, black drop shadows,
+perfect symmetry, digital airbrush, photo texture overlay, vector, flat sticker,
+clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_offline.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 13. crit  -  "Critical Forge"
+================================================================================
+
+Intent: plus four percent chance per level of a five-times click. The picture is
+the exact frame of impact, the one the whole tree is chasing.
+
+The difference from Forged Momentum matters: that badge is a body in motion with
+the hammer overhead. This one is contact, already happening, with the star between
+the hammer and the anvil.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a heavy hammer coming straight down onto an anvil, caught at the exact
+frame of contact. A fat five-point star burst sits between the hammer face and the
+anvil, wider than the anvil, its points rounded and blunt, coral at the tips and
+cream at the core. The anvil is cracked clean in half and the two halves are
+tilting away from each other. Three cream debris chips ride the star's lower
+points. The smith is a flat plum silhouette behind the star, arms overhead, mouth
+open, no facial detail beyond the open mouth. Nothing else: no forge, no sparks
+cloud, no ground, no scenery.
+
+PALETTE: a hot coral star on a saffron field, with a cool teal anvil. Field
+saffron (#FFB03C) with burnt amber (#8A4A0A) at the rim and two paler sweeps
+where the paper shows through. The star is coral (#FF7A5C) with a tangerine
+(#FF8A3C) middle and a cream (#FFF3D6) core, every point ink-contoured. The
+hammer and anvil are deep teal (#1F3B44) with steel blue (#5C7A99) rim lights,
+the chips cream with gold edges, the smith plum (#3A2440). Shadows are umber,
+never black. The ink contour is near-black (#141018) and it is the only true black
+in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. The star has its own inner glow painted in flat bands, not an
+airbrushed bloom, and nothing on the page shades to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+saffron rim, a scatter of pigment specks, one dry-brush scratch across the star's
+widest point. The paint sits slightly over the contour in one or two places, the
+way a hand works. Perfectly clean edges are a machine tell. The texture is a
+whisper, never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One hammer, one star, one
+split anvil. Minimum feature size 4% of the canvas. The star has to read as five
+points at 40 real pixels, so keep the points fat and the gaps between them open,
+and do not let the hammer face cover the top point.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the star sits a
+touch left, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, forge, workshop, blueprint grid, floating
+gears, smoke clouds, spark storm, second machine, scenery, ground, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, neon glow, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_crit.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 14. phantom  -  "Phantom Hammer"
+================================================================================
+
+Intent: half an extra strike per second per level, the automation node. The
+picture is a hammer with nobody holding it, and an anvil that has noticed.
+
+The difference from Critical Forge matters: that badge is contact and a star. This
+one is a swing in progress, the hammer translucent, and the joke is on the anvil
+rather than on the strike.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a translucent mint ghost hammer swinging itself through the air, three
+afterimage heads trailing behind it like a fan, ghost arms unspooling into vapour
+ribbons instead of ending in hands. Below the hammer a round plum anvil with a
+terrified face: two wide cream eyes, a flat near-black mouth, and two stubby legs
+mid-run, one foot off the ground, the whole anvil leaning away from the swing.
+Nothing else: no smith, no forge, no impact star, no ground, no scenery.
+
+PALETTE: a cool mint ghost on a pale gold field, with a plum anvil for contrast.
+Field pale gold (#FFD98A) with warm ochre (#A0780A) at the rim and two paler
+sweeps where the paper shows through. The hammer is mint (#8FF0D8) at about sixty
+percent strength with cream (#FFF3D6) highlights, its afterimages stepping down to
+pale cyan (#BFF3E0). The anvil is plum (#3A2440) with a copper (#D97B3F) rim
+light. The vapour ribbons run mint to cream at the tips. Shadows are umber and
+indigo, never black. The ink contour is near-black (#141018) and it is the only
+true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+ghost. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. The ghost is painted in transparent-looking flat bands, not with
+an airbrushed glow, and nothing on the page shades to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+pale gold rim, a scatter of pigment specks, one dry-brush scratch along the
+leading vapour ribbon. The paint sits slightly over the contour in one or two
+places, the way a hand works. Perfectly clean edges are a machine tell. The
+texture is a whisper, never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One hammer, one anvil, three
+afterimages. Minimum feature size 4% of the canvas. The afterimages have to read
+as separate heads at 40 real pixels, so space them clearly and keep the gaps open,
+and keep the anvil's eyes large enough to read as eyes and not as bolts.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the swing
+leans right, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, smith, hands, forge, impact star, workshop,
+blueprint grid, floating gears, smoke clouds, spark storm, second machine,
+scenery, ground, AI-generated look, machine-smooth gradients, uniform line
+weight, plastic 3D render, generic mobile game icon, glossy app icon, neon glow,
+black drop shadows, perfect symmetry, digital airbrush, photo texture overlay,
+vector, flat sticker, clipart, corporate illustration, gradient mesh, glossy
+plastic, chrome, photograph, 3D render, lens flare, bloom, noise, grain, halftone,
+thin scratchy pencil lines, crosshatching, engraving, muddy or desaturated
+colour, sepia, dark or black background, filled corners, multiple objects,
+clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_phantom.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 15. head  -  "Head Start"
+================================================================================
+
+Intent: begin each run with one more blade already forged. The picture is a blade
+that has left the gate before the gate finished opening.
+
+The difference from Drone Lattice matters: that badge is something breaking out of
+a sphere from the top. This one is horizontal, a blade through a flat gate, with
+the stopwatch coming apart beside it.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a blade bursting through a wooden starting gate, point first, angled up
+and to the right. The gate is two sienna posts and a crossbar, the crossbar
+snapped in two and the cream splinters still hanging in the air. The blade is
+upright and clean, steel teal with a violet edge and one cream shine strip down
+its flat. Beside the gate a brass stopwatch is coming apart, the cream face flying
+one way and the spring coiling the other, and a small dust puff sits at the base
+of the gate. Nothing else: no runner, no track, no crowd, no ground, no scenery.
+
+PALETTE: a warm wood gate against a cool teal blade, on a honey field. Field honey
+(#FFC85C) with burnt amber (#8A5A0A) at the rim and two paler sweeps where the
+paper shows through. The gate is sienna (#A05A2C) with mustard (#E8B23C) cut
+faces and cream splinters, the blade steel teal (#2E5C66) with a violet (#B79CFF)
+edge and a cream highlight, the stopwatch brass (#E0A33C) with a cream face. The
+dust puff is peach (#FFE9C9). Shadows are umber, never black. The ink contour is
+near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from the
+field. Shading is painted as flat shapes with crisp edges, two tones per material,
+never airbrushed. Warm light means cool shadows: sienna goes to umber, steel teal
+goes to indigo, never to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+honey rim, a scatter of pigment specks, one dry-brush scratch along the broken
+crossbar. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 56 pixels in a tech card. One blade, one gate, one
+stopwatch. Minimum feature size 4% of the canvas. The break has to read as a break
+at 40 real pixels, so keep the two crossbar halves clearly offset and the
+splinters fat enough to survive.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the blade
+breaks a little above centre, as if the drawing was placed by hand.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, runner, crowd, track, stadium, workshop,
+blueprint grid, floating gears, smoke clouds, spark storm, second machine,
+scenery, ground, AI-generated look, machine-smooth gradients, uniform line
+weight, plastic 3D render, generic mobile game icon, glossy app icon, neon glow,
+black drop shadows, perfect symmetry, digital airbrush, photo texture overlay,
+vector, flat sticker, clipart, corporate illustration, gradient mesh, glossy
+plastic, chrome, photograph, 3D render, lens flare, bloom, noise, grain, halftone,
+thin scratchy pencil lines, crosshatching, engraving, muddy or desaturated
+colour, sepia, dark or black background, filled corners, multiple objects,
+clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/generated/gamepasses/tech_head.jpg
+--------------------------------------------------------------------------------

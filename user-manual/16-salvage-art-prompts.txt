@@ -1,0 +1,670 @@
+================================================================================
+ QUANTUM FORGE - SALVAGE ART PROMPTS
+ 4 cache rarities + 4 codex set emblems. Same contract as 15-stuff.txt:
+ intent, prompt, negative, settings, save path.
+================================================================================
+
+WHY THIS SET EXISTS
+The Salvage rack ships without art on purpose: the slots are typographic and the
+rarity colour does the work, so the loop is playable with zero uploads. These
+eight images are the upgrade, not the dependency.
+
+WHERE THEY GO
+Save the JPGs to assets/badges/source/, run each through
+  python scripts/prepare_gamepass_art.py --src assets/badges/source/<slug>.jpg
+    --dst assets/badges/<slug>.png --no-preview
+then add the ids to AssetManifest.UiArt under the cache_ / set_ keys.
+
+THE HOUSE RULES (same as the fifteen badges)
+- Painted by a person: gouache, ink, coloured pencil. Tabletop game box register.
+- Bright field, ink subject. The disc lives on a dark panel at 40-88px.
+- Colour-first palette. Shadows are coloured umber or indigo, never grey or black.
+- The ink contour is the only true black in the image.
+- Human tells are requirements: paint over the contour once, dry-brush, pigment
+  specks, slight asymmetry. Perfectly clean edges are a machine tell.
+- No text, no letters, no numbers, ever.
+
+
+================================================================================
+ 1. cache_common  -  "Scrap Cache"
+================================================================================
+
+Intent: the bottom of the loot table, and it should still be a pleasure to open.
+A dented tin crate, wire-bound, lid ajar, one nail already escaped. The picture
+says "somebody already threw this away once".
+
+The difference from Alloy matters: this one is salvage, not manufacture. Dents,
+mis-matched panels, a bent hinge. Alloy is a clean cast canister.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a squat salvage crate made from three different sheets of mis-matched
+tin, hammered flat and bound with two loops of twisted wire. The lid is ajar by a
+finger's width and one long nail has escaped to hang on the rim. A bent iron
+handle sits on top, slightly off centre because the hinge was replaced. Two dents
+on the front panel, one with a crease. A single rivet has popped and left a hole.
+Nothing else in the frame: no background, no ground, no second object.
+
+PALETTE: a low-contrast warm-neutral harmony, the quietest badge in the set. Field
+bone (#E8E0D0) with ash grey (#B9B3A6) at the rim and a pale cream (#FFF6E4) sweep
+upper left. The tin is slate blue-grey (#7E8C99) over warm grey (#A9A296), its
+wire binding rust (#A85C33), the escaped nail brass (#D8A44B). Shadows are umber
+(#5E4632), never grey. The ink contour is near-black (#141018) and it is the only
+true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the slate tin goes to indigo-grey in
+shadow, not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+ash rim, a scatter of pigment specks, one dry-brush scratch along the dented
+panel. The paint sits slightly over the contour in one or two places, the way a
+hand works. Perfectly clean edges are a machine tell. The texture is a whisper,
+never a layer of noise.
+
+LEGIBILITY: this prints at 40 pixels on the rack. One crate, one ajar lid, one
+escaped nail. Minimum feature size 5% of the canvas. The dents must not read as
+damage noise at thumbnail size; keep them broad and few.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the crate sits
+a touch left of centre and the lid tilts right.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, second crate, pile
+of loot, coins spilling, gems, glow, magic sparkles, AI-generated look,
+machine-smooth gradients, uniform line weight, plastic 3D render, generic mobile
+game icon, glossy app icon, neon glow, black drop shadows, perfect symmetry,
+digital airbrush, photo texture overlay, vector, flat sticker, clipart, corporate
+illustration, gradient mesh, glossy plastic, chrome, photograph, 3D render, lens
+flare, bloom, noise, grain, halftone, thin scratchy pencil lines, crosshatching,
+engraving, muddy or desaturated colour, sepia, dark or black background, filled
+corners, multiple objects, clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/cache_common.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 2. cache_rare  -  "Alloy Cache"
+================================================================================
+
+Intent: manufactured, sealed, and slightly too good to be scrap. A cast alloy
+canister with a clamped lid and a seam that is clearly holding something in.
+
+The difference from Scrap matters: no dents, no rust, one material, one clamp. The
+seam is the subject; the eye should go to the bright line where the two halves
+meet.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a cast alloy canister, barrel-shaped, with a heavy band clamp around its
+waist and a domed lid seated on a bright cyan seam. Four chunky lugs around the
+shoulder, each with a bolt. A short braided cable loops from the lid to a staple on
+the side. The clamp has a folding lever, half raised. One small pressure gauge is
+set into the lid, its needle hard over. The seam is a clean line of light, not a
+glow. Nothing else in the frame: no background, no ground, no second object.
+
+PALETTE: a cool analogous harmony with one warm accent. Field turquoise (#2ED3C6)
+with deep teal (#0B6B6B) at the rim and two paler sweeps where the paper shows
+through. The canister is steel blue (#6C8FA6) over pale alloy (#B8CBD8), the clamp
+and lugs brass (#F0A64B), the seam ice (#BFF6F2), the cable dark leather (#6B4A32).
+Shadows are indigo (#2B3A5C), never grey. The ink contour is near-black (#141018)
+and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the steel goes to indigo in shadow, not
+to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+turquoise rim, a scatter of pigment specks, one dry-brush pass along the clamp.
+The paint sits slightly over the contour in one or two places, the way a hand
+works. Perfectly clean edges are a machine tell. The texture is a whisper, never a
+layer of noise.
+
+LEGIBILITY: this prints at 40 pixels. One canister, one clamp, one bright seam.
+Minimum feature size 5% of the canvas. The seam must survive as a single light
+line at thumbnail size, so it stays wide and unbroken.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the canister
+leans two degrees, the clamp lever sits high.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, second canister,
+stack of crates, coins, gems, magic sparkles, neon glow, laser beam, sci-fi HUD,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, neon outline, black drop
+shadows, perfect symmetry, digital airbrush, photo texture overlay, vector, flat
+sticker, clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, lens flare, bloom, noise, grain, halftone, thin scratchy
+pencil lines, crosshatching, engraving, muddy or desaturated colour, sepia, dark
+or black background, filled corners, multiple objects, clutter, isometric,
+perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/cache_rare.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 3. cache_prime  -  "Prime Cache"
+================================================================================
+
+Intent: the drop that makes a player stop clicking for a second. A gold reliquary
+strongbox, hammered, wax-sealed, with the lid lifting against the seal.
+
+The difference from Alloy matters: Alloy is a working canister. Prime is a prize:
+ornament, a seal, a plinth. If it looks like it could hold a tool, it is wrong.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a gold reliquary strongbox with a hammered, faceted lid and a deep wax
+seal stamped with an anvil. The lid is lifting a few degrees against the seal,
+which has cracked across the middle. A short chain of thick links runs from the
+lid to a ring on the front plate. Four clawed feet sit under the box. The lid is
+open just enough to show a solid warm light inside, painted as a flat shape, not a
+glow. Nothing else in the frame: no background, no ground, no coins, no sparkles.
+
+PALETTE: a warm analogous harmony with a cool ink anchor. Field gold (#F5C542)
+with amber (#D08A1E) at the rim and a pale butter (#FFF3C4) sweep upper left. The
+box is gold (#E8B23C) over deep ochre (#B4761F), the wax seal oxblood (#8E2B2B),
+the chain bronze (#A9713A), the inside light cream (#FFF6DA). Shadows are umber
+(#6B3A1E), never grey. The ink contour is near-black (#141018) and it is the only
+true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the gold goes to umber-plum in shadow,
+not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+gold field, a scatter of pigment specks, one dry-brush scratch across the seal.
+The paint sits slightly over the contour in one or two places, the way a hand
+works. Perfectly clean edges are a machine tell. The texture is a whisper, never a
+layer of noise.
+
+LEGIBILITY: this prints at 40 pixels. One box, one cracked seal, one lifting lid.
+Minimum feature size 5% of the canvas. The crack in the seal is the read, so it
+stays a single bold line, not a web of fractures.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the lid lifts
+toward the upper right, the seal hangs slightly low.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, coins, gems, jewel
+pile, sparkles, magic glow, light rays, neon, second box, crown, throne,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/cache_prime.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 4. cache_void  -  "Void Cache"
+================================================================================
+
+Intent: the 4% drop. A black iron coffer with a violet seam, chained shut, and
+something on the other side of the lid that is not light.
+
+The difference from Prime matters: Prime is treasure. Void is containment. The
+chains are load-bearing and the seam is the only colour on the object.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a black iron coffer, long and low, with a lid split from the body by a
+thin violet seam. Two chains cross over the lid and are padlocked at the front with
+a heavy square lock. The iron is pitted and hammered, with a raised rim and four
+corner straps. The seam is a narrow, even line of violet that runs the whole way
+round, painted flat and solid. One chain link is stretched. Nothing else in the
+frame: no smoke, no tendrils, no eyes, no glow, no ground.
+
+PALETTE: a split-complementary harmony, warm black iron against cold violet.
+Field violet (#8E6BFF) with deep indigo (#2A1E5C) at the rim and a pale lilac
+(#D9CBFF) sweep upper left. The coffer is iron black (#24202B) over cold graphite
+(#4A4553), the seam electric violet (#B08CFF), the chains slate (#6A6478), the lock
+brass gone cold (#8A7A52). Shadows are indigo (#1B1630), never grey. The ink
+contour is near-black (#0C0A12) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the iron goes to blue-black in shadow,
+and the violet seam is the brightest value on the object.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+violet field, a scatter of pigment specks, one dry-brush pass along the chain. The
+paint sits slightly over the contour in one or two places, the way a hand works.
+Perfectly clean edges are a machine tell. The texture is a whisper, never a layer
+of noise.
+
+LEGIBILITY: this prints at 40 pixels. One coffer, two chains, one violet seam.
+Minimum feature size 5% of the canvas. The seam is the whole badge at thumbnail
+size, so it stays thick and continuous; the chains must not cross it.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the lock hangs
+a touch left, the chains are not evenly spaced.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, star field, planet, nebula, smoke, tendrils,
+eyes, skull, demon, magic glow, light rays, neon, purple lightning, second chest,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/cache_void.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 5. set_ember  -  "Ember Set"
+================================================================================
+
+Intent: the strike-yield set. A crucible with one ember held above it, and a pair
+of tongs keeping it there. The picture is control of heat, not a bonfire.
+
+The difference from the Prism emblem matters: Prism is a cut crystal and a beam.
+Ember is a vessel and a coal, and every edge is warm.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a heavy foundry crucible seen from the side, its rim chipped, with a
+single faceted ember floating a hand's width above it. A pair of long tongs enters
+from the right and holds the ember by one corner. The crucible has a pouring lip
+and two square handles. The ember is a solid cut shape, orange at the core, darker
+at the edges, painted flat. No flames, no smoke, no sparks. Nothing else in the
+frame: no anvil, no hammer, no ground, no background.
+
+PALETTE: a warm analogous harmony with a cool ink anchor. Field ember orange
+(#F26B2A) with deep rust (#8E3418) at the rim and a pale apricot (#FFC9A2) sweep
+upper left. The crucible is graphite (#4A4553) over warm slate (#6E6672), the tongs
+steel (#8FA2B8), the ember core gold (#FFC24B) to scarlet (#D6382A) at its edge.
+Shadows are umber (#5E2A16), never grey. The ink contour is near-black (#141018)
+and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the crucible goes to plum-black in
+shadow, not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+orange field, a scatter of pigment specks, one dry-brush scratch along the
+crucible rim. The paint sits slightly over the contour in one or two places, the
+way a hand works. Perfectly clean edges are a machine tell. The texture is a
+whisper, never a layer of noise.
+
+LEGIBILITY: this prints at 44 pixels in the codex. One crucible, one ember, one
+pair of tongs. Minimum feature size 6% of the canvas. The gap between ember and
+rim is the read; keep it wide.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the tongs enter
+high, the ember sits a little off centre.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, flames, bonfire, smoke, sparks, embers
+scattering, anvil, hammer, sword, star field, planet, magic glow, neon,
+AI-generated look, machine-smooth gradients, uniform line weight, plastic 3D
+render, generic mobile game icon, glossy app icon, black drop shadows, perfect
+symmetry, digital airbrush, photo texture overlay, vector, flat sticker, clipart,
+corporate illustration, gradient mesh, glossy plastic, chrome, photograph, 3D
+render, lens flare, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/set_ember.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 6. set_tempo  -  "Tempo Set"
+================================================================================
+
+Intent: the cooling set. A jet of quench water hitting a hot bar, with the steam
+painted as a solid white shape rather than a haze.
+
+The difference from Ember matters: Ember is dry heat in a vessel. Tempo is the
+moment heat is taken away, and the whole picture is vertical motion.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a square steel bar standing on end, its top face still orange, with a
+narrow jet of water striking that face from above. The jet comes from a bent copper
+pipe at the top of the frame. Steam rises as three solid white plumes with hard
+edges, not haze. Water beads run down the bar and pool at its base in a shallow
+iron dish. The bar has a visible hammer texture. Nothing else in the frame: no
+hands, no tongs, no bucket, no ground, no background.
+
+PALETTE: a cool dominant harmony with one hot accent. Field teal (#1FA9A0) with
+deep sea (#0B4F55) at the rim and a pale mint (#BFF0E4) sweep upper left. The bar
+is cold steel (#7E96AC) over slate (#4E637A), its hot face orange (#F0813A), the
+pipe copper (#C77B4A), the steam cream (#FFF8EC), the dish iron (#3E4450). Shadows
+are indigo (#1E3350), never grey. The ink contour is near-black (#141018) and it is
+the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the steel goes to indigo in shadow, not
+to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+teal field, a scatter of pigment specks, one dry-brush pass along the steam. The
+paint sits slightly over the contour in one or two places, the way a hand works.
+Perfectly clean edges are a machine tell. The texture is a whisper, never a layer
+of noise.
+
+LEGIBILITY: this prints at 44 pixels in the codex. One bar, one jet, three steam
+shapes. Minimum feature size 6% of the canvas. The jet must stay a single clean
+line; do not let the steam swallow it.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the pipe enters
+right of centre, the steam leans left.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, hands, tongs, bucket, waterfall, rain, clouds,
+fire, sparks, anvil, sword, star field, planet, magic glow, neon, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, black drop shadows, perfect symmetry, digital
+airbrush, photo texture overlay, vector, flat sticker, clipart, corporate
+illustration, gradient mesh, glossy plastic, chrome, photograph, 3D render, lens
+flare, bloom, noise, grain, halftone, thin scratchy pencil lines, crosshatching,
+engraving, muddy or desaturated colour, sepia, dark or black background, filled
+corners, multiple objects, clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/set_tempo.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 7. set_edge  -  "Edge Set"
+================================================================================
+
+Intent: the crit set. A honing stone with a blade laid across it, the edge already
+bright, three sparks leaving the contact point.
+
+The difference from Ember matters: Ember is heat and a vessel. Edge is cold work,
+one line of light along a bevel, and the stone is the plinth.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a rectangular whetstone, worn into a shallow dip across its middle, with
+a single blade laid flat across it at a slight angle. Only the front third of the
+blade is in frame: a wide bevel, a bright edge line, and a short ricasso with one
+rivet. The edge is a solid pale line, painted flat, not a glow. Three sparks leave
+the contact point in different directions, each a small solid shard. The stone
+sits in a wooden cradle with two brass pins. Nothing else in the frame: no hands,
+no hammer, no sheath, no ground, no background.
+
+PALETTE: a cool neutral harmony with one warm accent. Field steel blue (#5C7FA8)
+with deep navy (#1E3350) at the rim and a pale ice (#D6E6F5) sweep upper left. The
+stone is warm grey (#9A958C) over slate (#6A6560), the cradle walnut (#6B4A32), the
+pins brass (#D8A44B), the blade pale alloy (#D9E2EA) with a cream edge (#FFF6DA),
+the sparks gold (#FFC24B). Shadows are indigo (#22304A), never grey. The ink
+contour is near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the blade goes to blue-grey in shadow,
+not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+steel field, a scatter of pigment specks, one dry-brush scratch along the stone.
+The paint sits slightly over the contour in one or two places, the way a hand
+works. Perfectly clean edges are a machine tell. The texture is a whisper, never a
+layer of noise.
+
+LEGIBILITY: this prints at 44 pixels in the codex. One stone, one blade, three
+sparks. Minimum feature size 6% of the canvas. The edge line is the whole badge at
+thumbnail size; keep it thick and unbroken from ricasso to tip.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the blade runs
+ten degrees off horizontal, the sparks favour the right.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, hands, hammer, anvil, sheath, full sword,
+dagger, fire, smoke, star field, planet, magic glow, neon, laser, AI-generated
+look, machine-smooth gradients, uniform line weight, plastic 3D render, generic
+mobile game icon, glossy app icon, black drop shadows, perfect symmetry, digital
+airbrush, photo texture overlay, vector, flat sticker, clipart, corporate
+illustration, gradient mesh, glossy plastic, chrome, photograph, 3D render, lens
+flare, bloom, noise, grain, halftone, thin scratchy pencil lines, crosshatching,
+engraving, muddy or desaturated colour, sepia, dark or black background, filled
+corners, multiple objects, clutter, isometric, perspective distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/set_edge.jpg
+--------------------------------------------------------------------------------
+
+
+================================================================================
+ 8. set_prism  -  "Prism Set"
+================================================================================
+
+Intent: the vent-yield set. A cut crystal splitting one beam into four flat bands.
+The bands are painted as solid ribbons, not as a glow or a rainbow gradient.
+
+The difference from Ember matters: Ember is a vessel holding heat. Prism is a
+transparent object doing work, and the shape is geometric where Ember is organic.
+
+--------------------------------------------------------------------------------
+ PROMPT - paste into the prompt field
+--------------------------------------------------------------------------------
+
+Hand-painted game badge illustration, perfectly circular, centred on a square
+canvas with fully transparent corners. Painted by a professional illustrator in
+gouache, ink and coloured pencil, the kind of original art printed on a tabletop
+game box or a mid-century children's book plate. Rich, saturated, hand-mixed
+colour, layered wet into wet and then drawn over while damp. Not a vector icon,
+not clipart, not a 3D render, not an app icon.
+
+SUBJECT: a triangular cut crystal standing on its base, with a single white beam
+entering from the left and four solid coloured bands leaving to the right. The
+crystal has four visible facets with hard edges and a chipped corner at the top.
+The bands are flat ribbons with clean ends, not gradients. A brass ring collar
+grips the lower third of the crystal. Nothing else in the frame: no hands, no
+glass, no table, no ground, no background, no extra sparkles.
+
+PALETTE: a full-spectrum accent over a cool field. Field violet (#7C5CD6) with deep
+plum (#2E1B52) at the rim and a pale lilac (#D9CBFF) sweep upper left. The crystal
+is ice blue (#BFF0F7) over pale cyan (#7FD4E8), its facets edged in white; the
+bands are ember orange (#F26B2A), gold (#FFC24B), mint (#4BD68A) and cyan
+(#2ED3C6); the collar brass (#D8A44B). Shadows are indigo (#241A44), never grey.
+The ink contour is near-black (#141018) and it is the only true black in the image.
+
+LINE: confident hand-inked contours, a loaded brush line whose weight swells and
+tapers, with the small live wobble of a real hand. The outer disc edge gets the
+same treatment. Contours are the strongest value on the page and never break.
+
+LIGHT AND SHADOW: one warm key from the upper left, one cool bounce from below.
+Shading is painted as flat shapes with crisp edges, two tones per material, never
+airbrushed. Warm light means cool shadows: the crystal facets go to violet-grey in
+shadow, not to black.
+
+SURFACE: fine tooth of cold-press watercolour paper, gentle granulation in the
+violet field, a scatter of pigment specks, one dry-brush pass along the beam. The
+paint sits slightly over the contour in one or two places, the way a hand works.
+Perfectly clean edges are a machine tell. The texture is a whisper, never a layer
+of noise.
+
+LEGIBILITY: this prints at 44 pixels in the codex. One crystal, one incoming beam,
+four outgoing bands. Minimum feature size 6% of the canvas. At thumbnail size the
+four bands merge into a bright fan, which is fine; the crystal silhouette is the
+read.
+
+COMPOSITION: 1:1 square, 1024x1024, badge centred, disc radius about 47% of the
+canvas leaving a clean empty margin at the edge. Slight asymmetry: the crystal
+sits left of centre so the bands have room to fan.
+
+--------------------------------------------------------------------------------
+ NEGATIVE - paste into the negative field (drop the word NEGATIVE:)
+--------------------------------------------------------------------------------
+
+NEGATIVE: text, letters, numbers, labels, logo, watermark, signature, UI elements,
+frame or border around the square, hands, magnifying glass, laser gun, rainbow
+arc, clouds, sparkles, magic glow, neon, light rays, lens flare, star field,
+planet, second crystal, AI-generated look, machine-smooth gradients, uniform line
+weight, plastic 3D render, generic mobile game icon, glossy app icon, black drop
+shadows, perfect symmetry, digital airbrush, photo texture overlay, vector, flat
+sticker, clipart, corporate illustration, gradient mesh, glossy plastic, chrome,
+photograph, 3D render, bloom, noise, grain, halftone, thin scratchy pencil lines,
+crosshatching, engraving, muddy or desaturated colour, sepia, dark or black
+background, filled corners, multiple objects, clutter, isometric, perspective
+distortion
+
+--------------------------------------------------------------------------------
+ Settings:  --ar 1:1 --style raw --stylize 150
+ Save as:   assets/badges/source/set_prism.jpg
+--------------------------------------------------------------------------------
+
+END OF SET
+Wrap order matters: generate the four cache rarities first, because they are the
+ones the rack actually draws today. The four set emblems are for the codex pass.

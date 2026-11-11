@@ -1,0 +1,41 @@
+# Rojo build artifacts
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+sourcemap.json
+/build/
+
+# Generated assets. Regenerate with `python scripts/generate_icons.py`.
+assets/generated/
+!assets/.gitkeep
+
+# Upload bookkeeping and credentials
+.env
+.env.*
+assets/generated/uploaded.json
+assets/models/uploaded.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Obsidian volatile state
+**/.obsidian/workspace.json
+**/.obsidian/cache
+.obsidian/
+
+# Local tool state
+.hallmark/
+
+# Scratch at the repo root
+*.blend
+tmp_*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
