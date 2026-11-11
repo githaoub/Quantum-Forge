@@ -20,6 +20,8 @@
 -- A sixty-card grid would otherwise build sixty models and sixty cameras to show
 -- two and a half rows; the scroll window decides who gets a model.
 
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
@@ -2045,6 +2047,20 @@ function InventoryModal.init(canvas: Frame)
 	}) :: TextButton
 	dim.Parent = layer
 	UiKit.track(dim, dim.Activated:Connect(function()
+		-- The vault panel is a Frame, not a button, so a click on a gap between
+		-- cards or under the inspector used to pass through to this dimmer and
+		-- close the vault. Ignore anything that landed inside the panel; only
+		-- the gutter around the sheet is a close target.
+		local panelBox = panel
+		if panelBox == nil then
+			return
+		end
+		local point = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+		local origin = panelBox.AbsolutePosition
+		local extent = origin + panelBox.AbsoluteSize
+		if point.X >= origin.X and point.X <= extent.X and point.Y >= origin.Y and point.Y <= extent.Y then
+			return
+		end
 		InventoryModal.close()
 	end))
 

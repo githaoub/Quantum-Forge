@@ -10,6 +10,7 @@
 -- `body` is the interior below the banner. Callers own everything inside it and
 -- rebuild it on open; the shell owns nothing that changes per frame.
 
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
 local Theme = require(script.Parent.Theme)
@@ -183,8 +184,20 @@ function ModalShell.build(canvas: Frame, spec: Spec, zIndex: number?): Handle
 		end
 	end
 
+	-- A Frame does not sink pointer input, so a click on empty panel space falls
+	-- through to the dimmer and used to close the whole sheet. That is the
+	-- "clicked the background and lost my place" bug. The dimmer still closes on
+	-- the gutters around the panel; a click whose screen point is inside the
+	-- panel is ignored here, because the panel itself is what the player was
+	-- aiming at.
 	UiKit.track(dim, dim.Activated:Connect(function()
 		if spec.lockScrim then
+			return
+		end
+		local point = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+		local origin = panel.AbsolutePosition
+		local extent = origin + panel.AbsoluteSize
+		if point.X >= origin.X and point.X <= extent.X and point.Y >= origin.Y and point.Y <= extent.Y then
 			return
 		end
 		if handle then
