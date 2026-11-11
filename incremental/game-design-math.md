@@ -72,11 +72,14 @@ ascend, cores never reset. A player always has one thing that survives.
 | Sweet spot | `65 … 85` | `Config.SweetSpotMin/Max` |
 | Sweet spot multiplier | `×2.5` | `Config.SweetSpotMultiplier` |
 | Vent legal at | `≥ 85` | `Config.VentThreshold` |
-| Overheat | `100` | `Config.OverheatAt` |
-| Lockout on overheat | `5 s` | `Config.OverheatLockout` |
-| Grace to vent instead | `1.5 s` | `Config.OverheatGrace` |
+| Heat cap | `100` | `Config.OverheatAt` |
+| Lean point | `≥ 90` | `Config.PenaltyFrom` |
+| Lean yield | `×0.5` | `Config.PenaltyMult` |
 | Aether per heat vented | `0.08` | `Config.AetherPerHeat` |
 | Click rate limit | `25 / s` | `Config.ClickRateLimit` |
+
+There is no lockout and no grace window. Heat caps at 100, the anvil keeps accepting
+clicks, and the only punishment for running hot is the half-yield lean point.
 
 ### 3.2 The core equation
 
@@ -98,9 +101,9 @@ This is the whole mechanic in one equation. The intended discovery is that
 
 ### 3.3 Time to traverse the gauge
 
-From 0 to the band, then across the band, then to burnout:
+From 0 to the band, then across the band, then to the cap:
 
-| Clicks/sec | 0 → 65 | 65 → 85 | 85 → 100 | Time in band before burnout |
+| Clicks/sec | 0 → 65 | 65 → 85 | 85 → 100 | Time in band before the cap |
 | --- | --- | --- | --- | --- |
 | 4 | 15.4 s | 4.0 s | 3.0 s | 4.0 s |
 | 6 | 8.7 s | 2.2 s | 1.7 s | 2.2 s |
@@ -110,9 +113,10 @@ From 0 to the band, then across the band, then to burnout:
 
 Two properties fall out of the numbers, and both are load-bearing:
 
-1. **The band cannot be skipped.** Heat arrives in 2.5-point packets, so from 84.9
-   the next click lands at 87.4 — still inside. Every path to 100 crosses the band.
-   The player always gets a warning window of at least ~0.26 s, and typically ~1 s.
+1. **The band cannot be skipped.** It is 20 points wide and a click adds 2.5, so
+   there is no single click that jumps from below the band to above it. Every path
+   to 100 crosses the band, and the player always gets a warning window of at least
+   ~0.26 s, typically ~1 s.
 2. **Bursting is strictly worse than holding.** A 10 cps burst spends 3.3 s at 1x
    climbing to the band, then 1.0 s at 2.5x inside it. Net multiplier over that
    window is `(32.5 + 10·2.5) / 42.5 ≈ 1.35x`. Dropping to 2 cps the moment the
@@ -126,35 +130,35 @@ That second property is what makes the mechanic a skill rather than a mash.
 Venting dumps all heat for Aether and resets the gauge:
 
 ```
-Aether = floor(heat · 0.08 · ventMult · efficiency)
+Aether = floor(heat · 0.08 · ventMult)
 ```
-
-`efficiency` is `1.0` normally, `0.25` when venting during the grace window after
-an overheat.
 
 | Vent at | Aether (no tech) | Aether at `vent_efficiency` 8/8 (+200%) |
 | --- | --- | --- |
 | 85 (minimum legal) | 6 | 20 |
-| 92 | 7 | 22 |
-| 100 | 8 | 24 |
+| 90 (lean point) | 7 | 22 |
+| 100 (cap) | 8 | 24 |
 
-Venting higher is worth more, which creates the tension: the maximum payout sits
-one point below the lockout. Skilled play rides 95–99 and vents on the way down;
-lazy play vents at 86.
+Venting higher is worth more Aether, but past 90 every strike pays half. The
+optimum is to purge near 90, not at 100: the last 10 points buy one extra Aether
+and cost half yield on every strike used to get there. A player who rides 95–99 is
+not playing well; they are paying for the privilege of a slightly bigger vent.
 
-**Overheat penalty.** Missing the vent costs the player 75% of the value *and* the
-heat itself: they get `floor(100 · 0.08 · 0.25) = 2` Aether instead of 8, plus 5
-seconds of no clicking. Heat still decays during the lockout, so when the lock
-ends the player resumes at ~75 heat — already in the band, which softens the
-punishment into a tempo reset rather than a stall.
+**The lean point.** At 90 the multiplier drops to `0.5` and stays there until the
+player purges. There is no time-out and no loss of heat; the anvil still works. The
+cost is the gap between `2.5x` in the band and `0.5x` in the red, which is `5x`.
+That is large enough to matter and soft enough to recover from with one key. The
+vent at 100 pays 8 instead of 7, but the single Aether is not worth the half-yield
+window.
 
 ### 3.5 Why the rate limit is 25/s
 
-The heat system self-limits earnings: past `c = 2` you are racing toward a lockout,
-not earning more. The 25/s cap is therefore almost never the binding constraint for
-an honest player — it exists purely so an autoclicker cannot gain anything a human
-with good rhythm could not. `Fast Forge` doubles it to 50/s, which changes the
-*feel* (faster band entry) more than the ceiling.
+The heat system self-limits earnings: past `c = 2` you are racing toward the lean
+point and the cap, not earning more. The 25/s cap is therefore almost never the
+binding constraint for an honest player — it exists purely so an autoclicker cannot
+gain anything a human with good rhythm could not. `Fast Forge` doubles it to 50/s,
+which changes the *feel* (faster band entry) more than the ceiling. The cap is a
+yield problem, not a time-out, which is why the anvil never locks.
 
 ---
 
@@ -509,7 +513,7 @@ makes the tech tree's costs easy to reason about: a node that costs 30 Cores is
 | Aether Shards | Tech tree levels |
 | Drones | Ascension count |
 | Fleet (every rung, counts and all) | Quantum Cores |
-| Heat and lockout | Blades granted by `head_start` |
+| Heat (capped at 100) | Blades granted by `head_start` |
 | Owned blades | Lifetime Star-Matter |
 
 The player keeps enough blades to skip the opening minutes (`head_start`), and the
@@ -540,8 +544,12 @@ Two design notes:
   Widening the band to `55–95` makes the sweet spot reachable in 2.5 s instead of
   3.3 s and holdable with far more slack, which is worth more than any flat
   multiplier because it raises the *ceiling* of skilled play rather than the floor.
-  The band is clamped so `sweetSpotMax ≤ 95` (`OverheatAt − 5`) — there is always
-  5 points of runway before burnout, no matter how much the band is widened.
+  The band is clamped so `sweetSpotMax ≤ 95` (`OverheatAt − 5`), which leaves five
+  points of runway before the cap at 100. **The lean point interacts with this:**
+  past 90 the strike pays `2.5 × 0.5 = 1.25x`, not `2.5x`. The effective paying band
+  is therefore `55–90`; the top five points of a maxed band are a trap. Clamp
+  `sweetSpotMax` to `PenaltyFrom` (90) or paint the 90–95 stretch as lean, or the
+  gauge promises a multiplier it does not pay.
 - **Phantom Hammer autoplays the mechanic at a fixed rate** (0.5 clicks/s per level,
   capped at 20 strikes per frame). At max level it is 5 clicks/s, which in the band
   would be 12.5× bladeMult/s — competitive with manual play, but it cannot modulate
@@ -617,7 +625,7 @@ clean clone prompts nothing and throws nothing.
 | Eternal Forge | Pass | `×1.25` all SM income | The high-ticket permanent sink |
 | Starter Forge Pack | Product | 25 Aether + 15 min `×2` | The 5 Robux first purchase |
 | Instant Overdrive | Product | 15 min of `×3` | Burst for a session, not permanent |
-| Emergency Vent | Product | Clears the lockout and resets heat | Pure convenience; never required |
+| Emergency Vent | Product | Dumps all heat instantly | Pure convenience; never required |
 | Express Salvage | Product | Finishes an expedition in flight | Time, not currency |
 
 **The rule every product obeys:** nothing is exclusive, nothing is time-gated

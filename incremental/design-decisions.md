@@ -3720,3 +3720,49 @@ into the vault.
 | `DROP ODDS` bar was read visually | Segment widths match the five weights at 55.14 / 29.87 / 13.83 / 2.41 / 0.35% | The legend and the sorted order were checked against `ForgeConfig.odds`. |
 | Store listings still read `SOON` | No Marketplace id is configured | The API key lacks `game-pass:write` / `developer-product:write`; `scripts/create_store_items.py --apply` has not run. |
 | `selene` is still the only static pass | 0 errors, 0 warnings, 0 parse errors | `stylua`, `wally` and `luau-lsp` are not installed; `rojo build -o verify.rbxlx` succeeds. |
+
+---
+
+## ADR-082 — Research is text-first, and every pass ends in the vault
+
+**Context.** The first six notes in the vault are video breakdowns. Video is a slow
+research medium here: there is no transcript to quote, the player cannot be
+searched, and a claim has to be remembered rather than linked. The GitHub pass was
+run to answer the same questions from material that can be read, quoted, and
+checked against source code.
+
+**Decision.** A research pass uses GitHub topics, curated lists, and the primary
+repository or design-skill pack. It lands as **one synthesis note**, not a reading
+log: `game-design-research.md` holds the findings, the audit, and a ranked action
+list. A note must say what was read, what was skimmed, and what was not opened.
+Video notes stay in the record as historical source analyses; they are not
+rewritten when the game changes.
+
+**Why.**
+
+- A linked repository can be re-read; a remembered video cannot.
+- Source code is the honest version of a game's design. READMEs describe intent;
+  `stargaze.js` shows what the reset actually pays.
+- One synthesis note is maintainable. Seven half-filled reading notes are not.
+- The audit is the deliverable. A research note that does not change a decision is
+  a bibliography.
+
+**What it costs.** GitHub research over-represents developers who publish code. It
+says little about player sentiment, retention curves, or what a ten-year-old on a
+phone actually enjoys. The findings are therefore **hypotheses**, not measurements.
+Every action in the research note carries a size and a "not built" status until a
+live session proves it.
+
+**Vault cleanup, same pass.** The unreferenced `images/actually-from-youtube.png`
+was removed. The five UI reference captures were renamed to
+`images/ui-reference-01..05.png` and kept because ADR-080 cites them as evidence.
+`project-readme.md` was kept as the long-form record but marked superseded where the
+Forge 13 UI and the lean point changed the truth; deleting it would have lost the
+asset pipeline and the systems history. Old build logs were kept: they are measured
+history, and the index links them. The rule is **delete duplicates and dead
+artifacts, not history**.
+
+**Guard.** A research note ends with an **Audit** and an **Honesty** table. No
+action is marked shipped until it is built and verified. No stale rule is left
+standing in `game-design-brief.md`, `game-design-math.md` or `project-readme.md`;
+where a doc disagrees with an ADR, the ADR wins and the doc gets a pointer.

@@ -1,7 +1,7 @@
 ---
 title: Quantum Forge — Blade Evolution
 status: built — v0.1.0, pre-publish
-updated: 2026-11-09
+updated: 2026-11-11
 tags:
   - roblox
   - incremental
@@ -16,9 +16,14 @@ tags:
 > [[#7. What the original plan got wrong]] rather than quietly deleted, because the
 > pattern of what a plan gets wrong is more reusable than the plan.
 >
+> **Forge 13 update (2026-11-11).** The heat lockout is gone; past 90% the core runs
+> lean at ×0.5 until the player purges (ADR-079). The UI also moved from a tab strip
+> to the Foundry Instrument rail, and the forge roll column moved to the CRATES page
+> (ADR-076…080). Where this note and an ADR disagree, the ADR wins.
+>
 > Authoritative numbers live in `src/shared/Config.luau`. This note explains intent;
 > the code is the source of truth for values. Engine-level reasoning is in
-> `design-decisions.md` (ADR-001…021) in the repo.
+> `design-decisions.md` (ADR-001…082) in the repo.
 
 A **Sci-Fi / High-Fantasy Weapon Smithing Incremental** aimed at the older slice of
 the Roblox audience — the ones who care about auras, sleek surfaces and optimisation
@@ -38,8 +43,9 @@ to craft and evolve legendary energy blades across dimensional eras.
   the whole environment is tunable by editing numbers. Each character carries a
   server-side `Highlight`, an aura ring and a particle emitter tinted by the rarity of
   their equipped blade, so the flex is visible to other players.
-- **A ScreenGui HUD** authored entirely in Luau against a fixed 1280×720 canvas,
-  scaled to fit by `UIScale`. Top bar, forge column, 400px side panel, modal layer.
+- **A ScreenGui HUD** authored entirely in Luau on an elastic canvas: height fixed at
+  the 720 design rung, width picked from the viewport (1440 default, 1320 minimum)
+  and scaled by `UIScale`. Top bar, left rail, full-width section, modal layer.
 
 The original pitch said "rendered entirely through SurfaceUIs." It isn't, and
 shouldn't be: a clicker's entire economy runs through its HUD, and a ScreenGui is the
@@ -76,8 +82,9 @@ Heat is a **sweet spot**, not a fill bar. The rule the player has to learn:
 | --- | --- | --- |
 | 0 – 65% | cold | base yield |
 | **65 – 85%** | **in the band** | **×2.5 Star-Matter** |
-| 85 – 100% | venting legal | can vent for Aether |
-| 100% | overheated | 5s lockout, 1.5s grace to vent first |
+| 85 – 90% | venting legal | can vent for Aether |
+| 90 – 100% | lean | **×0.5 yield until purged**, still strikeable |
+| 100% | capped | heat holds at 100; purge is the way back |
 
 `+2.5` heat per click, `−5`/second decay. Holding the band under 25 clicks/second is
 the actual skill expression, and it is legible without a tutorial because the gauge
@@ -85,9 +92,12 @@ is drawn as a ruled instrument with decade ticks, a stroked band with the multip
 printed inside it, and a live needle — not as a progress bar. A progress bar would
 communicate "fill it up," which is the opposite of the rule.
 
-Venting pays `0.08` Aether per point of heat released, so overshooting is not
-punished, it is converted. The mistake costs you the band multiplier and time, never
-your progress.
+Venting pays `0.08` Aether per point of heat released, so the heat itself is never
+wasted. Overshooting still costs you the band multiplier and time, never your
+progress. Past 90% the core runs lean: every strike pays half until the player
+purges, but the anvil never stops accepting clicks. That is the difference between a
+rule the player can read and leave, and a lockout that takes the game away
+(ADR-079).
 
 **Why not the aura/stance system from the pitch?** Aura exists as a server-created
 visual on the equipped blade (ADR-012). Active combat stances do not — there is no
@@ -126,14 +136,15 @@ Nine entries exist in `MonetizationConfig.luau`, all with `id = 0`. Every entry 
 in the UI checks both `enabled` and a non-zero ID, so each one no-ops. Nothing is
 purchasable until real IDs are pasted in and `Config.Debug` is set to `false`.
 
-- **Gamepasses:** Auto-Vent AI · 2x Star-Matter · VIP Quantum Aura · Fast Forge
-- **Developer products:** Instant Overdrive · Core Pack (Small / Medium / Mega) ·
-  Skip Thermal Lockout
+- **Gamepasses (5):** Fast Forge · Auto-Vent AI · 2x Star-Matter · VIP Quantum Aura ·
+  Eternal Forge
+- **Developer products (4):** Starter Forge Pack · Instant Overdrive · Emergency
+  Vent · Express Salvage
 
 The philosophy from the source video holds: sell **convenience and speed**, never
-access. Auto-Vent AI removes the timing skill for players who don't want it; Skip
-Thermal Lockout sells back the five seconds you just lost. Neither gates progress
-that a free player cannot reach.
+access. Auto-Vent AI removes the timing skill for players who don't want it;
+Emergency Vent dumps heat instantly; Express Salvage buys back time on an expedition.
+None of them gates progress that a free player cannot reach.
 
 The cosmetic-gacha idea from the pitch is not built. A gacha with forty icons and no
 art pipeline is a loot box with nothing in it.

@@ -1,5 +1,5 @@
 --!strict
--- The forge loop: heat physics, click validation, venting, overheat lockouts,
+-- The forge loop: heat physics, click validation, venting, the lean point,
 -- and passive drone income.
 --
 -- Everything here is server-authoritative. The client renders what it is told

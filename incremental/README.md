@@ -1,10 +1,10 @@
 # The vault index
 
-Every `.md` file in the repository lives here. One naming rule: **the filename
-says what the note is for.** A video analysis is `video-NN-<subject>.md`, where
-`NN` is the order it was watched and `<subject>` is the three or four words that
-describe the lever it teaches. No more `VIDEOANALYSIS-04.md` with no clue
-whether it is about VFX, pricing, or swords.
+Every design note in the repository lives here; the repo `README.md` is the only
+`.md` outside the vault. One naming rule: **the filename says what the note is for.**
+A video analysis is `video-NN-<subject>.md`, where `NN` is the order it was watched
+and `<subject>` is the three or four words that describe the lever it teaches. No
+more `VIDEOANALYSIS-04.md` with no clue whether it is about VFX, pricing, or swords.
 
 ## Naming rules
 
@@ -14,14 +14,16 @@ whether it is about VFX, pricing, or swords.
 | `build-log-<change>.md` | what actually shipped for a given analysis, measured |
 | `art-prompts-<tool>.md` | how to write prompts for a given generator |
 | `code-map.md` | module-by-module map of `src/` and where to change things |
-| `project-readme.md` | the project overview, quick start, systems, asset pipeline |
+| `project-readme.md` | the long-form project record through Forge 12; UI sections superseded by the ADRs |
 | `game-design-brief.md` | the founding design document, kept current |
 | `game-design-math.md` | every formula and table behind the economy |
+| `game-design-research.md` | text-first research: loops, retention, fairness, UI, with an audit |
 | `design-decisions.md` | every ADR, newest last |
 
 Every video note ends with an **Application to Quantum Forge** block or a
 **Summary Action Checklist**. That block is the reason the note exists. If a note
-ever stops having one, it is source material, not a plan.
+ever stops having one, it is source material, not a plan. A research note ends
+with an audit and a ranked action list, and says what was actually read.
 
 ## The notes
 
@@ -41,11 +43,13 @@ ever stops having one, it is source material, not a plan.
 | `build-log-forge-10.md` | shipped work | What progress pricing, the honest melt count, the clickable settings sheet and the rebuilt header icons changed. |
 | `build-log-forge-11.md` | shipped work | What the batch mode, the composited stage wash and the two orbit surfaces changed. |
 | `build-log-forge-12.md` | shipped work | What the 3D crate, the income-relative roll price, the modifier axes, the codex, the boards, trading, the quality ladder and the custom currency art changed. |
+| `build-log-forge-13.md` | shipped work | What the Foundry section rebuilds (crates, fleet, runes, store) and the heat lean point changed, measured. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
+| `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
 | `game-design-brief.md` | founding document | The game as designed, including what the first plan got wrong. |
 | `game-design-math.md` | reference | Heat curve, blade ratios, pacing, ascension, retention. |
 | `code-map.md` | reference | Module ownership, boot order, data flow, verification, environment limits. |
-| `project-readme.md` | reference | Quick start, controls, project layout, systems, asset pipeline. |
+| `project-readme.md` | reference | Quick start, controls, project layout, systems, asset pipeline. Long-form record through Forge 12; the UI sections are superseded by ADR-076…082. |
 | `design-decisions.md` | engineering record | Every decision with its trade-off, ADR-001 through the current pass. |
 
 ## The one-line versions
@@ -97,16 +101,31 @@ crossed gradient bands, each transparent at both ends - instead of a stack of
 circles, and the forge and the inspector both orbit on a held drag, pressed from
 a control over the render rather than from the viewport.
 
+**12:** The crate stopped being a button and became an object: a 3D crate that
+falls, winds up and shatters, priced against the account's income instead of a
+fixed table. The roll grew two modifier axes, the codex became a 1120px ten-page
+manual, leaderboards and the trade desk shipped, and the blade catalogue got a
+quality ladder and custom currency art. It is the largest single pass in the
+record.
+
+**13:** The UI stopped being seven screens built from seven vocabularies. Foundry
+Instrument gave it one palette, one type ladder, one accent, a left rail and a
+single repainted section banner; the forge lost its deck and its roll column; heat
+got a lean point at 90% instead of a lockout; and CRATES, FLEET, RUNES and STORE
+were rebuilt around one focal object each.
+
 ## Reading order for a fresh session
 
 1. `code-map.md` - what every module owns, so you can jump straight to the file.
 2. `game-design-brief.md` - what the game is.
-3. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
-4. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
-5. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
-6. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
-7. `build-log-forge-09.md` - the vault split view and the one-card guide.
-8. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
-9. `build-log-forge-07.md` - what the RNG forge pass shipped.
-10. `build-log-salvage-06.md` - what the previous pass shipped.
-11. `design-decisions.md` - every ADR, newest last. Read the last one first.
+3. `game-design-research.md` - the five fun levers and the audit of this build.
+4. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
+5. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
+6. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
+7. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
+8. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
+9. `build-log-forge-09.md` - the vault split view and the one-card guide.
+10. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
+11. `build-log-forge-07.md` - what the RNG forge pass shipped.
+12. `build-log-salvage-06.md` - what the previous pass shipped.
+13. `design-decisions.md` - every ADR, newest last. Read the last one first.

@@ -244,6 +244,8 @@ Known environment limits:
 ## The vault
 
 All `.md` files live in `incremental/`. Start at `incremental/README.md` for the
-index, then this file, then `design-decisions.md` for the reasoning behind any
-number that looks odd. `project-readme.md` is the player-facing and developer
-overview; `game-design-math.md` is the derivation.
+index, or `quantum-forge.md` for the Obsidian map of content, then this file, then
+`design-decisions.md` for the reasoning behind any number that looks odd.
+`project-readme.md` is the long-form project record (UI sections superseded by
+ADR-076…082); `game-design-math.md` is the derivation; `game-design-research.md`
+is the text-first research pass and its audit.

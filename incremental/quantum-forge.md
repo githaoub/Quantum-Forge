@@ -33,6 +33,7 @@ is in the wrong place.
 | check the economy | [[game-design-math]] |
 | check the pitch | [[game-design-brief]] |
 | run art generation | [[art-prompts-nano-banana]] |
+| see what makes a game fun | [[game-design-research]] |
 
 ## Live state
 
@@ -40,6 +41,7 @@ is in the wrong place.
 > Balance pass, five-crate pools, starter boost, daily track, codex expansion,
 > crate page section, Foundry Instrument tokens, left rail, deck-free forge with
 > a heat lean point, and the four section rebuilds (crates, fleet, runes, store).
+> The GitHub research pass and its audit are in [[game-design-research]].
 >
 > [!warning] Blocked
 > 26 blade meshes and the sculpted drone mesh return `User is not authorized to
@@ -52,6 +54,7 @@ is in the wrong place.
 `design-decisions.md` is append-only. Link to one decision by heading, never by
 copying it:
 
+- [[design-decisions#ADR-082]] — research is text-first and lands in the vault
 - [[design-decisions#ADR-081]] — vault map of content
 - [[design-decisions#ADR-080]] — crates/fleet/runes/store rebuilds
 - [[design-decisions#ADR-079]] — heat lean point
@@ -84,6 +87,8 @@ end.
 
 - [[code-map]] — module ownership, boot order, verbs
 - [[game-design-math]] — curves, gates, income
+- [[game-design-research]] — loops, retention, fairness, UI, and the audit
+- [[ui-refactor-direction]] — the Foundry Instrument rules
 - [[project-readme]] — the long-form project record
 - [[README]] — repo layout and commands
 

@@ -8,6 +8,13 @@ character. Prestige buys new rules, not bigger numbers.
 whole game — geometry, interface, icons — is generated from `src/` and `scripts/`.
 Clone it, `rojo serve`, press Play.
 
+> [!warning] Superseded in places
+> This is the long-form project record through Forge 12. Forge 13 replaced the tab
+> strip and side panel with the Foundry Instrument rail, deleted the forge roll
+> column, and replaced the heat lockout with the 90% lean point. Where this note
+> describes the old UI or the old heat rule, the ADR log wins: ADR-076…082. The
+> mechanics that have not changed are still accurate.
+
 ---
 
 ## Quick start
@@ -32,7 +39,7 @@ The server prints:
 [QuantumForge] lobby constructed
 ```
 
-and the client prints `[QuantumForge] client ready (forge 814px, side 400px)`.
+and the client prints a `[QuantumForge] ui built in …ms (content …x…)` line.
 
 No API key, no upload, and no asset import is needed — `AssetManifest` falls back to
 `rbxassetid://0` and the UI draws vector glyphs.
@@ -53,15 +60,15 @@ Open the `.rbxlx` directly in Studio to test without the plugin, or to publish.
 | --- | --- |
 | Left click the blade stage | Strike the forge (+1 click of Star-Matter, +2.5 heat) |
 | **Spacebar** | Same as clicking the anvil |
-| Vent key (right end of the heat rail) | Dump all heat for Aether Shards (legal at ≥85 heat) |
-| Side panel tabs | **Fleet** · **Runes** · **Tech** · **Store** (the vault is its own key) |
-| Backpack key (bottom left of the banner) | Open the blade vault |
-| The whole blade stage | Strike the forge; the heat rail and vent key sit on top of it |
-| **?** in the top bar | Replay the onboarding guide |
-| Ascend | In the **Tech** tab, behind a confirmation modal |
+| PURGE key (bottom-right of the stage) | Dump all heat for Aether Shards (legal at ≥85 heat) |
+| Left rail | **FORGE** · **CRATES** · **FLEET** · **RUNES** · **TECH** · **STORE** |
+| Top-bar utility keys | **VAULT** · **CODEX** · **BOARDS** · **TRADE** · **NOTES** · **GUIDE** · **SETUP** |
+| The whole blade stage | Strike the forge; the strike, heat and purge controls float on top of it |
+| Ascend | In the **TECH** section, behind a confirmation modal |
 
 Keep the heat gauge inside the highlighted band (65–85 by default) and every strike
-pays **2.5x**. Let it hit 100 and the forge locks for 5 seconds.
+pays **2.5x**. Past 90 the core runs lean and every strike pays half until you purge;
+heat caps at 100 and the anvil never locks.
 
 ---
 
@@ -100,25 +107,32 @@ src/
     FeedbackStore.luau    Player reports to their own DataStore
 
   client/                 StarterPlayer.StarterPlayerScripts.Client
-    Main.client.luau      Boot, fixed-canvas layout, event feed, smoothing loop
-    Theme.luau            Colours, radii, type scale
-    UiKit.luau            Widget library (panels, buttons, gauges, screen fit)
+    Main.client.luau      Boot, event feed, QF_Dev seam, smoothing loop
+    Theme.luau            Foundry palette, type ladder, radii, stroke weights
+    UiKit.luau            Flat widgets: panel, button, rule, eyebrow, figure
+    Layout.luau           Rail/bar/content geometry, one source of truth
+    Sections.luau         Left rail, section host, one repainted 64px banner
     StateStore.luau       Sync store, pending-credit prediction buffer
-    ForgeView.luau        Anvil, strike stage, heat rail, HUD, rolling crate
-    HudController.luau    Currencies, rates, top bar
-    SidePanel.luau        Tab shell, backpack and gear keys
-    InventoryModal.luau   Blade vault: 4-column grid, permanent inspector, favourite/melt
-    InventoryModel.luau   Copy grouping and the melt rules, shared by the vault
-    DroneView.luau        Fleet stage, the five-rung ladder, expeditions
-    RuneView.luau         Mastery bar, socket rack, rune shelf
+    HudController.luau    Top bar, currencies, utility keys, rate readout
+    ForgeView.luau        Full-bleed stage, strike key, heat dial, purge key
+    CratesView.luau       Crate page, pool rail, stacked odds bar, roll keys
+    DroneView.luau        Fleet hero, five-rung ladder, expeditions, salvage
+    RuneView.luau         Blade bay, sockets, live bonus grid, rune shelf
     TechTreeView.luau     Node list, ascend
     ShopView.luau         Passes and products
+    InventoryModal.luau   Blade vault: 4-column grid, permanent inspector, favourite/melt
+    InventoryModel.luau   Copy grouping and the melt rules, shared by the vault
+    CodexView.luau        Ten-page collection manual
+    LeaderboardView.luau  Lifetime and weekly boards
+    TradeView.luau        Asynchronous trade desk
+    DailyView.luau        Seven-day track
     Modals.luau           Confirm / offline dialogs
+    ModalShell.luau       Shared flat-plate overlay
     FeedbackView.luau     Player feedback form
     BladePreview.luau     Procedural 3D blade in a ViewportFrame
     DroneModelBuilder.luau  Procedural low-poly drone + turntable for the fleet stage
     OrbitalLobby.luau     Ambient lobby visuals
-    TutorialController.luau  First-join card, spotlight ring, replay/skip
+    TutorialController.luau  First-join card, replay/skip
     Notifications.luau    Toasts
     Vfx.luau              Floaters, sparks, rings, lightning, embers, shake, flash
     SpriteFx.luau         Layered sprite-sheet playback (tinted flipbooks)
@@ -152,8 +166,8 @@ incremental/               The vault: every .md in the repo lives here.
 
 Clicking adds 2.5 heat; heat decays at 5/s. Sustained clicking above **2 clicks per
 second** makes heat climb; below that it falls. Holding 65–85 pays 2.5x. Above 85 you
-can vent for Aether; at 100 you burn out and lock for 5 seconds, unless you vent
-within a 1.5-second grace window (which pays at 25% efficiency instead).
+can vent for Aether; past 90 every strike pays half until you purge. Heat caps at 100
+and the anvil never locks (ADR-079).
 
 The full derivation is in [`game-design-math.md`](game-design-math.md).
 
@@ -675,34 +689,22 @@ moves. `--check` needs `game-pass:read` to list; without it, it reports zero exi
 rather than failing, which is why the real run also handles a duplicate gracefully by
 printing the id rather than erroring.
 
-Every surface is opaque and carries the same 3px `#0F1117` outline, with wood banners
-for headers and a red X on modals. The thermal vent is not a separate row: it is a
-132×34 key on the right end of the core-heat rail — flat slate and `REACH 85%` while
-locked, a solid `#00D2FF` `VENT HEAT` plate with white outlined type once the threshold
-is crossed, solid `#FF6B00` `PURGE HEAT` during a lockout. See [ADR-029](design-decisions.md)
-and [ADR-032](design-decisions.md).
-
-The top bar wears the same wood emblem as the side panel: a 240×52 `UiKit.banner` on
-the left, three navy currency capsules with a drawn icon badge each (a `★`, a
-rotated crystal plate, concentric rings for cores) and the number in white with a
-hard black stroke. The row is seven slots wide: brand, three pills, ascend, daily,
-guide, feedback, with six 8px gaps. It totals 1 214 of the 1 224 design pixels the
-old 1280 canvas had, so nothing wraps; the canvas has since widened to 1440 and the
-row gained the slack. The passive rate is one 30px band under it, spanning the full
-forge card, with the label on the left and the live number on the right. Layout
-numbers for the panels and that band live in one `src/client/Layout.luau`, required
-by `Main` and `HudController`, because duplicated geometry is how a row drifts into
-its neighbour's gutter. Scroll position is kept per tab: `SidePanel` records
-`CanvasPosition.Y` on the way out and restores it after the canvas recomputes, so
-a look at the fleet does not lose your place in the blade list. See
-[ADR-033](design-decisions.md) and [ADR-034](design-decisions.md).
+Every surface is opaque and carries a 1px rule; headers are flat steel plates,
+modals are a flat plate on a dim scrim, and the only heavy outline is the strike key
+(ADR-076). The forge has no deck: the 240×64 strike key, 380×78 heat dial and 136×64
+purge key float over a full-bleed stage, so nothing covers the blade (ADR-078). The
+left rail owns navigation; the top bar is chrome plus the utility keys and the two
+verbs. Layout numbers for the rail, bar and content rect live in one
+`src/client/Layout.luau`, required by `Main` and `HudController`, because duplicated
+geometry is how a row drifts into its neighbour's gutter.
 
 ### Feedback and telemetry
 
-`FEEDBACK` sits beside `? GUIDE` and opens a modal with four categories (`BUG`,
-`BALANCE`, `CONFUSING`, `OTHER`), a 240 character box and a send key. The server
-trims the text, refuses anything under four characters, and writes a record to
-`QuantumForge_Feedback`; a failed write is warned and printed rather than thrown.
+`NOTES` sits beside `GUIDE` in the top-bar utility row and opens a modal with four
+categories (`BUG`, `BALANCE`, `CONFUSING`, `OTHER`), a 240 character box and a send
+key. The server trims the text, refuses anything under four characters, and writes a
+record to `QuantumForge_Feedback`; a failed write is warned and printed rather than
+thrown.
 
 `Funnel` logs one AnalyticsService event per milestone per session on the server:
 `Session_Start`, `First_Strike`, `First_SweetSpot`, `First_Vent`,
