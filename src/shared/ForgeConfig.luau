@@ -195,9 +195,9 @@ export type Tier = {
 ---
 --- The single banner was the wrong shape for a gacha page: the only decision a
 --- player had was when to press the button, and the pool changed underneath them
---- by lifetime income rather than by choice. Now the tier is a choice, each crate
---- is a distinct pool with its own odds, and the unlock is still driven by
---- lifetime Star-Matter so a new crate is a milestone rather than a shop item.
+--- by income rather than by choice. Now the tier is a choice, each crate is a
+--- distinct pool with its own odds, and the unlock is driven by run Star-Matter
+--- so a new crate is a milestone inside the run rather than a shop item.
 ---
 --- The weight columns are the whole balance. A crate earns its price by moving
 --- weight from Scrap and Forged into the top three rarities, not by multiplying
@@ -279,12 +279,13 @@ ForgeConfig.Tiers = {
 	} :: Tier,
 }
 
---- The banner the player is on. Monotonic, driven by lifetime Star-Matter, so it
---- can never deadlock behind an unlucky roll.
-function ForgeConfig.tierFor(lifetime: number): Tier
+--- The banner the player is on. Monotonic inside a run, driven by run Star-Matter,
+--- so it can never deadlock behind an unlucky roll. An ascension resets it, which
+--- is why the crates page prints run progress.
+function ForgeConfig.tierFor(runSm: number): Tier
 	local best = ForgeConfig.Tiers[1]
 	for _, tier in ForgeConfig.Tiers do
-		if lifetime >= tier.unlock then
+		if runSm >= tier.unlock then
 			best = tier
 		end
 	end

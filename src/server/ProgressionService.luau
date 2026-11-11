@@ -420,7 +420,7 @@ function ProgressionService.selectCrate(player: Player, id: string): (boolean, s
 	end
 	if state.runStarMatter < tier.unlock then
 		return false,
-			string.format("%s unlocks at %s lifetime Star-Matter", tier.name, NumberUtil.abbreviate(tier.unlock))
+			string.format("%s unlocks at %s run Star-Matter", tier.name, NumberUtil.abbreviate(tier.unlock))
 	end
 	if state.forgeCrate == tier.id then
 		return true, nil
@@ -435,7 +435,7 @@ end
 --- Rolls `count` copies from one crate.
 ---
 --- This replaced the hardcoded ladder: the crate is chosen by the player (bounded
---- to what lifetime Star-Matter has opened), the rarity by that crate's own weight
+--- to what run Star-Matter has opened), the rarity by that crate's own weight
 --- column with pity on top, and the variant and modifier axes by their own tables.
 --- Every roll creates a copy, so duplicates are inventory items rather than a
 --- rejected purchase.
@@ -471,7 +471,7 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 	end
 	if state.runStarMatter < tier.unlock then
 		return false,
-			string.format("%s unlocks at %s lifetime Star-Matter", tier.name, NumberUtil.abbreviate(tier.unlock))
+			string.format("%s unlocks at %s run Star-Matter", tier.name, NumberUtil.abbreviate(tier.unlock))
 	end
 
 	-- A different crate starts a fresh ramp. The counter is per crate because a

@@ -565,7 +565,7 @@ local function pages(): { Page }
 			accent = Theme.Color.starMatter,
 			lead = string.format("The crate rolls one copy from the banner you are on. Price is the banner cost, ramped by rolls taken at that banner, and floored at %d strikes of your own income so it stays visible at every point on the curve.", ForgeConfig.RollIncomeStrikes),
 			steps = {
-				{ head = "PICK A BANNER", body = "Five banners unlock on lifetime Star-Matter. A higher banner costs more and rolls a stronger pool." },
+				{ head = "PICK A BANNER", body = "Five banners unlock on run Star-Matter. A higher banner costs more and rolls a stronger pool." },
 				{ head = "ROLL", body = string.format("This roll costs %s SM. The next one costs more until the ramp caps at %.0fx the banner price.", NumberUtil.abbreviate(cost), ForgeConfig.RollCostCap) },
 				{ head = "PITY", body = "A void or quantum drop is forced within the banner's pity window, so a dry streak cannot run forever." },
 			},
