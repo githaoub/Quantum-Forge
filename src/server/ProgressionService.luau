@@ -1491,6 +1491,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		inSweetSpot = state.heat >= band.min and state.heat <= band.max,
 		overdriveRemaining = math.max(0, state.forgeOverdriveUntil - now()),
 		boostRemaining = math.max(0, state.boostX2Until - now()),
+		paidBoostRemaining = math.max(0, state.overdriveUntil - now()),
 		streak = state.streak,
 		streakGoal = Config.StreakForOverdrive,
 		shards = state.voidShards,

@@ -55,7 +55,7 @@ MonetizationConfig.Passes = {
 		name = "Fast Forge",
 		description = "Doubles accepted clicks per second.",
 		enabled = true,
-		price = 99,
+		price = 59,
 		badge = "FAST",
 		icon = "fast_forge",
 	} :: PassDef,
@@ -65,7 +65,7 @@ MonetizationConfig.Passes = {
 		name = "Auto-Vent AI",
 		description = "Vents at 85% heat automatically, so the core never runs lean.",
 		enabled = true,
-		price = 149,
+		price = 59,
 		badge = "AUTO",
 		icon = "auto_vent",
 	} :: PassDef,
@@ -75,7 +75,7 @@ MonetizationConfig.Passes = {
 		name = "2x Star-Matter",
 		description = "Doubles all Star-Matter income, forever.",
 		enabled = true,
-		price = 199,
+		price = 59,
 		badge = "2X",
 		icon = "x2_star_matter",
 	} :: PassDef,
@@ -85,20 +85,21 @@ MonetizationConfig.Passes = {
 		name = "VIP",
 		description = "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
 		enabled = true,
-		price = 1699,
+		price = 119,
 		badge = "VIP",
 		icon = "vip_aura",
 	} :: PassDef,
 
-	--- High-ticket permanent. The post-mortem is explicit that a launch with no
-	--- high-Robux sink leaves the top of the market unserved; this is the sink,
-	--- and it is a multiplier rather than currency so it never skips the ladder.
+	--- Every pass sits at the impulse price. The shop is for a small game:
+	--- four passes at 59 and the bundle at 119 is a decision a player can make
+	--- without thinking about it. The multiplier is not the product; the
+	--- convenience is.
 	eternalForge = {
 		id = 2078156449,
 		name = "Eternal Forge",
 		description = "+25% to all Star-Matter income, forever.",
 		enabled = true,
-		price = 1499,
+		price = 59,
 		badge = "ETERNAL",
 		icon = "eternal_forge",
 	} :: PassDef,
@@ -112,7 +113,7 @@ MonetizationConfig.Products = {
 		name = "Starter Forge Pack",
 		description = "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
 		enabled = true,
-		price = 5,
+		price = 9,
 		badge = "START",
 		icon = "starter_forge",
 	} :: ProductDef,
@@ -125,16 +126,6 @@ MonetizationConfig.Products = {
 		price = 25,
 		badge = "BOOST",
 		icon = "instant_overdrive",
-	} :: ProductDef,
-
-	instantVent = {
-		id = 3730425432,
-		name = "Emergency Vent",
-		description = "Dumps all heat instantly, wherever the core is.",
-		enabled = true,
-		price = 15,
-		badge = "VENT",
-		icon = "instant_vent",
 	} :: ProductDef,
 
 	--- Long-horizon utility rather than currency: a mission already paid for, so
@@ -178,7 +169,7 @@ end
 
 --- Storefront order. Passes first (permanent), then consumables, because the
 --- permanent row is the one a returning player is still deciding about.
-MonetizationConfig.PassOrder = { "vipAura", "eternalForge", "fastForge", "x2StarMatter", "autoVent" }
-MonetizationConfig.ProductOrder = { "starterForge", "instantOverdrive", "instantVent", "expressSalvage" }
+MonetizationConfig.PassOrder = { "vipAura", "x2StarMatter", "fastForge", "autoVent", "eternalForge" }
+MonetizationConfig.ProductOrder = { "starterForge", "instantOverdrive", "expressSalvage" }
 
 return MonetizationConfig

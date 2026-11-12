@@ -117,6 +117,7 @@ local function grantProduct(player: Player, key: string): boolean
 		local base = math.max(now, state.boostX2Until)
 		state.boostX2Until = base + MonetizationConfig.StarterSeconds
 	elseif key == "instantVent" then
+		-- Retired from the storefront, kept for receipts already in flight.
 		state.heat = 0
 		state.streak = 0
 	elseif key == "expressSalvage" then
@@ -135,6 +136,13 @@ local function grantProduct(player: Player, key: string): boolean
 	return true
 end
 
+--- Retired products still need a receipt path: Roblox retries an unconsumed
+--- receipt forever, and a delisted item would otherwise land on the unknown-id
+--- branch and never settle. The effect is honoured; only the shop row is gone.
+local RETIRED_PRODUCTS: { [number]: string } = {
+	[3730425432] = "instantVent",
+}
+
 local function onProcessReceipt(receipt: Receipt)
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
 	if not player then
@@ -144,6 +152,9 @@ local function onProcessReceipt(receipt: Receipt)
 	end
 
 	local key = MonetizationConfig.productById(receipt.ProductId)
+	if key == nil then
+		key = RETIRED_PRODUCTS[receipt.ProductId]
+	end
 	if key == nil then
 		warn(string.format("[Monetization] unknown product id %d", receipt.ProductId))
 		return Enum.ProductPurchaseDecision.NotProcessedYet

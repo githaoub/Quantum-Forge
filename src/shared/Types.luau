@@ -188,8 +188,10 @@ export type ProfileState = {
 	--- Player preferences. Persisted so mute and juice settings survive a rejoin.
 	settings: Settings,
 
-	-- Boosts (unix seconds; 0 means inactive)
+	--- Timed 2x from the Starter Forge Pack or the welcome boost. Stacks with
+	--- the paid 3x below, so both can be live at once.
 	boostX2Until: number,
+	--- Paid 3x from Instant Overdrive. Separate from `forgeOverdriveUntil`.
 	overdriveUntil: number,
 
 	-- Onboarding
@@ -268,8 +270,11 @@ export type SyncPayload = {
 	inSweetSpot: boolean,
 	--- Skill Overdrive (streak reward), seconds remaining. 0 when idle.
 	overdriveRemaining: number,
-	--- Paid 3x boost, seconds remaining.
+	--- Timed 2x boost (welcome or Starter Forge Pack), seconds remaining.
 	boostRemaining: number,
+	--- Paid 3x boost (Instant Overdrive), seconds remaining. Stacks with
+	--- `boostRemaining`, so the HUD can print x6 while both are live.
+	paidBoostRemaining: number,
 	--- Consecutive in-band strikes, and how many are needed.
 	streak: number,
 	streakGoal: number,

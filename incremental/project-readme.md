@@ -437,12 +437,14 @@ toast, so the storefront never quotes `R$ 149` for something that cannot be boug
 
 The store does not sell raw currency. Star-Matter and Aether packs would convert
 cash into the number being ground, which is the one purchase the analysis says
-kills the long game. What is on the shelf is acceleration and utility: Fast Forge,
-Auto-Vent, 2x Star-Matter, VIP Aura (status badge), Eternal Forge (+25% forever)
-as passes, and Starter Forge Pack (5 Robux: 25 Aether plus fifteen minutes of 2x),
-Instant Overdrive, Emergency Vent and Express Salvage as products. The Starter
-Pack's timer writes `boostX2Until`; `globalMultiplier` reads that field, which it
-did not before, so the 2x now actually pays.
+kills the long game. What is on the shelf is acceleration and utility: Fast Forge
+(59), Auto-Vent (59), 2x Star-Matter (59), Eternal Forge (59) and the VIP bundle
+(119, status badge and aura) as passes, and Starter Forge Pack (9 Robux: 500K
+Aether plus twenty minutes of 2x), Instant Overdrive (25) and Express Salvage (35)
+as products. Emergency Vent was delisted: the free vent key already does the same
+thing, so it was a trap. The Starter Pack's timer writes `boostX2Until`;
+`globalMultiplier` reads that field and multiplies it with the paid 3x, so the two
+boosts stack instead of replacing each other.
 
 ### Store row geometry
 

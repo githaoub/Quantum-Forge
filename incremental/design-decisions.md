@@ -4193,3 +4193,35 @@ ms, so it reads as impact rather than as a strobing screen; reduced motion
 collapses it with every other tween. The camera deadzone delays the start of a
 drag by 8px everywhere, which is below the perception threshold for a real
 drag and above the jitter of a click.
+
+## ADR-099 - Impulse prices, and both boosts on the chip
+
+**Context.** The store shipped a ladder from 99 to 1699 Robux: Eternal Forge at
+1499, VIP at 1699, the passes at 99-199. That is a price for a game with an
+audience. On a small game nobody spends 1000 Robux on a convenience, so the
+top of the shelf sold nothing and the 99 Robux door still asked for a decision.
+Emergency Vent was also a paid copy of the free vent key: it charged Robux for
+a button the player already had, which reads as a trap once discovered.
+
+The HUD had the mirror problem. The chip printed the timed 2x from the Starter
+Pack in the same dim grey as a drone count, and the paid 3x was not in the sync
+payload at all. The server already multiplied both boosts in
+`globalMultiplier`, but a player who bought the 3x saw no change on screen, so
+the stack looked broken.
+
+**Decision.** Every pass is 59 and VIP is 119, so the bundle (119) stays half
+of buying the four passes separately (236). The Starter Forge Pack is 9.
+Emergency Vent is delisted: the listing is off sale, the config entry and
+storefront order entry are gone, and `MonetizationService` keeps a retired
+receipt map so a purchase made before the delisting still settles instead of
+retrying forever.
+
+`paidBoostRemaining` is now in the sync payload. The HUD multiplies the timers
+like the server does (2x and 3x print as x6), counts down to the first boost to
+expire, and paints the line gold instead of the dim grey used for drone counts.
+
+**What it costs.** There is no high-ticket sink any more: revenue per conversion
+is small, and the bet is volume and goodwill. The VIP row's "Buy separately"
+total is computed from the live prices, so a future price change moves that
+sentence without a second edit. The retired Emergency Vent listing still exists
+in the Creator Dashboard; it is off sale and unreachable from the game.

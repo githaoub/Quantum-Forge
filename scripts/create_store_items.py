@@ -52,53 +52,47 @@ UNIVERSE_ID = 10775534186
 
 # name, description, price in Robux, badge png, config key
 #
-# Pricing rule: Eternal Forge is the second-most expensive item in the shop,
-# under VIP only, because it is the strongest permanent multiplier. VIP is a
-# bundle and must stay cheaper than buying Fast Forge + Auto-Vent + 2x
-# Star-Matter + Eternal Forge separately (99 + 149 + 199 + 1499 = 1946), so a
-# VIP buyer saves 247 Robux and one checkout.
+# Pricing rule: every pass is an impulse buy at 59. VIP is the bundle at 119,
+# so it is cheaper than Fast Forge + Auto-Vent + 2x Star-Matter + Eternal Forge
+# separately (4 x 59 = 236). A premium price on a small game sells nothing.
 PASSES = [
     (
         "VIP",
         "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
-        1699,
+        119,
         "vip_aura",
         "vipAura",
     ),
     (
         "Eternal Forge",
         "+25% to all Star-Matter income, forever.",
-        1499,
+        59,
         "eternal_forge",
         "eternalForge",
     ),
-    ("Fast Forge", "Doubles accepted clicks per second.", 99, "fast_forge", "fastForge"),
-    ("2x Star-Matter", "Doubles all Star-Matter income, forever.", 199, "x2_star_matter", "x2StarMatter"),
+    ("Fast Forge", "Doubles accepted clicks per second.", 59, "fast_forge", "fastForge"),
+    ("2x Star-Matter", "Doubles all Star-Matter income, forever.", 59, "x2_star_matter", "x2StarMatter"),
     (
         "Auto-Vent AI",
         "Vents at 85% heat automatically, so you never burn out.",
-        149,
+        59,
         "auto_vent",
         "autoVent",
     ),
 ]
 
+# Emergency Vent was delisted: the free vent key already does the same thing,
+# so the product was a trap. Its receipt path remains in MonetizationService
+# for any purchase made before it was removed.
 PRODUCTS = [
     (
         "Starter Forge Pack",
         "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
-        5,
+        9,
         "starter_forge",
         "starterForge",
     ),
     ("Instant Overdrive", "Fifteen minutes of triple Star-Matter.", 25, "instant_overdrive", "instantOverdrive"),
-    (
-        "Emergency Vent",
-        "Dumps all heat instantly, wherever the core is.",
-        15,
-        "instant_vent",
-        "instantVent",
-    ),
     ("Express Salvage", "Instantly completes any expedition in flight.", 35, "express_salvage", "expressSalvage"),
 ]
 

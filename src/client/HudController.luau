@@ -80,6 +80,7 @@ local STALE_AFTER = 3
 
 local hasPayload = false
 local rateText = "No drones online"
+local rateHighlight = false
 local statusKey = ""
 local rateValueLabel: TextLabel? = nil
 local rateValueShown: boolean? = nil
@@ -811,7 +812,9 @@ local function renderStatus()
 			color = Theme.Color.warn
 		else
 			text = rateText
-			color = Theme.Color.textDim
+			-- A boost is the one live state on this strip, so it gets the game's
+			-- attention colour. Drone counts and everything else stay dim.
+			color = if rateHighlight then Theme.Color.gold else Theme.Color.textDim
 			live = true
 		end
 	end
@@ -860,10 +863,27 @@ function HudController.apply(state: Types.SyncPayload)
 	--
 	-- A live multiplier outranks the drone count: double income is the loudest
 	-- fact on this bar while it lasts, and the fleet size is already printed on
-	-- the Fleet tab. The chip is the only place the starter boost exists after
-	-- its modal was dismissed, so it is not optional decoration.
-	rateText = if state.boostRemaining and state.boostRemaining > 0
-		then string.format("x2 BOOST  %s", NumberUtil.abbreviateTime(state.boostRemaining))
+	-- the Fleet tab. The chip is the only place the boost exists after its modal
+	-- was dismissed, so it is not optional decoration.
+	--
+	-- The two timed boosts stack in `globalMultiplier`, so the chip prints the
+	-- product (x6 while a 2x and a 3x are both live) and counts down to the first
+	-- one to expire. That is the number the player is actually earning.
+	local boostMult = 1
+	local boostSeconds = 0
+	if state.boostRemaining and state.boostRemaining > 0 then
+		boostMult *= 2
+		boostSeconds = state.boostRemaining
+	end
+	if state.paidBoostRemaining and state.paidBoostRemaining > 0 then
+		boostMult *= 3
+		boostSeconds = if boostSeconds > 0
+			then math.min(boostSeconds, state.paidBoostRemaining)
+			else state.paidBoostRemaining
+	end
+	rateHighlight = boostMult > 1
+	rateText = if rateHighlight
+		then string.format("x%d BOOST  %s", boostMult, NumberUtil.abbreviateTime(boostSeconds))
 		elseif state.drones > 0 then string.format("%s DRONES", NumberUtil.abbreviate(state.drones))
 		else "NO DRONES"
 
@@ -969,6 +989,7 @@ function HudController.destroy()
 	hasPayload = false
 	statusKey = ""
 	rateText = "No drones online"
+	rateHighlight = false
 	rateValueShown = nil
 	rateValueLabel = nil
 	if ascendButton then
