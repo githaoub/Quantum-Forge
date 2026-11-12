@@ -449,7 +449,7 @@ function LeaderboardView.init(canvas: Frame)
 	local handle = ModalShell.build(canvas, {
 		name = "BoardsOverlay",
 		title = "LEADERBOARDS",
-		subtitle = "",
+		icon = "boards",
 		accent = Theme.Color.emerald,
 		width = 980,
 		height = 660,

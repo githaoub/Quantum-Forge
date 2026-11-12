@@ -1119,7 +1119,7 @@ function HandbookView.init(canvas: Frame)
 	local handle = ModalShell.build(canvas, {
 		name = "HandbookOverlay",
 		title = "FORGE HANDBOOK",
-		subtitle = "EVERY RULE, EVERY NUMBER",
+		icon = "guide",
 		accent = Theme.Color.gold,
 		width = PANEL_W,
 		height = PANEL_H,

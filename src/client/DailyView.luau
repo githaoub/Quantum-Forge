@@ -159,7 +159,7 @@ function DailyView.init(canvas: Frame)
 	local shell = ModalShell.build(canvas, {
 		name = "DailyOverlay",
 		title = "DAILY RITUAL",
-		subtitle = "SEVEN DAYS · THEN IT STARTS AGAIN",
+		icon = "daily",
 		accent = Theme.Color.emerald,
 		width = PANEL_W,
 		height = PANEL_H,

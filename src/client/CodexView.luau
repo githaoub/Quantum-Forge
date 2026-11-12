@@ -436,7 +436,7 @@ function CodexView.init(canvas: Frame)
 	local handle = ModalShell.build(canvas, {
 		name = "CodexOverlay",
 		title = "CODEX",
-		subtitle = "THE FORGE REMEMBERS EVERY EDGE",
+		icon = "codex",
 		accent = Theme.Color.quantum,
 		width = 1120,
 		height = 690,

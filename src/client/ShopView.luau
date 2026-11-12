@@ -206,7 +206,9 @@ local function buildBadge(parent: Instance, imageId: string, accent: Color3)
 		Image = imageId,
 		ScaleType = Enum.ScaleType.Fit,
 	}) :: ImageLabel
+	UiKit.corner(art, math.floor(ICON * 0.5))
 	art.Parent = well
+	UiKit.artLoading(well, art)
 
 	local accentStroke = UiKit.create("UIStroke", {
 		Color = accent,

@@ -1,14 +1,18 @@
 --!strict
 -- Drawn HUD icons. Geometry, not glyphs.
 --
--- The old header used a literal "?" for the guide and a bare word for feedback.
 -- A glyph is at the mercy of the client's font stack, and mixing a glyph with a
 -- drawn currency badge makes two icon systems sit side by side. Every icon here
--- is a 24x24 canvas of frames and strokes, scaled by one `UIScale`, so it obeys
--- the same 3px-outline house style as everything else and cannot tofu.
+-- is a 24x24 canvas of frames, scaled by one `UIScale`, so it cannot tofu.
 --
--- Four marks: guide, feedback, codex, boards. They are intentionally simple at
--- 18-20px, because detail below 2px is a smudge at the canvas scale.
+-- The grammar matches the rest of the house: one solid silhouette in `color`,
+-- and the detail cut out in ink. There is no per-shape outline any more. At
+-- 18-22px a 2px ring around a 4px bar leaves one pixel of fill, which is why
+-- the first set read as dark blobs beside the chunky surfaces it sat on. A cut
+-- is cheaper than a ring and stays legible at the smallest size the HUD uses.
+--
+-- Every mark is one shape plus one or two notches. Detail below 3px is a smudge
+-- at canvas scale, so nothing here is drawn thinner than that.
 
 local Theme = require(script.Parent.Theme)
 
@@ -46,129 +50,106 @@ local function round(frame: Frame, radius: number)
 	corner.Parent = frame
 end
 
-local function outline(frame: GuiObject, color: Color3, thickness: number)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = frame
+--- A cut: a piece of the mark removed, filled with the ink colour. Reads as
+--- negative space on any backing because every icon sits on a dark surface or a
+--- dark plaque.
+local function cut(parent: GuiObject, x: number, y: number, w: number, h: number, radius: number?): Frame
+	local frame = plate(parent, x, y, w, h, Theme.Color.outline)
+	if radius ~= nil then
+		round(frame, radius)
+	end
+	return frame
+end
+
+--- Same as `cut`, but in a named colour. Used where a second material has to
+--- read on top of the silhouette instead of punching through it.
+local function inset(parent: GuiObject, x: number, y: number, w: number, h: number, color: Color3, radius: number?): Frame
+	local frame = plate(parent, x, y, w, h, color)
+	if radius ~= nil then
+		round(frame, radius)
+	end
+	return frame
 end
 
 local function guide(root: Frame, color: Color3)
-	local ring = plate(root, 3, 3, 18, 18, color)
-	round(ring, 9)
-	outline(ring, Theme.Color.outline, 2)
-
-	local ink = Theme.Color.outline
-	local top = plate(ring, 6, 5, 7, 2, ink)
-	local right = plate(ring, 13, 7, 2, 5, ink)
-	local mid = plate(ring, 9, 11, 6, 2, ink)
-	local stem = plate(ring, 9, 13, 2, 3, ink)
-	local dot = plate(ring, 9, 18, 2, 2, ink)
-	round(top, 1)
-	round(right, 1)
-	round(mid, 1)
-	round(stem, 1)
-	round(dot, 1)
+	-- A pennant on a pole. The first set used a question mark in a ring, which
+	-- was a glyph doing an icon's job and read as "unknown" rather than "tour".
+	local pole = plate(root, 5, 3, 3, 18, color)
+	round(pole, 1)
+	local flag = plate(root, 8, 4, 12, 9, color)
+	round(flag, 2)
+	cut(flag, 9, 0, 4, 9)
 end
 
 local function feedback(root: Frame, color: Color3)
 	local bubble = plate(root, 2, 4, 20, 14, color)
 	round(bubble, 4)
-	outline(bubble, Theme.Color.outline, 2)
-
 	local tail = plate(root, 6, 15, 6, 6, color)
 	tail.Rotation = 45
 	round(tail, 1)
-	outline(tail, Theme.Color.outline, 2)
-
 	for index = 0, 2 do
-		local dot = plate(bubble, if index == 0 then 6 elseif index == 1 then 11 else 16, 10, 2, 2, Theme.Color.outline)
-		round(dot, 1)
+		cut(bubble, 6 + index * 5, 10, 2, 2, 1)
 	end
 end
 
 local function codex(root: Frame, color: Color3)
-	local left = plate(root, 2, 5, 9, 14, color)
+	-- Open book: two page blocks and a dark gutter. A closed book with two
+	-- rules read as the letters "IE" at 22px, which is a worse failure than an
+	-- abstract mark.
+	local left = plate(root, 3, 5, 9, 15, color)
 	round(left, 2)
-	outline(left, Theme.Color.outline, 2)
-
-	local right = plate(root, 13, 5, 9, 14, color)
+	local right = plate(root, 13, 5, 9, 15, color)
 	round(right, 2)
-	outline(right, Theme.Color.outline, 2)
-
-	local spine = plate(root, 11, 5, 2, 14, Theme.Color.outline)
-	round(spine, 1)
-
-	for index = 0, 2 do
-		local ink = plate(left, 4, 8 + index * 3, 5, 1, Theme.Color.outline)
-		round(ink, 0)
-		local inkRight = plate(right, 15, 8 + index * 3, 5, 1, Theme.Color.outline)
-		round(inkRight, 0)
-	end
+	cut(root, 11, 5, 2, 15)
+	cut(left, 2, 3, 5, 2, 1)
+	cut(left, 2, 7, 5, 2, 1)
+	cut(right, 2, 3, 5, 2, 1)
+	cut(right, 2, 7, 5, 2, 1)
 end
 
 local function boards(root: Frame, color: Color3)
 	local heights = { 7, 11, 15 }
 	for index, height in heights do
-		local x = 3 + (index - 1) * 7
-		local bar = plate(root, x, 20 - height, 5, height, color)
+		local bar = plate(root, 3 + (index - 1) * 7, 20 - height, 5, height, color)
 		round(bar, 2)
-		outline(bar, Theme.Color.outline, 1.5)
 	end
 end
 
---- Backpack. The vault key: a body, a flap and two shoulder straps, which is the
---- only silhouette that reads as "the stuff I am carrying" at 22px.
+--- Backpack. The vault key: a body, a lit flap and a zip, the silhouette a
+--- player already reads as "the stuff I am carrying".
 local function vault(root: Frame, color: Color3)
 	local body = plate(root, 4, 8, 16, 13, color)
 	round(body, 3)
-	outline(body, Theme.Color.outline, 2)
-
-	local flap = plate(root, 6, 5, 12, 5, color:Lerp(Theme.Color.outline, 0.35))
-	round(flap, 2)
-	outline(flap, Theme.Color.outline, 1.5)
-
-	local pocket = plate(root, 8, 13, 8, 6, color:Lerp(Theme.Color.outline, 0.22))
-	round(pocket, 1)
-	outline(pocket, Theme.Color.outline, 1.5)
-
-	local strap = plate(root, 11, 4, 2, 5, Theme.Color.outline)
-	round(strap, 1)
+	local flap = inset(root, 6, 5, 12, 5, color:Lerp(Theme.Color.outline, 0.3), 2)
+	cut(flap, 5, 1, 2, 4, 1)
+	cut(body, 7, 13, 10, 2, 1)
 end
 
---- Gear. Four teeth on the diagonals and a hollow centre: a cog drawn with eight
---- teeth turns to mush at this size, so the count is cut, not the geometry.
+--- Gear. Four teeth on the diagonals and a hollow centre: eight teeth turn to
+--- mush at this size, so the count is cut, not the geometry.
 local function settings(root: Frame, color: Color3)
 	local ring = plate(root, 5, 5, 14, 14, color)
 	round(ring, 7)
-	outline(ring, Theme.Color.outline, 2)
-
-	local hole = plate(root, 10, 10, 4, 4, Theme.Color.outline)
-	round(hole, 2)
-
+	cut(ring, 5, 5, 4, 4, 2)
 	for _, offset in { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } } do
-		local tooth = plate(root, 11 + offset[1] * 8, 11 + offset[2] * 8, 3, 3, color)
+		local tooth = plate(root, 10 + offset[1] * 8, 10 + offset[2] * 8, 4, 4, color)
+		tooth.Rotation = 45
 		round(tooth, 1)
-		outline(tooth, Theme.Color.outline, 1)
 	end
 end
 
---- Ascend. A chevron over a floor: the one gesture in the game that means
---- "everything resets upward".
+--- Ascend. A double chevron over a floor: the one gesture in the game that
+--- means "everything resets upward".
 local function ascend(root: Frame, color: Color3)
-	for index, y in { 6, 12 } do
+	for _, y in { 5, 11 } do
 		local left = plate(root, 5, y, 8, 3, color)
 		left.Rotation = -45
 		round(left, 1)
-		outline(left, Theme.Color.outline, 1.5)
 		local right = plate(root, 12, y, 8, 3, color)
 		right.Rotation = 45
 		round(right, 1)
-		outline(right, Theme.Color.outline, 1.5)
-		_ = index
 	end
-	local floor = plate(root, 5, 20, 14, 2, color)
+	local floor = plate(root, 5, 19, 14, 2, color)
 	round(floor, 1)
 end
 
@@ -176,38 +157,29 @@ end
 local function daily(root: Frame, color: Color3)
 	local body = plate(root, 4, 6, 16, 15, color)
 	round(body, 2)
-	outline(body, Theme.Color.outline, 2)
-
-	local head = plate(root, 4, 6, 16, 5, color:Lerp(Theme.Color.outline, 0.4))
+	local head = inset(body, 0, 0, 16, 4, color:Lerp(Theme.Color.outline, 0.35))
 	round(head, 2)
-	outline(head, Theme.Color.outline, 1.5)
-
-	for _, x in { 8, 16 } do
-		local ring = plate(root, x, 3, 2, 5, Theme.Color.outline)
-		round(ring, 1)
+	cut(head, 0, 3, 16, 1)
+	for _, x in { 8, 15 } do
+		local pin = plate(root, x, 3, 2, 5, color)
+		round(pin, 1)
 	end
-
-	local stamp = plate(root, 9, 13, 6, 5, Theme.Color.ink)
-	round(stamp, 1)
+	cut(body, 4, 9, 8, 2, 1)
+	cut(body, 4, 13, 5, 2, 1)
 end
 
 --- Trade. Two arrows crossing: out and back, which is what a trade is.
 local function trade(root: Frame, color: Color3)
 	local top = plate(root, 4, 8, 14, 3, color)
 	round(top, 1)
-	outline(top, Theme.Color.outline, 1.5)
 	local topHead = plate(root, 15, 5, 6, 9, color)
 	topHead.Rotation = 45
 	round(topHead, 1)
-	outline(topHead, Theme.Color.outline, 1.5)
-
 	local bottom = plate(root, 6, 14, 14, 3, color)
 	round(bottom, 1)
-	outline(bottom, Theme.Color.outline, 1.5)
 	local bottomHead = plate(root, 3, 11, 6, 9, color)
 	bottomHead.Rotation = 45
 	round(bottomHead, 1)
-	outline(bottomHead, Theme.Color.outline, 1.5)
 end
 
 -- ---------------------------------------------------------------------------
@@ -215,27 +187,19 @@ end
 -- ---------------------------------------------------------------------------
 --
 -- The rail used to render section names as text glyphs, and half of them were
--- tofu boxes on this client. Six drawn silhouettes instead: at 22px a mark has
--- to be one shape with one notch, not an illustration.
+-- tofu boxes on this client. These are drawn silhouettes instead: at 22px a
+-- mark has to be one shape with one notch, not an illustration.
 
 --- Forge: an anvil. Wide face, narrow waist, wide foot. The horn is the notch
 --- that separates it from "a stack of bars".
 local function forgeMark(root: Frame, color: Color3)
 	local face = plate(root, 3, 6, 18, 5, color)
 	round(face, 1)
-	outline(face, Theme.Color.outline, 2)
-
 	local horn = plate(root, 0, 7, 4, 3, color)
 	round(horn, 1)
-	outline(horn, Theme.Color.outline, 1.5)
-
-	local waist = plate(root, 9, 11, 6, 5, color)
-	round(waist, 1)
-	outline(waist, Theme.Color.outline, 1.5)
-
+	plate(root, 9, 11, 6, 5, color)
 	local base = plate(root, 5, 16, 14, 4, color)
 	round(base, 1)
-	outline(base, Theme.Color.outline, 2)
 end
 
 --- Crates: a box with one band across and one down, and a lid lip so the top
@@ -243,16 +207,10 @@ end
 local function crateMark(root: Frame, color: Color3)
 	local body = plate(root, 3, 6, 18, 15, color)
 	round(body, 1)
-	outline(body, Theme.Color.outline, 2)
-
-	local bandH = plate(body, 0, 5, 18, 3, color:Lerp(Theme.Color.outline, 0.4))
-	local bandV = plate(body, 7, 0, 4, 15, color:Lerp(Theme.Color.outline, 0.4))
-	round(bandH, 0)
-	round(bandV, 0)
-
+	cut(body, 0, 5, 18, 3)
+	cut(body, 7, 0, 4, 15)
 	local lid = plate(root, 2, 3, 20, 4, color)
 	round(lid, 1)
-	outline(lid, Theme.Color.outline, 1.5)
 end
 
 --- Fleet: a drone. A diamond hull, two rotor bars, one skid.
@@ -260,88 +218,63 @@ local function fleetMark(root: Frame, color: Color3)
 	local hull = plate(root, 8, 8, 8, 8, color)
 	hull.Rotation = 45
 	round(hull, 2)
-	outline(hull, Theme.Color.outline, 2)
-
+	cut(hull, 2, 2, 4, 4, 2)
 	local left = plate(root, 1, 4, 8, 3, color)
 	round(left, 1)
-	outline(left, Theme.Color.outline, 1.5)
 	local right = plate(root, 15, 4, 8, 3, color)
 	round(right, 1)
-	outline(right, Theme.Color.outline, 1.5)
-
 	local skid = plate(root, 7, 18, 10, 3, color)
 	round(skid, 1)
-	outline(skid, Theme.Color.outline, 1.5)
 end
 
---- Runes: a hollow diamond. Drawn as four rotated edges, because a filled
---- diamond with a hole punched in it needs a backdrop colour and there is none
---- on a transparent rail.
+--- Runes: a gem. A solid diamond with an inner diamond cut out, so the shape
+--- reads as a faceted stone instead of a wireframe.
 local function runeMark(root: Frame, color: Color3)
-	local edges = {
-		{ 2.5, 6.5, -45 },
-		{ 7.5, 6.5, 45 },
-		{ 2.5, 14.5, 45 },
-		{ 7.5, 14.5, -45 },
-	}
-	for _, edge in edges do
-		local bar = plate(root, edge[1], edge[2], 11, 3, color)
-		bar.Rotation = edge[3]
-		round(bar, 1)
-		outline(bar, Theme.Color.outline, 1.2)
-	end
+	local gem = plate(root, 5, 5, 14, 14, color)
+	gem.Rotation = 45
+	round(gem, 2)
+	cut(gem, 5, 5, 4, 4, 1)
 end
 
 --- Tech: three nodes on a trunk and a branch.
 local function techMark(root: Frame, color: Color3)
-	local trunk = plate(root, 11, 5, 2, 13, color)
-	local branch = plate(root, 5, 12, 14, 2, color)
-
-	for _, node in { { 9, 1 }, { 2, 14 }, { 16, 14 } } do
-		local cell = plate(root, node[1], node[2], 6, 6, color)
-		round(cell, 1)
-		outline(cell, Theme.Color.outline, 2)
+	local trunk = plate(root, 10, 4, 4, 14, color)
+	local branch = plate(root, 4, 11, 16, 3, color)
+	round(trunk, 1)
+	round(branch, 1)
+	for _, node in { { 8, 1 }, { 2, 13 }, { 16, 13 } } do
+		local cell = plate(root, node[1], node[2], 7, 7, color)
+		round(cell, 2)
 	end
-	_ = trunk
-	_ = branch
 end
 
 --- Store: a cart. Basket, angled handle, two wheels.
 local function storeMark(root: Frame, color: Color3)
 	local basket = plate(root, 5, 8, 13, 8, color)
 	round(basket, 1)
-	outline(basket, Theme.Color.outline, 2)
-
+	cut(basket, 3, 2, 7, 2)
 	local handle = plate(root, 2, 6, 8, 3, color)
 	handle.Rotation = -32
 	round(handle, 1)
-	outline(handle, Theme.Color.outline, 1.5)
-
-	for _, x in { 7, 14 } do
-		local wheel = plate(root, x, 17, 4, 4, color)
+	for _, x in { 6, 14 } do
+		local wheel = plate(root, x, 17, 5, 5, color)
 		round(wheel, 2)
-		outline(wheel, Theme.Color.outline, 1.5)
 	end
 end
 
 --- Players. Two heads and two shoulders: the silhouette a player already reads
 --- as "people", cut down to four shapes so it survives 22px.
 local function players(root: Frame, color: Color3)
-	local backHead = plate(root, 13, 3, 7, 7, color)
+	local back = color:Lerp(Theme.Color.outline, 0.42)
+	local backHead = plate(root, 13, 3, 8, 8, back)
 	round(backHead, 4)
-	outline(backHead, Theme.Color.outline, 1.5)
-
-	local backBody = plate(root, 11, 11, 11, 8, color)
+	local backBody = plate(root, 11, 12, 12, 8, back)
 	round(backBody, 3)
-	outline(backBody, Theme.Color.outline, 1.5)
 
-	local frontHead = plate(root, 3, 5, 9, 9, color)
+	local frontHead = plate(root, 3, 5, 10, 10, color)
 	round(frontHead, 5)
-	outline(frontHead, Theme.Color.outline, 2)
-
-	local frontBody = plate(root, 1, 15, 15, 7, color)
+	local frontBody = plate(root, 1, 16, 16, 7, color)
 	round(frontBody, 3)
-	outline(frontBody, Theme.Color.outline, 2)
 end
 
 --- Builds one icon onto `parent` and returns the scaled canvas. Caller positions

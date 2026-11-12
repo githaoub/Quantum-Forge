@@ -62,7 +62,8 @@ local function shell(
 	accent: Color3,
 	height: number?,
 	locked: boolean?,
-	onDismiss: (() -> ())?
+	onDismiss: (() -> ())?,
+	kind: string?
 ): (Frame, Frame)
 	-- Replacing one card with another is not a dismissal. Without this, a
 	-- welcome card that lands a beat late would close the tour prompt and the
@@ -112,6 +113,8 @@ local function shell(
 		width = UDim2.new(1, -28, 0, 52),
 		size = 24,
 		accent = accent,
+		iconKind = kind or "forge",
+		plaqueSize = 36,
 		icon = "★",
 	})
 	banner.ZIndex = 62
@@ -159,7 +162,7 @@ end
 --- Shows the offline earnings summary. Auto-dismisses only via the button so
 --- the player actually sees the number.
 function Modals.offline(seconds: number, amount: number)
-	local panel = shell("WELCOME BACK", "YOUR FLEET KEPT WORKING", Theme.Color.gold)
+	local panel = shell("WELCOME BACK", "YOUR FLEET KEPT WORKING", Theme.Color.gold, nil, nil, nil, "fleet")
 
 	local duration = UiKit.label(panel, {
 		text = string.format("Away for %s", NumberUtil.abbreviateTime(seconds)),
@@ -210,14 +213,15 @@ end
 --- ten minutes and leaves has no way to know their income was doubled, and a stat
 --- they cannot see is a stat that never happened. So the first load stops, shows
 --- the multiplier, the duration and the clock, and waits for one press.
-function Modals.starter(seconds: number)
-	local minutes = math.max(1, math.floor(seconds / 60))
+function Modals.starter(_seconds: number)
 	local panel = shell(
 		"2X STAR-MATTER",
-		string.format("FOR YOUR FIRST %d MINUTES", minutes),
+		nil,
 		Theme.Color.gold,
-		396,
-		true
+		350,
+		true,
+		nil,
+		"forge"
 	)
 
 	-- The boost plate. The crystal is the Star-Matter icon the owner picked, so
@@ -306,18 +310,6 @@ function Modals.starter(seconds: number)
 	multiplier.Position = UDim2.fromOffset(0, 176)
 	multiplier.Size = UDim2.new(1, 0, 0, 62)
 
-	local note = UiKit.label(panel, {
-		text = "Strikes and drones pay double. The clock is already running.",
-		size = Theme.Text.Small,
-		font = Theme.Font.Body,
-		color = Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Center,
-	})
-	note.Position = UDim2.fromOffset(28, 250)
-	note.Size = UDim2.new(1, -56, 0, 40)
-	note.TextWrapped = true
-	note.TextYAlignment = Enum.TextYAlignment.Top
-
 	local claim = UiKit.actionButton(panel, {
 		label = "START FORGING",
 		accent = Theme.Color.gold,
@@ -351,7 +343,7 @@ function Modals.guidePrompt(onYes: () -> (), onNo: () -> ())
 
 	local panel = shell("WANT A QUICK TOUR?", "NO READING · ABOUT THIRTY SECONDS", Theme.Color.cyan, 294, false, function()
 		finish(false)
-	end)
+	end, "guide")
 
 	local pitch = UiKit.label(panel, {
 		text = "I point. You tap. That's it.",
@@ -476,7 +468,7 @@ function Modals.settings(
 )
 	-- 500 rather than 462: two audio rows are 72 tall to hold the slider track.
 	-- Five 58px rows plus the DONE plate left the old sheet two pixels short.
-	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 500)
+	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 500, nil, nil, "settings")
 
 	local rows: { { key: PreferenceKey, label: string, note: string, volume: boolean } } = {
 		{ key = "sfxVolume", label = "SOUND EFFECTS", note = "Strikes, crate ceremony, UI ticks", volume = true },
@@ -735,7 +727,7 @@ function Modals.tradeRequest(
 	seconds: number,
 	onAccept: () -> (),
 	onDecline: (() -> ())?)
-	local panel, root = shell("TRADE REQUEST", "A FORGER IS AT YOUR DOOR", Theme.Color.emerald, 304)
+	local panel, root = shell("TRADE REQUEST", "A FORGER IS AT YOUR DOOR", Theme.Color.emerald, 304, nil, nil, "trade")
 
 	local plaque = UiKit.panel(panel, {
 		tier = "well",

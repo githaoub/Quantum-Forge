@@ -1357,6 +1357,8 @@ local function header(parent: Frame)
 		height = HEADER_H,
 		size = Theme.Text.Title - 4,
 		accent = Theme.Color.quantum,
+		iconKind = "crates",
+		plaqueSize = 40,
 		icon = "★",
 	})
 	banner.Name = "Header"

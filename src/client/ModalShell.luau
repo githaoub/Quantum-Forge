@@ -24,6 +24,9 @@ export type Spec = {
 	title: string,
 	--- Optional second line under the title, inside the banner.
 	subtitle: string?,
+	--- Drawn mark on the banner plaque, keyed to `Icons`. Every panel uses the
+	--- same mark as the top-bar key that opened it.
+	icon: string?,
 	accent: Color3,
 	width: number,
 	height: number,
@@ -106,6 +109,8 @@ function ModalShell.build(canvas: Frame, spec: Spec, zIndex: number?): Handle
 		height = 54,
 		size = 22,
 		accent = spec.accent,
+		iconKind = spec.icon,
+		plaqueSize = 36,
 		icon = "★",
 	})
 	banner.Name = "Banner"

@@ -84,6 +84,8 @@ function FeedbackView.open()
 		width = UDim2.new(1, -28, 0, 52),
 		size = 22,
 		accent = Theme.Color.cyan,
+		iconKind = "feedback",
+		plaqueSize = 36,
 		icon = "★",
 	})
 	banner.ZIndex = 62

@@ -1788,6 +1788,8 @@ local function build()
 		width = UDim2.new(1, 0, 0, BANNER_H),
 		size = 24,
 		accent = Theme.Color.gold,
+		iconKind = "vault",
+		plaqueSize = 40,
 		icon = "★",
 	})
 	local bannerCorner = banner:FindFirstChildOfClass("UICorner")

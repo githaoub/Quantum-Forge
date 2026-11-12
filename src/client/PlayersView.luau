@@ -1,18 +1,27 @@
 --!strict
--- The server roster: every player in this server, ranked by lifetime
--- Star-Matter, with a card for the selected one.
+-- The player view: everyone in this server, and everything public about the one
+-- you pick.
 --
--- This is the flex surface. The global boards answer "who is the best in the
--- world"; this panel answers "who is here right now" and shows the blade those
--- players actually forged. The server builds the public slice, so the client
--- never sees settings, purchases or trade state.
+-- The list answer is small and refreshed every ten seconds. The card is a second
+-- request because one player's vault can be sixty copies and four rune racks;
+-- sending that for every row would make a panel that costs more the fuller the
+-- server is. The server builds both answers from `DataManager` and never accepts
+-- a stat from the client.
+--
+-- Selection never waits on the network. The row switches, a skeleton paints, and
+-- the card fills when the answer lands. The old build re-requested the roster on
+-- every click and refused the repaint while that request was in flight, which is
+-- why the second player could not be opened.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
+local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
+local RuneConfig = require(Shared:WaitForChild("RuneConfig"))
+local TechTreeConfig = require(Shared:WaitForChild("TechTreeConfig"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
@@ -24,64 +33,41 @@ local Sfx = require(script.Parent.Sfx)
 local PlayersView = {}
 
 local REFRESH_SECONDS = 10
-local ROW_H = 64
-local LIST_W = 292
-local DETAIL_X = 324
-local STAGE_W = 260
+local ROW_H = 58
+local LIST_W = 250
+local DETAIL_X = 282
+local BODY_W = 818
+local CARD_H = 430
+local BLADE_CARD_W = 150
+local BLADE_CARD_H = 88
 
 local shell: ModalShell.Handle? = nil
 local listHost: ScrollingFrame? = nil
-local detailHost: Frame? = nil
+local detailHost: ScrollingFrame? = nil
 local selectedUserId = 0
-local lastData: any = nil
-local lastSignature = ""
-local refreshClock = 0
+local rosterData: any = nil
+local rosterSignature = ""
+local detailToken = 0
+local detailUserId = 0
+local detailLoaded = false
+local detailPending = false
 local loading = false
 local bladeCleanup: (() -> ())? = nil
 local cheerUserId = 0
 local cheerUntil = 0
+local refreshClock = 0
 
 -- ---------------------------------------------------------------------------
--- Helpers
+-- Small pieces
 -- ---------------------------------------------------------------------------
 
-local function clearDetail()
+local function clearStage()
 	if bladeCleanup then
 		bladeCleanup()
 		bladeCleanup = nil
 	end
-	if detailHost then
-		ModalShell.clear(detailHost)
-	end
 end
 
-local function selectedEntry(): any?
-	if type(lastData) ~= "table" or type(lastData.players) ~= "table" then
-		return nil
-	end
-	for _, entry in lastData.players do
-		if entry.userId == selectedUserId then
-			return entry
-		end
-	end
-	return nil
-end
-
-local function rankOf(userId: number): (number, number)
-	if type(lastData) ~= "table" or type(lastData.players) ~= "table" then
-		return 0, 0
-	end
-	for index, entry in lastData.players do
-		if entry.userId == userId then
-			return index, #lastData.players
-		end
-	end
-	return 0, #lastData.players
-end
-
---- A head shot when the thumbnail service answers, a coloured initial when it
---- does not. The fallback is already painted, so a failed request costs a pixel
---- and never a hole.
 local function avatar(parent: GuiObject, x: number, y: number, size: number, userId: number, name: string)
 	local plate = UiKit.create("Frame", {
 		Name = "Avatar",
@@ -131,125 +117,18 @@ local function avatar(parent: GuiObject, x: number, y: number, size: number, use
 	end)
 end
 
--- ---------------------------------------------------------------------------
--- List
--- ---------------------------------------------------------------------------
-
-local function paintEmpty(message: string)
-	local host = listHost
-	if host == nil then
-		return
-	end
-	ModalShell.clear(host)
-	if detailHost then
-		clearDetail()
-		local empty = UiKit.label(detailHost, {
-			text = message,
-			size = Theme.Text.Small,
-			font = Theme.Font.Black,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Center,
-		})
-		empty.Position = UDim2.fromOffset(0, 120)
-		empty.Size = UDim2.new(1, 0, 0, 40)
-	end
-end
-
-local function paintRow(entry: any, order: number)
-	local host = listHost
-	if host == nil then
-		return
-	end
-	local selected = entry.userId == selectedUserId
-	local you = lastData ~= nil and entry.userId == lastData.you
-	local row = UiKit.create("TextButton", {
-		Name = string.format("PlayerRow_%d", entry.userId),
-		BackgroundColor3 = if selected then Theme.Color.panelRaised else Theme.Color.panel,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		Size = UDim2.new(1, -8, 0, ROW_H),
-		LayoutOrder = order,
-		ZIndex = 2,
-	}) :: TextButton
-	UiKit.corner(row, Theme.Radius.sm)
-	UiKit.stroke(
-		row,
-		if selected then Theme.Color.cyan else Theme.Color.strokeFaint,
-		if selected then Theme.Stroke.thin else Theme.Stroke.thin,
-		if selected then 0 else 0.45
-	)
-	row.Parent = host
-
-	avatar(row, 8, 12, 40, entry.userId, tostring(entry.name or "?"))
-
-	local name = UiKit.label(row, {
-		text = tostring(entry.name or "?"),
-		size = Theme.Text.Small,
-		font = Theme.Font.Heading,
-		color = if selected then Theme.Color.text else Theme.Color.textSecondary,
-		align = Enum.TextXAlignment.Left,
-	})
-	name.Position = UDim2.fromOffset(56, 10)
-	name.Size = UDim2.new(1, -112, 0, 20)
-	name.TextTruncate = Enum.TextTruncate.AtEnd
-	name.ZIndex = 3
-
-	local score = UiKit.label(row, {
-		text = string.format("%s SM", NumberUtil.compact(tonumber(entry.lifetimeSm) or 0)),
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = if selected then Theme.Color.cyan else Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Left,
-	})
-	score.Position = UDim2.fromOffset(56, 32)
-	score.Size = UDim2.new(1, -112, 0, 18)
-	score.ZIndex = 3
-
-	if you then
-		local tag = UiKit.badge(row, {
-			text = "YOU",
-			color = Theme.Color.cyan,
-			width = 40,
-			height = 18,
-			size = Theme.Text.Tiny,
-			textColor = Theme.Color.ink,
-		})
-		tag.Name = "YouTag"
-		tag.AnchorPoint = Vector2.new(1, 0)
-		tag.Position = UDim2.new(1, -8, 0, 8)
-		tag.ZIndex = 3
-	end
-
-	local place = UiKit.label(row, {
-		text = tostring(order),
+local function sectionTitle(parent: Instance, x: number, y: number, text: string): TextLabel
+	local label = UiKit.label(parent, {
+		text = text,
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = if order <= 3 then Theme.Color.gold else Theme.Color.textDim,
-		align = Enum.TextXAlignment.Right,
+		color = Theme.Color.textDim,
+		align = Enum.TextXAlignment.Left,
 	})
-	place.AnchorPoint = Vector2.new(1, 1)
-	place.Position = UDim2.new(1, -8, 1, -6)
-	place.Size = UDim2.fromOffset(26, 18)
-	place.ZIndex = 3
-
-	row.Activated:Connect(function()
-		if selectedUserId == entry.userId then
-			return
-		end
-		selectedUserId = entry.userId
-		Sfx.tab()
-		lastSignature = ""
-		PlayersView.refresh()
-	end)
-	row.MouseEnter:Connect(function()
-		Sfx.hover()
-	end)
+	label.Position = UDim2.fromOffset(x, y)
+	label.Size = UDim2.new(1, -x - 2, 0, 16)
+	return label
 end
-
--- ---------------------------------------------------------------------------
--- Detail
--- ---------------------------------------------------------------------------
 
 local function statCell(parent: Frame, x: number, y: number, label: string, value: string, accent: Color3)
 	local caption = UiKit.label(parent, {
@@ -260,8 +139,7 @@ local function statCell(parent: Frame, x: number, y: number, label: string, valu
 		align = Enum.TextXAlignment.Left,
 	})
 	caption.Position = UDim2.fromOffset(x, y)
-	caption.Size = UDim2.fromOffset(140, 16)
-	caption.ZIndex = 3
+	caption.Size = UDim2.fromOffset(150, 15)
 
 	local figure = UiKit.label(parent, {
 		text = value,
@@ -270,102 +148,376 @@ local function statCell(parent: Frame, x: number, y: number, label: string, valu
 		color = accent,
 		align = Enum.TextXAlignment.Left,
 	})
-	figure.Position = UDim2.fromOffset(x, y + 18)
-	figure.Size = UDim2.fromOffset(150, 24)
-	figure.ZIndex = 3
+	figure.Position = UDim2.fromOffset(x, y + 17)
+	figure.Size = UDim2.fromOffset(156, 23)
+	figure.Name = label
 end
 
-local function paintDetail(entry: any)
+--- A quiet chip for a rune or a tech node. The name is the information; the tint
+--- is the category.
+local function chip(parent: Instance, x: number, y: number, text: string, tint: Color3): Frame
+	local frame = UiKit.panel(parent, {
+		tier = "well",
+		radius = Theme.Radius.sm,
+		stroke = tint,
+		bevel = false,
+		lip = false,
+	})
+	frame.Size = UDim2.fromOffset(0, 24)
+	frame.AutomaticSize = Enum.AutomaticSize.X
+	frame.Position = UDim2.fromOffset(x, y)
+
+	local label = UiKit.label(frame, {
+		text = text,
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Left,
+	})
+	label.Position = UDim2.fromOffset(8, 0)
+	label.Size = UDim2.fromScale(0, 1)
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	return frame
+end
+
+-- ---------------------------------------------------------------------------
+-- Roster list
+-- ---------------------------------------------------------------------------
+
+local function rosterIndex(): (number, number)
+	if type(rosterData) ~= "table" or type(rosterData.players) ~= "table" then
+		return 0, 0
+	end
+	for index, entry in rosterData.players do
+		if entry.userId == selectedUserId then
+			return index, #rosterData.players
+		end
+	end
+	return 0, #rosterData.players
+end
+
+local function paintList()
+	local host = listHost
+	if host == nil then
+		return
+	end
+	ModalShell.clear(host)
+	if type(rosterData) ~= "table" or type(rosterData.players) ~= "table" then
+		for index = 1, 5 do
+			local skeleton = UiKit.create("Frame", {
+				Name = string.format("RosterSkeleton_%d", index),
+				BackgroundColor3 = Theme.Color.panel,
+				BorderSizePixel = 0,
+				Size = UDim2.new(1, -8, 0, ROW_H),
+				LayoutOrder = index,
+				ZIndex = 2,
+			}) :: Frame
+			UiKit.corner(skeleton, Theme.Radius.sm)
+			UiKit.stroke(skeleton, Theme.Color.strokeFaint, Theme.Stroke.thin, 0.4)
+			skeleton.Parent = host
+		end
+		return
+	end
+
+	for order, entry in rosterData.players do
+		local selected = entry.userId == selectedUserId
+		local you = entry.userId == rosterData.you
+		local row = UiKit.create("TextButton", {
+			Name = string.format("PlayerRow_%d", entry.userId),
+			BackgroundColor3 = if selected then Theme.Color.panelRaised else Theme.Color.panel,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			Size = UDim2.new(1, -8, 0, ROW_H),
+			LayoutOrder = order,
+			ZIndex = 2,
+		}) :: TextButton
+		UiKit.corner(row, Theme.Radius.sm)
+		UiKit.stroke(row, if selected then Theme.Color.cyan else Theme.Color.strokeFaint, Theme.Stroke.thin, if selected then 0 else 0.45)
+		row.Parent = host
+
+		avatar(row, 8, 9, 40, entry.userId, tostring(entry.name or "?"))
+
+		local name = UiKit.label(row, {
+			text = tostring(entry.name or "?"),
+			size = Theme.Text.Small,
+			font = Theme.Font.Heading,
+			color = if selected then Theme.Color.text else Theme.Color.textSecondary,
+			align = Enum.TextXAlignment.Left,
+		})
+		name.Position = UDim2.fromOffset(56, 8)
+		name.Size = UDim2.new(1, -112, 0, 20)
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.ZIndex = 3
+
+		local score = UiKit.label(row, {
+			text = string.format("%s SM", NumberUtil.compact(tonumber(entry.lifetimeSm) or 0)),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = if selected then Theme.Color.cyan else Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Left,
+		})
+		score.Position = UDim2.fromOffset(56, 30)
+		score.Size = UDim2.new(1, -112, 0, 17)
+		score.ZIndex = 3
+
+		if you then
+			local tag = UiKit.badge(row, {
+				text = "YOU",
+				color = Theme.Color.cyan,
+				width = 40,
+				height = 18,
+				size = Theme.Text.Tiny,
+				textColor = Theme.Color.ink,
+			})
+			tag.Name = "YouTag"
+			tag.AnchorPoint = Vector2.new(1, 0)
+			tag.Position = UDim2.new(1, -8, 0, 8)
+			tag.ZIndex = 3
+		end
+
+		local place = UiKit.label(row, {
+			text = tostring(order),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = if order <= 3 then Theme.Color.gold else Theme.Color.textDim,
+			align = Enum.TextXAlignment.Right,
+		})
+		place.AnchorPoint = Vector2.new(1, 1)
+		place.Position = UDim2.new(1, -8, 1, -5)
+		place.Size = UDim2.fromOffset(26, 17)
+		place.ZIndex = 3
+
+		row.Activated:Connect(function()
+			PlayersView.select(entry.userId)
+		end)
+		row.MouseEnter:Connect(function()
+			Sfx.hover()
+		end)
+	end
+end
+
+local function rosterSig(data: any): string
+	if type(data) ~= "table" or type(data.players) ~= "table" then
+		return "none"
+	end
+	local parts = {}
+	for _, entry in data.players do
+		parts[#parts + 1] = string.format(
+			"%d:%s:%s",
+			entry.userId,
+			tostring(entry.name),
+			tostring(entry.lifetimeSm)
+		)
+	end
+	return table.concat(parts, "|")
+end
+
+-- ---------------------------------------------------------------------------
+-- Profile card
+-- ---------------------------------------------------------------------------
+
+local function paintLoading()
 	local host = detailHost
 	if host == nil then
 		return
 	end
-	clearDetail()
+	detailLoaded = false
+	clearStage()
+	ModalShell.clear(host)
 
-	local rank, total = rankOf(entry.userId)
-	local you = lastData ~= nil and entry.userId == lastData.you
-	local top = if type(entry.top) == "table" then entry.top else {}
-	local best = top[1]
-	local blade = if best ~= nil then BladeRegistry.get(best.id) else nil
-	local variant = if best ~= nil then ForgeConfig.variant(best.variant) else nil
-	local accent = if variant ~= nil then variant.color else Theme.Color.gold
-
-	-- The blade stage. The same preview the forge, vault and crate use, so the
-	-- thing being flexed is the thing the other player actually swings.
-	local stage = UiKit.create("ViewportFrame", {
-		Name = "PlayerStage",
-		BackgroundColor3 = Theme.Color.panelSunken,
+	local header = UiKit.create("Frame", {
+		Name = "DetailSkeleton",
+		BackgroundColor3 = Theme.Color.panel,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(18, 16),
-		Size = UDim2.fromOffset(STAGE_W, 310),
-		ZIndex = 1,
-	}) :: ViewportFrame
-	stage.ClipsDescendants = true
-	UiKit.corner(stage, Theme.Radius.md)
-	UiKit.stroke(stage, accent, Theme.Stroke.thin, 0.35)
-	stage.Parent = host
-
-	-- A soft disc behind the model so the stage reads as a lit room rather than
-	-- a black rectangle.
-	local glow = UiKit.create("Frame", {
-		Name = "Glow",
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.82,
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.56),
-		Size = UDim2.fromOffset(190, 190),
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromOffset(BODY_W, 80),
 		ZIndex = 1,
 	}) :: Frame
-	UiKit.corner(glow, 95)
-	glow.Parent = stage
+	UiKit.corner(header, Theme.Radius.md)
+	UiKit.stroke(header, Theme.Color.strokeFaint, Theme.Stroke.thin, 0.4)
+	header.Parent = host
 
-	if blade ~= nil then
-		bladeCleanup = BladePreview.mount(stage, blade, accent, {
-			frameFill = 0.78,
-			aimBias = 0,
-			spin = 0.8,
-			surface = host,
-		})
+	for index, spec in { { 0, 14, 220 }, { 0, 42, 140 }, { 0, 64, 90 } } do
+		local bar = UiKit.create("Frame", {
+			Name = string.format("Bar_%d", index),
+			BackgroundColor3 = Theme.Color.panelRaised,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(86, spec[2]),
+			Size = UDim2.fromOffset(spec[3], if index == 1 then 20 else 12),
+			ZIndex = 2,
+		}) :: Frame
+		UiKit.corner(bar, 4)
+		bar.Parent = header
 	end
 
-	local plate = UiKit.label(host, {
-		text = if blade ~= nil then string.upper(blade.name) else "NO BLADE YET",
-		size = Theme.Text.Small,
-		font = Theme.Font.Black,
-		color = if blade ~= nil then Theme.Color.text else Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Center,
-	})
-	plate.Name = "StageName"
-	plate.AnchorPoint = Vector2.new(0.5, 1)
-	plate.Position = UDim2.fromOffset(18 + STAGE_W / 2, 316)
-	plate.Size = UDim2.fromOffset(STAGE_W - 16, 18)
-	plate.ZIndex = 3
+	for index = 1, 2 do
+		local block = UiKit.create("Frame", {
+			Name = string.format("Block_%d", index),
+			BackgroundColor3 = Theme.Color.panel,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(if index == 1 then 0 else 316, 86),
+			Size = UDim2.fromOffset(if index == 1 then 300 else BODY_W - 316, CARD_H),
+			ZIndex = 1,
+		}) :: Frame
+		UiKit.corner(block, Theme.Radius.md)
+		UiKit.stroke(block, Theme.Color.strokeFaint, Theme.Stroke.thin, 0.4)
+		block.Parent = host
+	end
+end
 
-	local name = UiKit.label(host, {
-		text = tostring(entry.name or "?"),
-		size = 30,
-		font = Theme.Font.Black,
+local function bladeCard(parent: Instance, blade: any, order: number)
+	local uid = tostring(blade.uid or "")
+	local variant = ForgeConfig.variant(tostring(blade.variant or ForgeConfig.StandardVariant))
+	local bladeData = BladeRegistry.get(tostring(blade.id or ""))
+	local grade = tostring(blade.grade or "")
+	local element = tostring(blade.element or "")
+	local prefix = tostring(blade.prefix or "")
+	local suffix = tostring(blade.suffix or "")
+
+	local card = UiKit.panel(parent, {
+		tier = if blade.equipped then "raised" else "well",
+		radius = Theme.Radius.sm,
+		stroke = if blade.equipped then Theme.Color.gold else Theme.Color.strokeFaint,
+		bevel = false,
+		lip = false,
+	})
+	card.Name = if blade.equipped then "EquippedBlade" else string.format("Blade_%s_%d", uid, order)
+	card.Size = UDim2.fromOffset(BLADE_CARD_W, BLADE_CARD_H)
+	card.LayoutOrder = order
+
+	local bar = UiKit.create("Frame", {
+		BackgroundColor3 = variant.color,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 4),
+		ZIndex = 2,
+	}) :: Frame
+	UiKit.corner(bar, 2)
+	bar.Parent = card
+
+	local nameText = if bladeData
+		then ModifierConfig.displayName(bladeData.name, prefix, suffix)
+		else tostring(blade.id)
+	local name = UiKit.label(card, {
+		text = nameText,
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Heading,
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Left,
 	})
-	name.Position = UDim2.fromOffset(300, 16)
-	name.Size = UDim2.new(1, -318, 0, 38)
+	name.Position = UDim2.fromOffset(8, 8)
+	name.Size = UDim2.new(1, -16, 0, 17)
 	name.TextTruncate = Enum.TextTruncate.AtEnd
 	name.ZIndex = 3
 
-	local handle = UiKit.label(host, {
-		text = "@" .. tostring(entry.handle or ""),
+	local power = UiKit.label(card, {
+		text = NumberUtil.abbreviateMultiplier(tonumber(blade.power) or 1),
+		size = Theme.Text.Subheading,
+		font = Theme.Font.Numeric,
+		color = variant.color,
+		align = Enum.TextXAlignment.Left,
+	})
+	power.Position = UDim2.fromOffset(8, 27)
+	power.Size = UDim2.new(1, -16, 0, 23)
+	power.ZIndex = 3
+
+	local condition = UiKit.label(card, {
+		text = ModifierConfig.condition(grade, element),
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Label,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Left,
+	})
+	condition.Position = UDim2.fromOffset(8, 52)
+	condition.Size = UDim2.new(1, -16, 0, 15)
+	condition.TextTruncate = Enum.TextTruncate.AtEnd
+	condition.ZIndex = 3
+
+	local footer = UiKit.label(card, {
+		text = string.upper(variant.name),
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Label,
 		color = Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Left,
 	})
-	handle.Position = UDim2.fromOffset(300, 52)
+	footer.Position = UDim2.fromOffset(8, 68)
+	footer.Size = UDim2.new(1, -16, 0, 14)
+	footer.TextTruncate = Enum.TextTruncate.AtEnd
+	footer.ZIndex = 3
+
+	if blade.equipped then
+		local tag = UiKit.badge(card, {
+			text = "WORN",
+			color = Theme.Color.gold,
+			width = 42,
+			height = 14,
+			size = Theme.Text.Tiny,
+			textColor = Theme.Color.ink,
+		})
+		tag.Name = "WornTag"
+		tag.AnchorPoint = Vector2.new(1, 0)
+		tag.Position = UDim2.new(1, -6, 0, 8)
+		tag.ZIndex = 4
+	end
+end
+
+local function paintDetail(data: any)
+	local host = detailHost
+	if host == nil then
+		return
+	end
+	detailLoaded = true
+	detailPending = false
+	detailUserId = tonumber(data.userId) or 0
+	clearStage()
+	ModalShell.clear(host)
+
+	local rank, total = rosterIndex()
+	local you = type(rosterData) == "table" and data.userId == rosterData.you
+	local blades = if type(data.blades) == "table" then data.blades else {}
+	local best = blades[1]
+	local bestBlade = if best ~= nil then BladeRegistry.get(tostring(best.id)) else nil
+	local bestVariant = if best ~= nil then ForgeConfig.variant(tostring(best.variant)) else nil
+	local accent = if bestVariant ~= nil then bestVariant.color else Theme.Color.cyan
+
+	-- Header -----------------------------------------------------------------
+	local header = UiKit.panel(host, {
+		tier = "shell",
+		radius = Theme.Radius.md,
+		stroke = Theme.Color.strokeFaint,
+	})
+	header.Name = "ProfileHeader"
+	header.Position = UDim2.fromOffset(0, 0)
+	header.Size = UDim2.fromOffset(BODY_W, 80)
+	header.ZIndex = 1
+
+	avatar(header, 12, 12, 56, data.userId, tostring(data.name or "?"))
+
+	local name = UiKit.label(header, {
+		text = tostring(data.name or "?"),
+		size = 28,
+		font = Theme.Font.Black,
+		color = Theme.Color.text,
+		align = Enum.TextXAlignment.Left,
+	})
+	name.Position = UDim2.fromOffset(80, 6)
+	name.Size = UDim2.new(1, -420, 0, 34)
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.ZIndex = 3
+
+	local handle = UiKit.label(header, {
+		text = "@" .. tostring(data.handle or ""),
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Label,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Left,
+	})
+	handle.Position = UDim2.fromOffset(80, 40)
 	handle.Size = UDim2.fromOffset(240, 16)
 	handle.ZIndex = 3
 
-	local rankChip = UiKit.badge(host, {
+	local rankChip = UiKit.badge(header, {
 		text = string.format("#%d OF %d", rank, math.max(1, total)),
 		color = if you then Theme.Color.cyan else Theme.Color.gold,
 		width = 104,
@@ -373,131 +525,25 @@ local function paintDetail(entry: any)
 		size = Theme.Text.Tiny,
 		textColor = Theme.Color.ink,
 	})
-	rankChip.Position = UDim2.fromOffset(300, 76)
+	rankChip.Position = UDim2.fromOffset(80, 58)
 	rankChip.ZIndex = 3
 
-	local playtime = UiKit.label(host, {
-		text = string.format("PLAYED %s", NumberUtil.abbreviateTime(tonumber(entry.playtime) or 0)),
+	local playtime = UiKit.label(header, {
+		text = string.format("PLAYED %s", NumberUtil.abbreviateTime(tonumber(data.playtime) or 0)),
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Label,
 		color = Theme.Color.textDim,
 		align = Enum.TextXAlignment.Right,
 	})
 	playtime.AnchorPoint = Vector2.new(1, 0)
-	playtime.Position = UDim2.new(1, -18, 0, 82)
+	playtime.Position = UDim2.new(1, -16, 0, 8)
 	playtime.Size = UDim2.fromOffset(220, 16)
 	playtime.ZIndex = 3
 
-	local rule = UiKit.create("Frame", {
-		Name = "Rule",
-		BackgroundColor3 = Theme.Color.strokeFaint,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(300, 104),
-		Size = UDim2.new(1, -318, 0, 1),
-		ZIndex = 2,
-	}) :: Frame
-	rule.Parent = host
-
-	statCell(host, 300, 118, "STAR-MATTER", NumberUtil.compact(tonumber(entry.sm) or 0), Theme.Color.starMatter)
-	statCell(host, 460, 118, "LIFETIME", NumberUtil.compact(tonumber(entry.lifetimeSm) or 0), Theme.Color.gold)
-	statCell(host, 300, 174, "AETHER", NumberUtil.compact(tonumber(entry.aether) or 0), Theme.Color.aether)
-	statCell(host, 460, 174, "DRONES", NumberUtil.compact(tonumber(entry.drones) or 0), Theme.Color.cyan)
-	statCell(host, 300, 230, "ASCENSIONS", NumberUtil.compact(tonumber(entry.ascensions) or 0), Theme.Color.quantum)
-	statCell(host, 460, 230, "COPIES", NumberUtil.compact(tonumber(entry.invCount) or 0), Theme.Color.textSecondary)
-
-	-- The top three blades. This is the row that makes the panel a flex rather
-	-- than a stat sheet: names and multipliers, in the same shorthand the vault
-	-- uses.
-	local shelf = UiKit.create("Frame", {
-		Name = "TopBlades",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(18, 350),
-		Size = UDim2.new(1, -36, 0, 86),
-		ZIndex = 2,
-	}) :: Frame
-	shelf.Parent = host
-
-	for index = 1, 3 do
-		local pick = top[index]
-		if pick ~= nil then
-			local pickBlade = BladeRegistry.get(pick.id)
-			local pickVariant = ForgeConfig.variant(pick.variant)
-			local pickAccent = if pickVariant ~= nil then pickVariant.color else Theme.Color.gold
-			local card = UiKit.panel(shelf, {
-				tier = "well",
-				radius = Theme.Radius.sm,
-				stroke = Theme.Color.strokeFaint,
-				bevel = false,
-				lip = false,
-			})
-			card.Name = string.format("TopBlade_%d", index)
-			card.Position = UDim2.fromOffset((index - 1) * 202, 0)
-			card.Size = UDim2.fromOffset(194, 84)
-			card.ZIndex = 2
-
-			local edge = UiKit.create("Frame", {
-				Name = "Edge",
-				BackgroundColor3 = pickAccent,
-				BorderSizePixel = 0,
-				Position = UDim2.fromOffset(1, 10),
-				Size = UDim2.fromOffset(3, 64),
-				ZIndex = 3,
-			}) :: Frame
-			UiKit.corner(edge, 1)
-			edge.Parent = card
-
-			local title = UiKit.label(card, {
-				text = if pickBlade ~= nil then string.upper(pickBlade.name) else "UNKNOWN",
-				size = Theme.Text.Tiny,
-				font = Theme.Font.Black,
-				color = Theme.Color.textSecondary,
-				align = Enum.TextXAlignment.Left,
-			})
-			title.Position = UDim2.fromOffset(14, 10)
-			title.Size = UDim2.new(1, -24, 0, 18)
-			title.TextTruncate = Enum.TextTruncate.AtEnd
-			title.ZIndex = 3
-
-			local power = UiKit.label(card, {
-				text = NumberUtil.abbreviateMultiplier(tonumber(pick.power) or 1),
-				size = Theme.Text.Subheading,
-				font = Theme.Font.Numeric,
-				color = pickAccent,
-				align = Enum.TextXAlignment.Left,
-			})
-			power.Position = UDim2.fromOffset(14, 36)
-			power.Size = UDim2.new(1, -24, 0, 26)
-			power.ZIndex = 3
-
-			local variantLabel = UiKit.label(card, {
-				text = if pickVariant ~= nil then string.upper(pickVariant.name) else "",
-				size = Theme.Text.Tiny,
-				font = Theme.Font.Label,
-				color = Theme.Color.textFaint,
-				align = Enum.TextXAlignment.Left,
-			})
-			variantLabel.Position = UDim2.fromOffset(14, 62)
-			variantLabel.Size = UDim2.new(1, -24, 0, 14)
-			variantLabel.ZIndex = 3
-		end
-	end
-
-	if you then
-		local tag = UiKit.label(host, {
-			text = "THIS IS YOU",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Left,
-		})
-		tag.Position = UDim2.fromOffset(300, 314)
-		tag.Size = UDim2.fromOffset(160, 18)
-		tag.ZIndex = 3
-	else
-		local cheer = UiKit.button(host, {
-			text = if cheerUserId == entry.userId and os.clock() < cheerUntil then "CHEERED" else "CHEER",
-			height = 40,
+	if not you then
+		local cheer = UiKit.button(header, {
+			text = if cheerUserId == data.userId and os.clock() < cheerUntil then "CHEERED" else "CHEER",
+			height = 34,
 			radius = Theme.Radius.sm,
 			size = Theme.Text.Small,
 			font = Theme.Font.Black,
@@ -505,56 +551,274 @@ local function paintDetail(entry: any)
 			fill = Theme.Color.cyan,
 			stroke = Theme.Color.outline,
 			handler = function()
-				if cheerUserId == entry.userId and os.clock() < cheerUntil then
+				if cheerUserId == data.userId and os.clock() < cheerUntil then
 					return
 				end
-				cheerUserId = entry.userId
+				cheerUserId = data.userId
 				cheerUntil = os.clock() + 3
-				StateStore.send("cheer", entry.userId)
+				StateStore.send("cheer", data.userId)
 				Sfx.ui()
-				lastSignature = ""
-				PlayersView.refresh()
+				paintDetail(data)
 			end,
 		})
 		cheer.Name = "CheerButton"
-		cheer.Position = UDim2.fromOffset(300, 310)
-		cheer.Size = UDim2.fromOffset(160, 40)
+		cheer.AnchorPoint = Vector2.new(1, 0)
+		cheer.Position = UDim2.new(1, -16, 0, 30)
+		cheer.Size = UDim2.fromOffset(140, 34)
 		cheer.ZIndex = 3
 	end
 
-	local hint = UiKit.label(host, {
-		text = "TAP A PLAYER TO SEE THEIR BEST BLADE",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Left,
+	-- Best blade -------------------------------------------------------------
+	local card = UiKit.panel(host, {
+		tier = "well",
+		radius = Theme.Radius.md,
+		stroke = accent,
 	})
-	hint.Position = UDim2.fromOffset(18, 448)
-	hint.Size = UDim2.new(1, -36, 0, 16)
-	hint.ZIndex = 3
-end
+	card.Name = "BestBladeCard"
+	card.Position = UDim2.fromOffset(0, 86)
+	card.Size = UDim2.fromOffset(300, CARD_H)
+	card.ZIndex = 1
 
--- ---------------------------------------------------------------------------
--- Paint
--- ---------------------------------------------------------------------------
+	local stage = UiKit.create("ViewportFrame", {
+		Name = "BestBladeStage",
+		BackgroundColor3 = Theme.Color.void,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.fromOffset(284, 240),
+		ZIndex = 2,
+	}) :: ViewportFrame
+	UiKit.corner(stage, Theme.Radius.sm)
+	UiKit.stroke(stage, Theme.Color.strokeFaint, Theme.Stroke.thin, 0.3)
+	stage.Parent = card
 
-function PlayersView.refresh()
-	if shell == nil or not shell.isOpen() or loading then
-		return
-	end
-	loading = true
-	local host = listHost
-	if host ~= nil and #host:GetChildren() == 0 then
-		local waitLabel = UiKit.label(host, {
-			text = "READING THE ROOM…",
+	if bestBlade ~= nil then
+		bladeCleanup = BladePreview.mount(stage, bestBlade, accent, {
+			frameFill = 0.8,
+			aimBias = 0,
+			spin = 0.8,
+			surface = stage,
+		})
+	else
+		local none = UiKit.label(stage, {
+			text = "NO BLADE",
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
 			color = Theme.Color.textFaint,
 			align = Enum.TextXAlignment.Center,
 		})
-		waitLabel.Size = UDim2.new(1, 0, 0, 40)
+		none.Size = UDim2.fromScale(1, 1)
 	end
 
+	local bestName = UiKit.label(card, {
+		text = if bestBlade ~= nil
+			then ModifierConfig.displayName(
+				bestBlade.name,
+				tostring(best.prefix or ""),
+				tostring(best.suffix or "")
+			)
+			else "NO BLADE",
+		size = Theme.Text.Small,
+		font = Theme.Font.Black,
+		color = Theme.Color.text,
+		align = Enum.TextXAlignment.Center,
+	})
+	bestName.Position = UDim2.fromOffset(8, 254)
+	bestName.Size = UDim2.new(1, -16, 0, 18)
+	bestName.TextTruncate = Enum.TextTruncate.AtEnd
+	bestName.ZIndex = 3
+
+	local condition = UiKit.label(card, {
+		text = if bestVariant ~= nil
+			then string.format(
+				"%s  ·  %s",
+				string.upper(bestVariant.name),
+				ModifierConfig.condition(tostring(best.grade or ""), tostring(best.element or ""))
+			)
+			else "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Label,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Center,
+	})
+	condition.Position = UDim2.fromOffset(8, 274)
+	condition.Size = UDim2.new(1, -16, 0, 15)
+	condition.ZIndex = 3
+
+	local power = UiKit.label(card, {
+		text = if best ~= nil then NumberUtil.abbreviateMultiplier(tonumber(best.power) or 1) else "",
+		size = 30,
+		font = Theme.Font.Numeric,
+		color = accent,
+		align = Enum.TextXAlignment.Center,
+	})
+	power.Position = UDim2.fromOffset(8, 292)
+	power.Size = UDim2.new(1, -16, 0, 34)
+	power.ZIndex = 3
+
+	local mastery = if best ~= nil then RuneConfig.masteryRank(tonumber(best.mastery) or 0) else 0
+	local socketCount = if best ~= nil then RuneConfig.socketsFor(mastery) else 0
+	local filled = if best ~= nil and type(best.sockets) == "table" then #best.sockets else 0
+	local meta = UiKit.label(card, {
+		text = string.format("MASTERY %d  ·  SOCKETS %d / %d", mastery, filled, socketCount),
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textDim,
+		align = Enum.TextXAlignment.Center,
+	})
+	meta.Position = UDim2.fromOffset(8, 332)
+	meta.Size = UDim2.new(1, -16, 0, 15)
+	meta.ZIndex = 3
+
+	local runeY = 354
+	if best ~= nil and type(best.sockets) == "table" and #best.sockets > 0 then
+		for index, runeId in best.sockets do
+			if runeId ~= "" then
+				local rune = RuneConfig.get(tostring(runeId))
+				local label = UiKit.label(card, {
+					text = if rune ~= nil then string.upper(rune.name) else tostring(runeId),
+					size = Theme.Text.Tiny,
+					font = Theme.Font.Black,
+					color = if rune ~= nil then rune.color else Theme.Color.textSecondary,
+					align = Enum.TextXAlignment.Center,
+				})
+				label.Position = UDim2.fromOffset(8, runeY + (index - 1) * 17)
+				label.Size = UDim2.new(1, -16, 0, 15)
+				label.ZIndex = 3
+			end
+		end
+	end
+
+	-- Stats ------------------------------------------------------------------
+	local stats = UiKit.create("Frame", {
+		Name = "StatBlock",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(316, 86),
+		Size = UDim2.fromOffset(BODY_W - 316, 279),
+		ZIndex = 1,
+	}) :: Frame
+	stats.Parent = host
+
+	local function cell(column: number, row: number, label: string, value: string, colour: Color3)
+		statCell(stats, column * 164, row * 55, label, value, colour)
+	end
+	cell(0, 0, "STAR-MATTER", NumberUtil.compact(tonumber(data.sm) or 0), Theme.Color.starMatter)
+	cell(1, 0, "LIFETIME", NumberUtil.compact(tonumber(data.lifetimeSm) or 0), Theme.Color.gold)
+	cell(2, 0, "AETHER", NumberUtil.compact(tonumber(data.aether) or 0), Theme.Color.aether)
+	cell(0, 1, "CORES", NumberUtil.compact(tonumber(data.cores) or 0), Theme.Color.quantum)
+	cell(1, 1, "SHARDS", NumberUtil.compact(tonumber(data.shards) or 0), Theme.Color.magenta)
+	cell(2, 1, "SCRAP", NumberUtil.compact(tonumber(data.scrap) or 0), Theme.Color.textSecondary)
+	cell(0, 2, "DRONES", NumberUtil.compact(tonumber(data.drones) or 0), Theme.Color.cyan)
+	cell(1, 2, "ASCENSIONS", NumberUtil.compact(tonumber(data.ascensions) or 0), Theme.Color.quantum)
+	cell(2, 2, "COPIES", string.format("%d / %d", tonumber(data.copies) or 0, tonumber(data.invMax) or 60), Theme.Color.textSecondary)
+	cell(0, 3, "CODEX", tostring(tonumber(data.codexCount) or 0), Theme.Color.emerald)
+	cell(1, 3, "RUNES", tostring(#(data.runes or {})), Theme.Color.emerald)
+	local techLevels = 0
+	for _, level in data.tech or {} do
+		techLevels += tonumber(level) or 0
+	end
+	cell(2, 3, "TECH", tostring(techLevels), Theme.Color.emerald)
+	cell(0, 4, "DAILY STREAK", string.format("DAY %d", tonumber(data.dailyStreak) or 0), Theme.Color.gold)
+	local expedition = tostring(data.expedition or "")
+	cell(1, 4, "EXPEDITION", if expedition ~= "" then "OUT" else "IDLE", Theme.Color.cyan)
+	cell(2, 4, "SIGILS", tostring(tonumber(data.sigilCount) or 0), Theme.Color.quantum)
+
+	-- Rune shelf -------------------------------------------------------------
+	sectionTitle(host, 316, 375, "RUNES OWNED")
+	local runeX = 316
+	local runeRow = 0
+	for _, runeRowData in data.runes or {} do
+		local rune = RuneConfig.get(tostring(runeRowData.id))
+		if rune ~= nil then
+			local label = string.format("%s  x%d", string.upper(rune.name), tonumber(runeRowData.count) or 0)
+			local chipFrame = chip(host, runeX, 395 + runeRow * 28, label, rune.color)
+			local width = math.max(70, 8 + string.len(label) * 8)
+			chipFrame.Size = UDim2.fromOffset(width, 24)
+			runeX += width + 8
+			if runeX > BODY_W - 100 then
+				runeX = 316
+				runeRow += 1
+			end
+		end
+	end
+	if #(data.runes or {}) == 0 then
+		local none = UiKit.label(host, {
+			text = "NONE",
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Left,
+		})
+		none.Position = UDim2.fromOffset(316, 395)
+		none.Size = UDim2.fromOffset(200, 20)
+	end
+
+	-- Tech ladder ------------------------------------------------------------
+	local techTitleY = 407 + (runeRow + 1) * 28
+	sectionTitle(host, 316, techTitleY, "TECH")
+	local techX = 316
+	local techRow = 0
+	for _, node in TechTreeConfig.list() do
+		local level = tonumber((data.tech or {})[node.id]) or 0
+		if level > 0 then
+			local label = string.format("%s  %d", string.upper(node.name), level)
+			local chipFrame = chip(host, techX, techTitleY + 20 + techRow * 28, label, Theme.Color.emerald)
+			local width = math.max(80, 8 + string.len(label) * 8)
+			chipFrame.Size = UDim2.fromOffset(width, 24)
+			techX += width + 8
+			if techX > BODY_W - 100 then
+				techX = 316
+				techRow += 1
+			end
+		end
+	end
+	if techRow == 0 then
+		local none = UiKit.label(host, {
+			text = "NONE",
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Left,
+		})
+		none.Position = UDim2.fromOffset(316, techTitleY + 20)
+		none.Size = UDim2.fromOffset(200, 20)
+	end
+
+	-- All blades -------------------------------------------------------------
+	-- 150, not 110: the blade card carries a bevel lip and a socket line under
+	-- its 430px body, and a title at +110 landed on the card's bottom edge.
+	local gridY = math.max(CARD_H + 150, techTitleY + 44 + techRow * 28)
+	sectionTitle(host, 0, gridY, string.format("ALL BLADES  ·  %d", #blades))
+	local grid = UiKit.create("Frame", {
+		Name = "BladeGrid",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, gridY + 22),
+		Size = UDim2.fromScale(1, 0),
+		ZIndex = 1,
+	}) :: Frame
+	grid.Parent = host
+	UiKit.grid(grid, UDim2.fromOffset(BLADE_CARD_W, BLADE_CARD_H), 8)
+	for index, blade in blades do
+		bladeCard(grid, blade, index)
+	end
+	-- The scroll canvas has to know how tall the grid grew. AutomaticSize on the
+	-- grid plus the host's AutomaticCanvasSize would need both to be measured in
+	-- the same pass; the row count is cheaper and exact.
+	local rows = math.ceil(#blades / 5)
+	grid.Size = UDim2.new(1, 0, 0, math.max(1, rows) * (BLADE_CARD_H + 8))
+	host.CanvasSize = UDim2.fromOffset(0, gridY + 22 + math.max(1, rows) * (BLADE_CARD_H + 8) + 24)
+end
+
+-- ---------------------------------------------------------------------------
+-- Requests
+-- ---------------------------------------------------------------------------
+
+local function refreshRoster()
+	if shell == nil or not shell.isOpen() or loading then
+		return
+	end
+	loading = true
 	task.spawn(function()
 		local data = StateStore.request("roster")
 		loading = false
@@ -562,13 +826,14 @@ function PlayersView.refresh()
 			return
 		end
 		if type(data) ~= "table" or type(data.players) ~= "table" or #data.players == 0 then
-			if lastData == nil then
-				lastSignature = ""
-				paintEmpty("SERVER LIST UNAVAILABLE")
-			end
 			return
 		end
-		lastData = data
+		local signature = rosterSig(data)
+		if signature == rosterSignature then
+			return
+		end
+		rosterSignature = signature
+		rosterData = data
 		local found = false
 		for _, entry in data.players do
 			if entry.userId == selectedUserId then
@@ -579,63 +844,52 @@ function PlayersView.refresh()
 		if not found then
 			selectedUserId = tonumber(data.you) or data.players[1].userId
 		end
+		paintList()
+		if detailUserId ~= selectedUserId and not detailPending then
+			PlayersView.select(selectedUserId)
+		end
+	end)
+end
 
-		local signature = tostring(selectedUserId)
-		for _, entry in data.players do
-			local top = entry.top
-			local mark = if type(top) == "table" and top[1] ~= nil
-				then string.format("%s/%s", tostring(top[1].id), tostring(top[1].variant))
-				else "-"
-			signature ..= string.format(
-				"|%d:%s:%s:%s:%s:%s:%s:%s:%s",
-				entry.userId,
-				tostring(entry.name),
-				tostring(entry.lifetimeSm),
-				tostring(entry.sm),
-				tostring(entry.aether),
-				tostring(entry.drones),
-				tostring(entry.ascensions),
-				tostring(entry.invCount),
-				mark
-			)
+local function loadDetail(userId: number)
+	detailToken += 1
+	local token = detailToken
+	detailPending = true
+	paintLoading()
+	task.spawn(function()
+		for _ = 1, 4 do
+			local data = StateStore.request("playerDetail", userId)
+			if token ~= detailToken then
+				return
+			end
+			if type(data) == "table" then
+				paintDetail(data)
+				return
+			end
+			task.wait(0.45)
 		end
-		if signature == lastSignature then
-			return
-		end
-		lastSignature = signature
-
-		local hostNow = listHost
-		if hostNow == nil then
-			return
-		end
-		local scrollY = hostNow.CanvasPosition.Y
-		ModalShell.clear(hostNow)
-		for order, entry in data.players do
-			paintRow(entry, order)
-		end
-		hostNow.CanvasPosition = Vector2.new(0, scrollY)
-
-		local entry = selectedEntry()
-		if entry ~= nil then
-			paintDetail(entry)
-		end
-		if #data.players == 1 then
-			local only = UiKit.label(hostNow, {
-				text = "NO ONE ELSE HERE YET",
-				size = Theme.Text.Tiny,
-				font = Theme.Font.Black,
-				color = Theme.Color.textFaint,
-				align = Enum.TextXAlignment.Center,
-			})
-			only.Size = UDim2.new(1, 0, 0, 34)
-			only.Position = UDim2.fromOffset(0, ROW_H + 18)
+		if token == detailToken then
+			detailPending = false
 		end
 	end)
 end
 
 -- ---------------------------------------------------------------------------
--- Lifecycle
+-- Public
 -- ---------------------------------------------------------------------------
+
+--- Switches the card. The list repaints immediately; the payload is requested in
+--- the background so a rate-limited answer can never freeze the panel.
+function PlayersView.select(userId: number): boolean
+	if selectedUserId == userId and detailUserId == userId and detailLoaded then
+		return true
+	end
+	selectedUserId = userId
+	Sfx.tab()
+	paintList()
+	loadDetail(userId)
+	return true
+end
 
 function PlayersView.open()
 	local handle = shell
@@ -643,10 +897,16 @@ function PlayersView.open()
 		return
 	end
 	selectedUserId = 0
-	lastSignature = ""
+	detailUserId = 0
+	detailLoaded = false
+	detailPending = false
+	rosterSignature = ""
+	rosterData = nil
+	detailToken += 1
+	clearStage()
 	handle.open()
-	PlayersView.refresh()
 	refreshClock = 0
+	refreshRoster()
 end
 
 function PlayersView.close()
@@ -659,21 +919,6 @@ function PlayersView.isOpen(): boolean
 	return shell ~= nil and shell.isOpen()
 end
 
-function PlayersView.select(userId: number): boolean
-	if type(lastData) ~= "table" or type(lastData.players) ~= "table" then
-		return false
-	end
-	for _, entry in lastData.players do
-		if entry.userId == userId then
-			selectedUserId = userId
-			lastSignature = ""
-			PlayersView.refresh()
-			return true
-		end
-	end
-	return false
-end
-
 function PlayersView.step(dt: number)
 	if shell == nil or not shell.isOpen() then
 		return
@@ -683,7 +928,7 @@ function PlayersView.step(dt: number)
 		return
 	end
 	refreshClock = 0
-	PlayersView.refresh()
+	refreshRoster()
 end
 
 function PlayersView.init(canvas: Frame)
@@ -693,52 +938,50 @@ function PlayersView.init(canvas: Frame)
 
 	local handle = ModalShell.build(canvas, {
 		name = "PlayersOverlay",
-		title = "IN THIS SERVER",
-		subtitle = "",
+		title = "PLAYER VIEW",
+		icon = "players",
 		accent = Theme.Color.cyan,
-		width = 980,
-		height = 640,
+		width = 1120,
+		height = 680,
 		onClose = function()
-			clearDetail()
-			lastData = nil
-			lastSignature = ""
+			clearStage()
+			rosterData = nil
+			rosterSignature = ""
+			detailToken += 1
 		end,
 	}, 50)
 	shell = handle
 
-	local list = UiKit.scroll(handle.body)
+	local list = UiKit.scroll(handle.body, { thickness = 4 })
 	list.Name = "PlayerList"
 	list.Position = UDim2.fromOffset(16, 14)
-	list.Size = UDim2.fromOffset(LIST_W, 558)
+	list.Size = UDim2.fromOffset(LIST_W, 594)
 	list.ZIndex = 2
-	UiKit.vlist(list, { gap = 6, padTop = 4, padBottom = 4 })
+	UiKit.vlist(list, { gap = 6, padTop = 2, padBottom = 2 })
 	listHost = list
 
-	local detail = UiKit.create("Frame", {
-		Name = "PlayerDetail",
-		BackgroundColor3 = Theme.Color.panel,
-		BackgroundTransparency = 0.15,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(DETAIL_X, 14),
-		Size = UDim2.new(1, -DETAIL_X - 16, 0, 558),
-		ZIndex = 1,
-	}) :: Frame
-	UiKit.corner(detail, Theme.Radius.md)
-	UiKit.stroke(detail, Theme.Color.strokeFaint, Theme.Stroke.thin, 0.2)
-	detail.Parent = handle.body
+	local detail = UiKit.scroll(handle.body, { thickness = 5 })
+	detail.Name = "PlayerDetail"
+	detail.Position = UDim2.fromOffset(DETAIL_X, 14)
+	detail.Size = UDim2.fromOffset(BODY_W, 594)
+	detail.ZIndex = 1
+	detail.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	detailHost = detail
+
+	paintLoading()
 end
 
 function PlayersView.destroy()
-	clearDetail()
+	clearStage()
 	if shell then
 		shell.destroy()
 		shell = nil
 	end
 	listHost = nil
 	detailHost = nil
-	lastData = nil
-	lastSignature = ""
+	rosterData = nil
+	rosterSignature = ""
+	detailToken += 1
 end
 
 return PlayersView

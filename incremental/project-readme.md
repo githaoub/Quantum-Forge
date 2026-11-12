@@ -62,7 +62,7 @@ Open the `.rbxlx` directly in Studio to test without the plugin, or to publish.
 | **Spacebar** | Same as clicking the anvil |
 | PURGE key (bottom-right of the stage) | Dump all heat for Aether Shards (legal at â‰¥85 heat) |
 | Left rail | **FORGE** Â· **CRATES** Â· **FLEET** Â· **RUNES** Â· **TECH** Â· **STORE** |
-| Top-bar utility keys | **VAULT** Â· **CODEX** Â· **RANKS** Â· **CREW** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
+| Top-bar utility keys | **VAULT** Â· **CODEX** Â· **RANKS** Â· **VIEW** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
 | The whole blade stage | Strike the forge; the strike, heat and purge controls float on top of it |
 | Ascend | The **ASCEND** key in the top bar, behind a confirmation modal |
 
@@ -454,26 +454,33 @@ and the guide's tick hides the card, ring and badge whenever
 `AbsolutePosition` every 100ms, so a resize or a reflow moves the marker with the
 control.
 
-### The server roster
+### The player view
 
-`CREW` sits in the top-bar utility bank between RANKS and TRADE. It opens a
-980x640 panel with two columns: every player in this server, ranked by lifetime
+`VIEW` sits in the top-bar utility bank between RANKS and TRADE. It opens a
+1120x680 panel with two columns: every player in this server, ranked by lifetime
 Star-Matter, and a card for the selected one. A row carries a head shot (with a
-coloured initial as the fallback), the display name, the lifetime figure and a
-`YOU` tag. The card mounts the player's best blade in the same preview the forge
-and the vault use, then lists Star-Matter, lifetime Star-Matter, Aether, drones,
-ascensions and copies, plus the three strongest blades with their multiplier and
-variant. `CHEER` sends a one-off toast and carries no currency.
+coloured initial as the fallback), the display name, the lifetime figure, a rank
+and a `YOU` tag. The card mounts the player's best blade in the same preview the
+forge and the vault use, then lists twelve public figures (Star-Matter, lifetime,
+Aether, cores, shards, scrap, drones, ascensions, copies, codex, runes, tech
+levels), the owned rune shelf, the tech ladder, and every blade the player owns
+with its multiplier and variant. `CHEER` sends a one-off toast and carries no
+currency.
 
-The server builds the answer. `roster` reads each live profile from
-`DataManager` and returns only the public slice: names, ids, the six figures
-above, playtime, copy count and the top three blades by combined power.
-Settings, purchases, favourites and trade state never leave the server, and a
-client cannot send a stat because the request has no stat in it. Requests are
-budgeted at one per player per second; the panel asks on open and every ten
-seconds, and repaints only when the signature changes. `cheer` is validated
-against a real player in this server, refuses a self-cheer, and rate-limits the
-sender to one per eight seconds.
+Selection paints immediately: the row switches, a skeleton card shows, and the
+payload fills in when it lands. The old build re-requested the roster on every
+click and refused the repaint while that request was in flight, which is why a
+second player could not be opened.
+
+The server builds both answers. `roster` reads each live profile from
+`DataManager` and returns only the public slice. `playerDetail` walks one vault
+and sends the blade list, rune counts and tech levels; it is budgeted at one
+request per 0.4 s. Settings, purchases, favourites and trade state never leave
+the server, and a client cannot send a stat because neither request has a stat in
+it. The roster is budgeted at one per player per second; the panel asks on open
+and every ten seconds, and repaints only when the signature changes. `cheer` is
+validated against a real player in this server, refuses a self-cheer, and
+rate-limits the sender to one per eight seconds.
 
 After the guide, `Nudges.luau` watches the payload for five open decisions: an
 affordable ascent, a ready daily, a claimable cache, a rune with a free socket,
@@ -482,8 +489,8 @@ while the guide owns the screen, speaks one line at a time, and only onto an
 empty toast rail, so a hint can never push a completion receipt off the two-slot
 stack. The rail tabs carry the standing state: fleet glows for a drone or a
 cache, tech for an affordable node, runes for a socketable rune. The ascend and
-daily buttons breathe while their action is available, and an expedition that
-returns gets a receipt toast.
+daily keys scale and thicken their ring while their action is available, and an
+expedition that returns gets a receipt toast.
 
 `ASCEND` opens its sheet before the balance is there. The body prints the
 threshold and the current total, the confirm key reads `NEED 1.00B SM` and has

@@ -5138,3 +5138,91 @@ narrower than the old ones; the labels fit, the marks did not change.
   ladder reuses the same label for `COPY n OF m`.
 - `selene src` reports 0 errors, 0 warnings, 0 parse errors; `rojo build` writes
   the place file.
+
+---
+
+## ADR-124 - The room has a face, and the desk takes Aether
+
+**Context.** The nine-image review after Forge 29 found four kinds of problem
+that the build logs had not measured. The `CREW` key opened a roster that
+described a player with six figures and three blades, and the second row could
+not be clicked because the panel re-requested the roster on every click and
+refused the repaint while that request was in flight. The trade desk traded Void
+Shards, hid equipped and favorited copies from its picker, and could not show a
+number a player wanted to type. Art that had not arrived yet left empty wells:
+rune, tech and store cards showed nothing, and the trade picker showed an empty
+grid. The chrome disagreed with itself: `CREW` named a roster, every overlay
+banner carried the same star, the forge banner used a 26px plaque on an 18px
+inset beside 40px section plaques on a 16px inset, and the icon set put a 2px
+ring around 4px bars, which is a dark smudge at 22px.
+
+**Decision.**
+
+1. `CREW` becomes `VIEW`. The panel is 1120x680, the roster is 250px wide, and
+   the detail card is a second request. `roster` stays public and cheap;
+   `playerDetail` walks one vault and is budgeted at one per 0.4s. The card
+   shows the best blade in the shared preview, twelve public figures, daily
+   streak, expedition state, sigil count, the rune shelf, the tech ladder, and
+   every blade the player owns. Selection paints immediately, shows a skeleton,
+   and retries the detail four times. The escalation and cheer budgets do not
+   change.
+
+2. The trade desk moves to Aether. The offer is a typed amount clamped to the
+   balance on the client and again on the server at offer and commit. The picker
+   returns every owned copy, including equipped and favorited ones, tagged
+   `WORN` or starred; the server refuses any offer that would leave a player
+   with zero blades and runs `equipBest` after the equipped copy leaves. Eight
+   copies per side remains the cap. The three explanatory step cards and the
+   paragraph are gone.
+
+3. Art waits in a well, not in an empty well. `UiKit.artLoading` shows
+   `LOADING...` after 0.2s if `ImageLabel.IsLoaded` is still false, and gives up
+   after eight seconds. `badgeWell` and the shop's badge install it, so rune,
+   tech and store art inherit it. The trade picker paints six skeleton cards
+   until the inventory answers.
+
+4. One mark per key, one plaque size per banner. Every overlay banner draws the
+   mark of the top-bar key that opens it: vault, codex, ranks, view, trade,
+   notes, guide, setup, plus crates and fleet for the two panels that are not
+   opened by a key. Modal banners use a 36px plaque in 54px; section banners use
+   40px in 64px. `Icons.luau` is redrawn as one solid silhouette with details
+   cut in ink, because an outline is the wrong grammar at 22px.
+
+5. The forge is a stage and a console. Its banner moves to the 16px rect every
+   section uses. The 2.5:1 stage becomes 16:10 with a 400px control column that
+   holds the heat instrument, strike speed, streak rail, strike payout and the
+   purge key. The strike payout names Star-Matter with the crystal instead of
+   `SM`.
+
+6. Actionable controls move. The ascend and daily keys scale 3% and thicken
+   their ring from 2px to 4px while their action is available. A 2px stroke
+   changing transparency was not loud enough beside nine other keys.
+
+**Consequences.** The player panel now costs two requests instead of one, and a
+roster refresh does not repaint a card that has already loaded. The trade desk
+can only be proven with two real players; this session has one. The eight-second
+art plate is a compromise: a failed asset still shows `LOADING...` for eight
+seconds before the plate clears, because Roblox does not report a failed image
+load separately from a slow one.
+
+**Verification.** Studio, Client, one continuous session at 1678x720.
+
+- Forge: banner on the 16px rect, 64 tall, 40px anvil plaque; stage and console
+  share a bottom edge; purge 380x88 at the console bottom; the blade rendered and
+  the caption read `STRIKE +5.05` with the crystal mark.
+- Player view: `VIEW` label, `PLAYER VIEW` banner with the players mark; row
+  `NineToFive`, `1.62K SM`, `YOU`, rank 1; header `#1 OF 1`, `PLAYED 4m 18s`;
+  best blade `RUSTED CLEAVER`, `STANDARD`, `x1.00`, `MASTERY 1`, `SOCKETS 0/1`;
+  figures `1.62K` Star-Matter and lifetime, `24` Aether, `10` shards, `1 / 60`
+  copies; `ALL BLADES` clears the best-blade card.
+- Trade desk: `TRADE DESK` with the trade mark; typed `400` Aether, `MAX`,
+  `OF 2.4K`; their `250`; picker card tagged `WORN`; `ACCEPT THE TRADE` and
+  `WITHDRAW`.
+- Runes, tech and store: 40px section plaques, badge art loaded, no leftover
+  `LOADING...`.
+- `selene src` 0 errors, 0 warnings, 0 parse errors; `rojo build` writes the
+  place file.
+
+Not verified: two real players in one server, so roster selection, cheer and a
+live trade have only been exercised with one client. DataStore writes still
+return 401 and the profile runs MOCK, so nothing here proves persistence.

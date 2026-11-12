@@ -64,8 +64,10 @@ local profileHandle: ProfilePlate.Handle? = nil
 local ascendButton: TextButton? = nil
 local ascendLabel: TextLabel? = nil
 local ascendStroke: UIStroke? = nil
+local ascendScale: UIScale? = nil
 local dailyButton: TextButton? = nil
 local dailyStroke: UIStroke? = nil
+local dailyScale: UIScale? = nil
 local dailyLabel: TextLabel? = nil
 local guideButton: TextButton? = nil
 local guideTextLabel: TextLabel? = nil
@@ -378,6 +380,8 @@ local function buildAscendButton(parent: Frame): TextButton
 
 	ascendLabel = detail
 	ascendStroke = button:FindFirstChildOfClass("UIStroke")
+	ascendScale = UiKit.create("UIScale", { Scale = 1 }) :: UIScale
+	ascendScale.Parent = button
 	return button
 end
 
@@ -433,6 +437,8 @@ local function buildDailyButton(parent: Frame): TextButton
 
 	dailyLabel = detail
 	dailyStroke = button:FindFirstChildOfClass("UIStroke")
+	dailyScale = UiKit.create("UIScale", { Scale = 1 }) :: UIScale
+	dailyScale.Parent = button
 	return button
 end
 
@@ -631,8 +637,9 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 	buildKey(right, {
 		name = "PlayersButton",
 		icon = "players",
-		-- CREW is 36px wide. PEOPLE measured 47 and lost its L on a 46px key.
-		label = "CREW",
+		-- VIEW, not CREW: the key opens one player's whole profile, not a
+		-- roster of names. Four capitals also measure 34px on a 46px key.
+		label = "VIEW",
 		tint = Theme.Color.cyan,
 		order = 4,
 		handler = function()
@@ -987,22 +994,42 @@ function HudController.step(dt: number)
 		end
 	end
 
-	-- Ascend button breathes when it is actionable.
+	-- Ascend button breathes when it is actionable. A 2px stroke shifting a few
+	-- tenths of transparency was too quiet to notice beside nine other keys, so
+	-- the key itself now scales 3% and the ring thickens as it lights.
 	if ascendButton and ascendStroke then
 		local ready = StateStore.current ~= nil and StateStore.current.sm >= Config.AscendThreshold
 		if ready then
-			ascendStroke.Transparency = 0.25 + math.abs(math.sin(pulse * 2.4)) * 0.45
+			local wave = 0.5 + 0.5 * math.sin(pulse * 4.2)
+			ascendStroke.Thickness = 2 + wave * 2
+			ascendStroke.Transparency = 0.05 + (1 - wave) * 0.55
+			if ascendScale then
+				ascendScale.Scale = 1 + wave * 0.03
+			end
 		else
+			ascendStroke.Thickness = 2
 			ascendStroke.Transparency = 0.85
+			if ascendScale then
+				ascendScale.Scale = 1
+			end
 		end
 	end
 
 	if dailyButton and dailyStroke then
 		local ready = StateStore.current ~= nil and StateStore.current.dailyReady
 		if ready then
-			dailyStroke.Transparency = 0.2 + math.abs(math.sin(pulse * 3)) * 0.4
+			local wave = 0.5 + 0.5 * math.sin(pulse * 3.6)
+			dailyStroke.Thickness = 2 + wave * 2
+			dailyStroke.Transparency = 0.05 + (1 - wave) * 0.55
+			if dailyScale then
+				dailyScale.Scale = 1 + wave * 0.03
+			end
 		else
+			dailyStroke.Thickness = 2
 			dailyStroke.Transparency = 0.85
+			if dailyScale then
+				dailyScale.Scale = 1
+			end
 		end
 	end
 
@@ -1024,6 +1051,8 @@ function HudController.destroy()
 		ascendButton:Destroy()
 		ascendButton = nil
 	end
+	ascendScale = nil
+	dailyScale = nil
 	if dailyButton then
 		dailyButton:Destroy()
 		dailyButton = nil

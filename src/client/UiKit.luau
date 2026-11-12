@@ -14,6 +14,7 @@
 --   * locked actions are flat slate with a cost badge, never a fainter outline
 
 local Theme = require(script.Parent.Theme)
+local Icons = require(script.Parent.Icons)
 local Sfx = require(script.Parent.Sfx)
 
 local UiKit = {}
@@ -375,8 +376,15 @@ export type BannerOpts = {
 	height: number?,
 	--- Left icon plaque tint. Nil hides the plaque.
 	accent: Color3?,
-	--- Glyph inside the plaque (one or two characters; no icon atlas).
+	--- Drawn mark inside the plaque, keyed to `Icons`. Preferred over `icon`,
+	--- because a text glyph depends on the client's font stack and the house
+	--- marks do not.
+	iconKind: string?,
+	--- Glyph inside the plaque when `iconKind` is nil.
 	icon: string?,
+	--- Plaque edge in design px. 26 for a modal banner, 40 to match the section
+	--- banner on a page card.
+	plaqueSize: number?,
 	--- Small secondary tab on the right, like the reference's "Daily" plaque.
 	right: string?,
 	rightAccent: Color3?,
@@ -404,25 +412,33 @@ function UiKit.banner(parent: Instance, opts: BannerOpts): Frame
 
 	local textLeft = 14
 	if o.accent then
+		local plaqueSize = o.plaqueSize or 26
 		local plaque = UiKit.create("Frame", {
 			BackgroundColor3 = o.accent,
 			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(26, 26),
-			Position = UDim2.new(0, 10, 0.5, -13),
+			Size = UDim2.fromOffset(plaqueSize, plaqueSize),
+			Position = UDim2.new(0, 10, 0.5, -plaqueSize / 2),
 			ZIndex = 1,
 		}) :: Frame
 		UiKit.corner(plaque, Theme.Radius.sm)
-		local glyph = UiKit.label(plaque, {
-			text = o.icon or "◆",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.onColor(o.accent),
-			align = Enum.TextXAlignment.Center,
-		})
-		glyph.Size = UDim2.fromScale(1, 1)
-		glyph.Parent = plaque
 		plaque.Parent = banner
-		textLeft = 46
+
+		if o.iconKind ~= nil and o.iconKind ~= "" then
+			local iconSize = if plaqueSize >= 36 then 24 else 18
+			local mark = Icons.build(plaque, o.iconKind :: string, iconSize, Theme.onColor(o.accent))
+			mark.Position = UDim2.fromOffset((plaqueSize - 24) / 2, (plaqueSize - 24) / 2)
+		else
+			local glyph = UiKit.label(plaque, {
+				text = o.icon or "◆",
+				size = Theme.Text.Tiny,
+				font = Theme.Font.Black,
+				color = Theme.onColor(o.accent),
+				align = Enum.TextXAlignment.Center,
+			})
+			glyph.Size = UDim2.fromScale(1, 1)
+			glyph.Parent = plaque
+		end
+		textLeft = 10 + plaqueSize + 10
 	end
 
 	local title = UiKit.label(banner, {
@@ -978,6 +994,45 @@ end
 -- Badge art
 -- ---------------------------------------------------------------------------
 
+--- A "LOADING..." plate for art that has not arrived yet.
+---
+--- Roblox reports a late asset, never a failed one, so this waits on
+--- `ImageLabel.IsLoaded` rather than guessing from a timer. Eight seconds is
+--- the give-up point: after that the plate is a permanent "LOADING" on a card
+--- the player is already using, which reads as a bug.
+function UiKit.artLoading(host: GuiObject, art: ImageLabel, size: number?)
+	local label = UiKit.label(host, {
+		text = "LOADING...",
+		size = size or Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
+	})
+	label.Name = "ArtLoading"
+	label.Size = UDim2.fromScale(1, 1)
+	label.ZIndex = 4
+	label.Visible = false
+	task.spawn(function()
+		-- A cached bitmap is loaded within a frame or two. Waiting a beat before
+		-- showing the plate keeps "LOADING..." off every card on a warm join.
+		task.wait(0.2)
+		if label.Parent == nil or art.IsLoaded then
+			if label.Parent ~= nil then
+				label:Destroy()
+			end
+			return
+		end
+		label.Visible = true
+		local deadline = os.clock() + 8
+		while label.Parent ~= nil and not art.IsLoaded and os.clock() < deadline do
+			task.wait(0.1)
+		end
+		if label.Parent ~= nil then
+			label:Destroy()
+		end
+	end)
+end
+
 export type BadgeWellOpts = {
 	--- `AssetManifest.uiArt(...)` output. Empty draws nothing and returns nil,
 	--- which is the honest "no art yet" path: the row keeps its text layout.
@@ -1025,6 +1080,7 @@ function UiKit.badgeWell(parent: Instance, opts: BadgeWellOpts): Frame?
 	}) :: ImageLabel
 	UiKit.corner(art, radius)
 	art.Parent = well
+	UiKit.artLoading(well, art)
 
 	if opts.accent ~= nil then
 		local accent = UiKit.create("UIStroke", {

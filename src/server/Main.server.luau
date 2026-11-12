@@ -47,6 +47,7 @@ local heartbeatConnection: RBXScriptConnection? = nil
 local autosaveConnection: RBXScriptConnection? = nil
 local shuttingDown = false
 local rosterAt: { [Player]: number } = {}
+local detailAt: { [Player]: number } = {}
 local cheerAt: { [Player]: number } = {}
 
 -- ---------------------------------------------------------------------------
@@ -570,7 +571,7 @@ local function registerActions()
 			return false
 		end
 		local data = payload :: any
-		local ok, reason = TradeService.setOffer(player, data.uids, data.shards)
+		local ok, reason = TradeService.setOffer(player, data.uids, data.aether)
 		if not ok then
 			reject(player, reason)
 		end
@@ -741,6 +742,104 @@ local function boot()
 			return { players = list, you = player.UserId }
 		end)
 
+		Net.onRequest("playerDetail", function(player: Player, argument: unknown)
+			-- The full public card: every blade, the rune shelf, the tech ladder.
+			-- Still no settings, passes or purchases. Budgeted harder than the
+			-- roster because each answer walks a vault.
+			local targetId = tonumber(argument)
+			if targetId == nil then
+				return nil
+			end
+			local now = os.clock()
+			if now - (detailAt[player] or 0) < 0.4 then
+				return nil
+			end
+			detailAt[player] = now
+
+			local target = Players:GetPlayerByUserId(targetId)
+			if target == nil then
+				return nil
+			end
+			local state = DataManager.get(target)
+			if state == nil then
+				return nil
+			end
+
+			local blades = {}
+			for uid, instance in state.blades do
+				local rack = state.sockets[instance.id] or {}
+				local sockets = {}
+				for _, runeId in rack do
+					table.insert(sockets, runeId)
+				end
+				table.insert(blades, {
+					uid = uid,
+					id = instance.id,
+					variant = instance.variant,
+					forgedAt = instance.forgedAt,
+					element = instance.element or "",
+					grade = instance.grade or "",
+					prefix = instance.prefix or "",
+					suffix = instance.suffix or "",
+					power = ForgeConfig.powerCopy(instance),
+					equipped = uid == state.equippedUid,
+					favorite = state.favorites[uid] == true,
+					mastery = state.mastery[instance.id] or 0,
+					sockets = sockets,
+				})
+			end
+			table.sort(blades, function(a, b)
+				return a.power > b.power
+			end)
+
+			local runes = {}
+			for runeId, count in state.runes do
+				if count > 0 then
+					table.insert(runes, { id = runeId, count = count })
+				end
+			end
+			table.sort(runes, function(a, b)
+				return a.id < b.id
+			end)
+
+			local codexCount = 0
+			for _ in state.codex do
+				codexCount += 1
+			end
+
+			local sigilCount = 0
+			for _, owned in state.sigils do
+				if owned then
+					sigilCount += 1
+				end
+			end
+
+			return {
+				userId = target.UserId,
+				name = target.DisplayName,
+				handle = target.Name,
+				sm = state.starMatter,
+				lifetimeSm = state.lifetimeStarMatter,
+				aether = state.aether,
+				cores = state.quantumCores,
+				shards = state.voidShards,
+				scrap = state.scrap,
+				drones = fleetTotal(state),
+				ascensions = state.ascensions,
+				playtime = state.totalPlaytime,
+				copies = (#blades),
+				invMax = Config.InventoryMax,
+				blades = blades,
+				runes = runes,
+				tech = state.tech,
+				codexCount = codexCount,
+				sigils = state.sigils,
+				sigilCount = sigilCount,
+				dailyStreak = state.dailyStreak,
+				expedition = if state.expedition.id ~= "" then state.expedition.id else "",
+			}
+		end)
+
 		Net.onRequest("players", function(player: Player)
 			return TradeService.playersFor(player)
 		end)
@@ -826,6 +925,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	Funnel.forget(player)
 	Net.forget(player)
 	rosterAt[player] = nil
+	detailAt[player] = nil
 	cheerAt[player] = nil
 end)
 

@@ -1,5 +1,5 @@
 --!strict
--- Player-to-player trading: blades and Void Shards, both sides confirmed.
+-- Player-to-player trading: blades and Aether, both sides confirmed.
 --
 -- The security model is the whole feature, because a trade UI that trusts either
 -- client is a dupe. Rules:
@@ -12,12 +12,14 @@
 --   * offered uids are locked out of melting and rerolling for the duration
 --     (`ProgressionService.setTradeLocks`), so the classic "offer then melt"
 --     scam has nothing to land on;
+--   * every copy is offerable, including the equipped one and favorites, but a
+--     trade cannot empty a vault: at least one blade has to remain;
 --   * any change to either offer clears both accept flags;
 --   * commit is atomic within one server tick: remove both sides, mint both
---     sides, transfer the shard delta, bump both inventory revisions.
+--     sides, transfer the Aether delta, bump both inventory revisions.
 --
--- Bounded on purpose: eight copies per side, one shard amount, twenty seconds to
--- answer a request, four minutes before an idle session expires. A trade is a
+-- Bounded on purpose: eight copies per side, one Aether amount, twenty seconds
+-- to answer a request, four minutes before an idle session expires. A trade is a
 -- conversation, not a bank.
 
 local Players = game:GetService("Players")
@@ -40,7 +42,7 @@ local INVITE_SECONDS = 20
 
 type Offer = {
 	blades: { string },
-	shards: number,
+	aether: number,
 	accepted: boolean,
 }
 
@@ -74,7 +76,7 @@ local function pairKey(a: Player, b: Player): string
 end
 
 local function emptyOffer(): Offer
-	return { blades = {}, shards = 0, accepted = false }
+	return { blades = {}, aether = 0, accepted = false }
 end
 
 local function sessionOf(player: Player): Session?
@@ -160,8 +162,10 @@ local function beginSession(a: Player, b: Player)
 	Net.sendEvent(b, { kind = "tradeStarted", name = a.Name })
 end
 
---- Blades a player may legally offer. Favorited copies and the equipped copy are
---- excluded here rather than at commit, so the picker and the server agree.
+--- Every copy a player owns, equipped and favorites included. The picker must
+--- show the whole vault; the equipped or favorited state is a warning chip, not
+--- a reason to hide a copy. `commit` re-equips the best remaining blade when the
+--- equipped one leaves.
 function TradeService.tradeable(player: Player): { Types.InvEntry }
 	local state = DataManager.get(player)
 	if state == nil then
@@ -169,9 +173,6 @@ function TradeService.tradeable(player: Player): { Types.InvEntry }
 	end
 	local entries: { Types.InvEntry } = {}
 	for uid, instance in state.blades do
-		if uid == state.equippedUid or state.favorites[uid] then
-			continue
-		end
 		entries[#entries + 1] = {
 			uid = uid,
 			id = instance.id,
@@ -308,7 +309,7 @@ function TradeService.respond(player: Player, fromUserId: unknown, accept: unkno
 	return true, nil
 end
 
-function TradeService.setOffer(player: Player, uids: unknown, shards: unknown): (boolean, string?)
+function TradeService.setOffer(player: Player, uids: unknown, aether: unknown): (boolean, string?)
 	local session = sessionOf(player)
 	if session == nil then
 		return false, "No trade open"
@@ -335,26 +336,19 @@ function TradeService.setOffer(player: Player, uids: unknown, shards: unknown): 
 	end
 
 	for _, uid in requested do
-		local instance = state.blades[uid]
-		if instance == nil then
+		if state.blades[uid] == nil then
 			return false, "You no longer own that blade"
-		end
-		if uid == state.equippedUid then
-			return false, "Unequip the copy you are offering"
-		end
-		if state.favorites[uid] then
-			return false, "A favorited copy cannot be traded"
 		end
 	end
 
-	local requestedShards = 0
-	if type(shards) == "number" and shards == shards and shards > 0 then
-		requestedShards = math.min(math.floor(shards), math.floor(state.voidShards))
+	local requestedAether = 0
+	if type(aether) == "number" and aether == aether and aether > 0 then
+		requestedAether = math.min(math.floor(aether), math.floor(state.aether))
 	end
 
 	local offer = offerOf(session, player)
 	offer.blades = requested
-	offer.shards = requestedShards
+	offer.aether = requestedAether
 	offer.accepted = false
 	session.offerA.accepted = false
 	session.offerB.accepted = false
@@ -406,20 +400,20 @@ local function commit(session: Session): (boolean, string?)
 
 	local offerA = session.offerA
 	local offerB = session.offerB
-	local shardsA = math.min(offerA.shards, math.floor(stateA.voidShards))
-	local shardsB = math.min(offerB.shards, math.floor(stateB.voidShards))
+	local aetherA = math.min(offerA.aether, math.floor(stateA.aether))
+	local aetherB = math.min(offerB.aether, math.floor(stateB.aether))
 
 	for _, uid in offerA.blades do
-		if stateA.blades[uid] == nil or uid == stateA.equippedUid or stateA.favorites[uid] then
+		if stateA.blades[uid] == nil then
 			return false, "Your offer is no longer valid"
 		end
 	end
 	for _, uid in offerB.blades do
-		if stateB.blades[uid] == nil or uid == stateB.equippedUid or stateB.favorites[uid] then
+		if stateB.blades[uid] == nil then
 			return false, "Their offer is no longer valid"
 		end
 	end
-	if #offerA.blades == 0 and #offerB.blades == 0 and shardsA == 0 and shardsB == 0 then
+	if #offerA.blades == 0 and #offerB.blades == 0 and aetherA == 0 and aetherB == 0 then
 		return false, "Both sides are empty"
 	end
 
@@ -437,9 +431,26 @@ local function commit(session: Session): (boolean, string?)
 	if afterA > Config.InventoryMax or afterB > Config.InventoryMax then
 		return false, "Vault space: melt a blade first"
 	end
+	if afterA < 1 or afterB < 1 then
+		return false, "Keep at least one blade"
+	end
 
 	local movingA = table.clone(offerA.blades)
 	local movingB = table.clone(offerB.blades)
+	local equippedA = stateA.equippedUid
+	local equippedB = stateB.equippedUid
+	local lostEquippedA = false
+	local lostEquippedB = false
+	for _, uid in movingA do
+		if uid == equippedA then
+			lostEquippedA = true
+		end
+	end
+	for _, uid in movingB do
+		if uid == equippedB then
+			lostEquippedB = true
+		end
+	end
 
 	-- Copy first, from the source maps, then remove. Doing it the other way loses
 	-- the record before it has been read.
@@ -455,23 +466,33 @@ local function commit(session: Session): (boolean, string?)
 		stateB.favorites[uid] = nil
 	end
 
-	stateA.voidShards = math.max(0, stateA.voidShards - shardsA + shardsB)
-	stateB.voidShards = math.max(0, stateB.voidShards - shardsB + shardsA)
+	stateA.aether = math.max(0, stateA.aether - aetherA + aetherB)
+	stateB.aether = math.max(0, stateB.aether - aetherB + aetherA)
 
 	stateA.invVersion += 1
 	stateB.invVersion += 1
+
+	-- The equipped copy can be part of the offer now. Put the best remaining
+	-- blade in the hand rather than leaving a uid that no longer exists.
+	if lostEquippedA then
+		ProgressionService.equipBest(a)
+	end
+	if lostEquippedB then
+		ProgressionService.equipBest(b)
+	end
+
 	DataManager.markDirty(a)
 	DataManager.markDirty(b)
 
 	Net.sendEvent(a, {
 		kind = "trade",
-		amount = shardsB,
-		text = string.format("Trade complete: %d blades in, %d out, %+d Shards", #movingB, #movingA, shardsB - shardsA),
+		amount = aetherB,
+		text = string.format("Trade complete: %d blades in, %d out, %+d Aether", #movingB, #movingA, aetherB - aetherA),
 	})
 	Net.sendEvent(b, {
 		kind = "trade",
-		amount = shardsA,
-		text = string.format("Trade complete: %d blades in, %d out, %+d Shards", #movingA, #movingB, shardsA - shardsB),
+		amount = aetherA,
+		text = string.format("Trade complete: %d blades in, %d out, %+d Aether", #movingA, #movingB, aetherA - aetherB),
 	})
 	return true, nil
 end
@@ -549,11 +570,11 @@ function TradeService.stateFor(player: Player): { [string]: any }?
 		targetId = target.UserId,
 		myBlades = summarize(mine.blades, state),
 		theirBlades = summarize(theirs.blades, theirsState),
-		myShards = mine.shards,
-		theirShards = theirs.shards,
+		myAether = mine.aether,
+		theirAether = theirs.aether,
 		myAccepted = mine.accepted,
 		theirAccepted = theirs.accepted,
-		shardsOwned = math.floor(state.voidShards),
+		aetherOwned = math.floor(state.aether),
 		expiresIn = math.max(0, math.floor(SESSION_SECONDS - (os.clock() - session.startedAt))),
 	}
 end

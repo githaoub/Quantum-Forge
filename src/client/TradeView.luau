@@ -1,8 +1,8 @@
 --!strict
 -- The trade desk: a live offer board, a copy picker, and both sides confirmed.
 --
--- This panel is a mirror, never an authority. Everything it shows — who is
--- online, what is on the table, whether the other side has accepted — comes
+-- This panel is a mirror, never an authority. Everything it shows (who is
+-- online, what is on the table, whether the other side has accepted) comes
 -- back from the server, and every button sends an intent that the server
 -- re-validates against both profiles. The one local draft is the offer being
 -- assembled, because a selection has to survive a repaint at 1Hz.
@@ -12,8 +12,8 @@
 --     stands, so the "offer then melt" scam has nothing to land on;
 --   * any change to either offer clears both accept flags, which is why ACCEPT
 --     re-disables the moment the other side touches their side;
---   * the equipped copy and favorites are not offerable, so the picker filters
---     them out and never has to explain a refusal;
+--   * every copy is offerable, equipped and favorites included. The card marks
+--     those copies so nobody gives away the blade in their hand by accident;
 --   * a request is an invite, not a session. `ASK` only puts a popup on the
 --     other player's screen.
 --
@@ -34,6 +34,7 @@ local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 local Types = require(Shared:WaitForChild("Types"))
+local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
@@ -48,7 +49,6 @@ local TradeView = {}
 local POLL_SECONDS = 0.35
 local PARTNER_SECONDS = 5
 local MAX_BLADES = 8
-local SHARD_STEP = 100
 
 -- Design-space geometry. The panel is 1120 wide with a 236px rail, and every
 -- number below is measured off that: the two offer columns have to be equal, and
@@ -80,7 +80,7 @@ local footer: Frame? = nil
 
 local offerUids: { [string]: boolean } = {}
 local offerOrder: { string } = {}
-local offerShards = 0
+local offerAether = 0
 local pollClock = 0
 local partnerClock = 0
 local lastSignature = ""
@@ -105,9 +105,9 @@ type Desk = {
 	theirGrid: ScrollingFrame,
 	picker: ScrollingFrame,
 	countLabel: TextLabel,
-	myShards: TextLabel,
-	theirShards: TextLabel,
-	myStepper: Frame,
+	myAether: TextLabel,
+	theirAether: TextLabel,
+	aetherBox: TextBox,
 	timer: TextLabel,
 	cards: { [string]: Frame },
 }
@@ -133,8 +133,8 @@ local function signatureOf(state: any): string
 	end
 	local parts = {
 		tostring(state.target),
-		tostring(state.myShards),
-		tostring(state.theirShards),
+		tostring(state.myAether),
+		tostring(state.theirAether),
 		tostring(state.myAccepted),
 		tostring(state.theirAccepted),
 	}
@@ -151,7 +151,7 @@ local function theirSignatureOf(state: any): string
 	if state == nil then
 		return "none"
 	end
-	local parts = { tostring(state.theirShards), tostring(state.theirAccepted) }
+	local parts = { tostring(state.theirAether), tostring(state.theirAccepted) }
 	for _, row in state.theirBlades or {} do
 		parts[#parts + 1] = "t" .. tostring(row.uid)
 	end
@@ -174,17 +174,13 @@ local function inventorySignature(): string
 	return table.concat(parts, "|")
 end
 
---- Copies the picker may show. The equipped copy and favorites are excluded by
---- the server too; filtering here means the grid never offers a copy the server
---- would refuse.
+--- Every copy the player owns. The equipped copy and favorites are marked on
+--- the card, not hidden: hiding them made a one-blade account unable to trade at
+--- all, which is exactly the account that wants to trade first.
 local function tradeableCopies(): { Types.InvEntry }
-	local equipped = StateStore.current and StateStore.current.equippedUid or ""
-	local favorites = StateStore.current and StateStore.current.favorites or {}
 	local out: { Types.InvEntry } = {}
 	for _, entry in StateStore.inventory do
-		if entry.uid ~= equipped and not favorites[entry.uid] then
-			table.insert(out, entry)
-		end
+		table.insert(out, entry)
 	end
 	table.sort(out, function(a: Types.InvEntry, b: Types.InvEntry): boolean
 		return ForgeConfig.powerCopy(a) > ForgeConfig.powerCopy(b)
@@ -234,14 +230,14 @@ local function syncedFrom(state: any)
 			table.insert(offerOrder, uid)
 		end
 	end
-	offerShards = tonumber(state.myShards) or 0
+	offerAether = tonumber(state.myAether) or 0
 end
 
---- Sends the assembled draft. Called on every toggle and every shard change:
+--- Sends the assembled draft. Called on every toggle and every amount change:
 --- the server is the one that decides whether an offer is legal, so the client
 --- never holds a state the server has not seen.
 local function pushOffer()
-	StateStore.send("tradeOffer", { uids = table.clone(offerOrder), shards = offerShards })
+	StateStore.send("tradeOffer", { uids = table.clone(offerOrder), aether = offerAether })
 end
 
 -- ---------------------------------------------------------------------------
@@ -440,6 +436,23 @@ local function pickerCard(parent: Instance, entry: Types.InvEntry, order: number
 
 	tickBox(card, chosen, PICK_CARD_W)
 
+	local equipped = StateStore.current ~= nil and StateStore.current.equippedUid == uid
+	local favorites = if StateStore.current then StateStore.current.favorites else {}
+	local favorite = favorites[uid] == true
+	if equipped or favorite then
+		local tag = UiKit.badge(card, {
+			text = if equipped then "WORN" else "★",
+			color = if equipped then Theme.Color.gold else Theme.Color.magenta,
+			width = if equipped then 44 else 18,
+			height = 14,
+			size = Theme.Text.Tiny,
+			textColor = Theme.Color.ink,
+		})
+		tag.Name = if equipped then "WornTag" else "FavTag"
+		tag.Position = UDim2.fromOffset(4, 8)
+		tag.ZIndex = 6
+	end
+
 	local name = UiKit.label(card, {
 		text = select(1, copyLabel(entry)),
 		size = Theme.Text.Tiny,
@@ -619,103 +632,124 @@ local function buildDesk(state: any)
 	local myGrid = gridIn(mineFrame, "MyOfferGrid")
 	local theirGrid = gridIn(theirsFrame, "TheirOfferGrid")
 
-	-- Shard row. The stepper is bounded by what the player owns locally; the
-	-- server clamps again on the way in and again at commit.
-	local shardRow = UiKit.create("Frame", {
-		Name = "ShardRow",
+	-- Aether row. A text box, not a stepper: 12 345 is three presses of +100 and
+	-- a squint, and the amount a player wants to give is rarely round. The server
+	-- clamps to the balance on the way in and again at commit.
+	local aetherRow = UiKit.create("Frame", {
+		Name = "AetherRow",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Position = UDim2.fromOffset(0, 284),
 		Size = UDim2.fromOffset(COL_W, 36),
 	}) :: Frame
-	shardRow.Parent = area
+	aetherRow.Parent = area
 
-	local myShards = UiKit.label(shardRow, {
-		text = "SHARDS  0",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.quantum,
-		align = Enum.TextXAlignment.Left,
-	})
-	myShards.Name = "MyShards"
-	myShards.Position = UDim2.fromOffset(10, 0)
-	myShards.Size = UDim2.fromOffset(COL_W - 190, 36)
-
-	local stepper = UiKit.create("Frame", {
-		Name = "ShardStepper",
+	local iconImage = AssetManifest.currencyArt("sm")
+	local icon = UiKit.create("ImageLabel", {
+		Name = "AetherIcon",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 2),
-		Size = UDim2.fromOffset(160, 32),
-	}) :: Frame
-	stepper.Parent = shardRow
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.fromOffset(20, 20),
+		Image = iconImage,
+		ScaleType = Enum.ScaleType.Fit,
+	}) :: ImageLabel
+	icon.Parent = aetherRow
 
-	local function stepShards(delta: number)
+	local box = UiKit.create("TextBox", {
+		Name = "AetherBox",
+		BackgroundColor3 = Theme.Color.panelSunken,
+		BorderSizePixel = 0,
+		Text = tostring(offerAether),
+		PlaceholderText = "0",
+		TextColor3 = Theme.Color.starMatter,
+		TextSize = Theme.Text.Body,
+		Font = Theme.Font.Numeric,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		Position = UDim2.fromOffset(34, 2),
+		Size = UDim2.fromOffset(148, 32),
+	}) :: TextBox
+	UiKit.corner(box, Theme.Radius.sm)
+	UiKit.stroke(box, Theme.Color.stroke, Theme.Stroke.thin, 0)
+	box.Parent = aetherRow
+
+	local myAether = UiKit.label(aetherRow, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Left,
+	})
+	myAether.Name = "MyAether"
+	myAether.Position = UDim2.fromOffset(254, 9)
+	myAether.Size = UDim2.fromOffset(112, 18)
+
+	local function setAether(amount: number, push: boolean)
 		local stateNow = lastState
-		local owned = if stateNow then tonumber(stateNow.shardsOwned) or 0 else 0
-		local next = math.clamp(offerShards + delta, 0, math.floor(owned))
-		if next == offerShards then
-			return
-		end
-		offerShards = next
-		pushOffer()
-		Sfx.tab()
+		local owned = if stateNow then tonumber(stateNow.aetherOwned) or 0 else 0
+		local nextAmount = math.clamp(math.floor(amount), 0, math.floor(owned))
+		offerAether = nextAmount
 		if desk then
-			desk.myShards.Text = string.format("SHARDS  %d", offerShards)
+			desk.aetherBox.Text = tostring(nextAmount)
 		end
-		if lastState then
-			paintFooter(lastState)
+		if push then
+			pushOffer()
+			Sfx.tab()
+			if lastState then
+				paintFooter(lastState)
+			end
 		end
 	end
 
-	local minus = UiKit.button(stepper, {
-		text = "-" .. SHARD_STEP,
-		fill = Theme.Color.slate,
-		stroke = Theme.Color.stroke,
-		height = 30,
+	local maxKey = UiKit.button(aetherRow, {
+		text = "MAX",
+		fill = Theme.Color.starMatterDeep,
+		stroke = Theme.Color.starMatter,
+		height = 32,
 		radius = Theme.Radius.sm,
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		textColor = Theme.Color.text,
 		handler = function()
-			stepShards(-SHARD_STEP)
+			local stateNow = lastState
+			setAether(if stateNow then tonumber(stateNow.aetherOwned) or 0 else 0, true)
 		end,
 	})
-	minus.Name = "ShardsMinus"
-	minus.Position = UDim2.fromOffset(0, 1)
-	minus.Size = UDim2.fromOffset(74, 30)
+	maxKey.Name = "AetherMax"
+	maxKey.Position = UDim2.fromOffset(190, 2)
+	maxKey.Size = UDim2.fromOffset(56, 32)
 
-	local plus = UiKit.button(stepper, {
-		text = "+" .. SHARD_STEP,
-		fill = Theme.Color.quantumDeep,
-		stroke = Theme.Color.quantum,
-		height = 30,
-		radius = Theme.Radius.sm,
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		textColor = Theme.Color.text,
-		handler = function()
-			stepShards(SHARD_STEP)
-		end,
-	})
-	plus.Name = "ShardsPlus"
-	plus.Position = UDim2.fromOffset(82, 1)
-	plus.Size = UDim2.fromOffset(74, 30)
+	box.FocusLost:Connect(function()
+		local digits = string.gsub(box.Text, "[^%d]", "")
+		setAether(tonumber(digits) or 0, true)
+		box.Text = tostring(offerAether)
+	end)
 
-	local theirShards = UiKit.label(area, {
-		text = "THEY OFFER  0 SHARDS",
-		size = Theme.Text.Tiny,
+	local theirAether = UiKit.label(area, {
+		text = "0",
+		size = Theme.Text.Body,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.cyan,
 		align = Enum.TextXAlignment.Left,
 	})
-	theirShards.Name = "TheirShards"
-	theirShards.Position = UDim2.fromOffset(COL_W + COL_GAP + 12, 284)
-	theirShards.Size = UDim2.fromOffset(COL_W - 24, 36)
+	theirAether.Name = "TheirAether"
+	theirAether.Position = UDim2.fromOffset(COL_W + COL_GAP + 40, 288)
+	theirAether.Size = UDim2.fromOffset(COL_W - 52, 28)
+
+	local theirIcon = UiKit.create("ImageLabel", {
+		Name = "TheirAetherIcon",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(COL_W + COL_GAP + 12, 292),
+		Size = UDim2.fromOffset(20, 20),
+		Image = iconImage,
+		ScaleType = Enum.ScaleType.Fit,
+	}) :: ImageLabel
+	theirIcon.Parent = area
 
 	local countLabel = UiKit.label(area, {
-		text = "YOUR COPIES",
+		text = "YOUR BLADES",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textDim,
@@ -724,18 +758,6 @@ local function buildDesk(state: any)
 	countLabel.Name = "PickerHeading"
 	countLabel.Position = UDim2.fromOffset(0, 324)
 	countLabel.Size = UDim2.fromOffset(360, 18)
-
-	local hint = UiKit.label(area, {
-		text = "CLICK A CARD TO PUT IT ON THE TABLE",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Label,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Right,
-	})
-	hint.Name = "PickerHint"
-	hint.AnchorPoint = Vector2.new(1, 0)
-	hint.Position = UDim2.new(1, 0, 0, 324)
-	hint.Size = UDim2.fromOffset(420, 18)
 
 	local picker = UiKit.scroll(area, { thickness = 4 })
 	picker.Name = "Picker"
@@ -755,9 +777,9 @@ local function buildDesk(state: any)
 		theirGrid = theirGrid,
 		picker = picker,
 		countLabel = countLabel,
-		myShards = myShards,
-		theirShards = theirShards,
-		myStepper = stepper,
+		myAether = myAether,
+		theirAether = theirAether,
+		aetherBox = box,
 		timer = timer,
 		cards = {},
 	}
@@ -816,6 +838,42 @@ paintTheirOffer = function(rows: { any })
 	end
 end
 
+--- A card-shaped placeholder, used while the inventory has not answered yet.
+--- Grey bars in the same slots the real card uses, so the grid does not jump
+--- when the copies arrive.
+local function skeletonCard(parent: Instance, order: number)
+	local card = UiKit.panel(parent, {
+		tier = "well",
+		radius = Theme.Radius.sm,
+		stroke = Theme.Color.strokeFaint,
+		bevel = false,
+		lip = false,
+	})
+	card.Name = string.format("Skeleton_%d", order)
+	card.Size = UDim2.fromOffset(PICK_CARD_W, PICK_CARD_H)
+	card.LayoutOrder = order
+
+	local block = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.panelRaised,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset((PICK_CARD_W - 40) / 2, 6),
+		Size = UDim2.fromOffset(40, 40),
+	}) :: Frame
+	UiKit.corner(block, 6)
+	block.Parent = card
+
+	for index, spec in { { 48, 92 }, { 64, 64 }, { 80, 74 } } do
+		local bar = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.panelRaised,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset((PICK_CARD_W - spec[2]) / 2, spec[1]),
+			Size = UDim2.fromOffset(spec[2], if index == 2 then 12 else 9),
+		}) :: Frame
+		UiKit.corner(bar, 4)
+		bar.Parent = card
+	end
+end
+
 buildPicker = function()
 	local d = desk
 	if d == nil then
@@ -827,16 +885,9 @@ buildPicker = function()
 
 	local copies = tradeableCopies()
 	if #copies == 0 then
-		local empty = UiKit.label(d.picker, {
-			text = "Every copy you own is equipped or favorited. Melt or forge something new.",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Label,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Center,
-			wrap = true,
-		})
-		empty.Size = UDim2.new(1, -20, 0, 54)
-		empty.LayoutOrder = 1
+		for index = 1, 6 do
+			skeletonCard(d.picker, index)
+		end
 		return
 	end
 	for index, entry in copies do
@@ -877,7 +928,7 @@ paintSelection = function()
 		end
 	end
 
-	d.countLabel.Text = string.format("YOUR COPIES  (%d SELECTED)", count)
+	d.countLabel.Text = string.format("YOUR BLADES  ·  %d SELECTED", count)
 end
 
 paintFooter = function(state: any)
@@ -891,9 +942,9 @@ paintFooter = function(state: any)
 	local theirAccepted = state.theirAccepted == true
 	local theirRows = state.theirBlades or {}
 	local empty = offerCount() == 0
-		and offerShards == 0
+		and offerAether == 0
 		and #theirRows == 0
-		and (tonumber(state.theirShards) or 0) == 0
+		and (tonumber(state.theirAether) or 0) == 0
 
 	local accept = UiKit.button(bar, {
 		text = if myAccepted
@@ -937,7 +988,7 @@ paintFooter = function(state: any)
 			StateStore.send("tradeDecline")
 			offerUids = {}
 			table.clear(offerOrder)
-			offerShards = 0
+			offerAether = 0
 			Sfx.close()
 			lastState = nil
 			TradeView.refresh()
@@ -950,8 +1001,8 @@ paintFooter = function(state: any)
 
 	if statusLine then
 		statusLine.Text = if myAccepted
-			then string.format("Locked in. Waiting on %s.", tostring(state.target))
-			else if theirAccepted then string.format("%s has accepted. Your move.", tostring(state.target)) else "Both sides must accept. Any change resets both."
+			then string.format("WAITING ON %s", string.upper(tostring(state.target)))
+			else if theirAccepted then string.format("%s ACCEPTED", string.upper(tostring(state.target))) else ""
 		statusLine.TextColor3 = if theirAccepted then Theme.Color.emerald else Theme.Color.textDim
 	end
 end
@@ -974,81 +1025,8 @@ local function paintIdle()
 		color = Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Center,
 	})
-	title.Position = UDim2.fromOffset(0, 72)
+	title.Position = UDim2.fromOffset(0, 210)
 	title.Size = UDim2.new(1, 0, 0, 34)
-
-	local hint = UiKit.label(area, {
-		text = "Pick a forger on the left and press ASK. They have twenty seconds to accept.",
-		size = Theme.Text.Small,
-		font = Theme.Font.Body,
-		color = Theme.Color.textDim,
-		align = Enum.TextXAlignment.Center,
-		wrap = true,
-	})
-	hint.Position = UDim2.fromOffset(40, 112)
-	hint.Size = UDim2.new(1, -80, 0, 44)
-
-	-- Three steps, drawn rather than listed. A player who has never traded needs
-	-- the shape of the exchange before they need a paragraph about it.
-	local steps = {
-		{ "1", "ASK A FORGER", "A request lands on their screen. Nothing is on the table yet." },
-		{ "2", "BUILD YOUR OFFER", "Tick copies below. Their screen updates as you do." },
-		{ "3", "BOTH ACCEPT", "Any change clears both keys. Then the swap is atomic." },
-	}
-	for index, step in steps do
-		local card = UiKit.panel(area, {
-			tier = "well",
-			radius = Theme.Radius.sm,
-			stroke = Theme.Color.strokeFaint,
-			bevel = false,
-			lip = false,
-		})
-		card.Name = string.format("TradeStep_%d", index)
-		card.Position = UDim2.fromOffset((index - 1) * 268, 190)
-		card.Size = UDim2.fromOffset(256, 116)
-
-		local dot = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.emeraldDeep,
-			BorderSizePixel = 0,
-			Position = UDim2.fromOffset(12, 12),
-			Size = UDim2.fromOffset(28, 28),
-			ZIndex = 3,
-		}) :: Frame
-		UiKit.corner(dot, 14)
-		UiKit.stroke(dot, Theme.Color.emerald, 2, 0)
-		dot.Parent = card
-		local number = UiKit.label(dot, {
-			text = step[1],
-			size = Theme.Text.Small,
-			font = Theme.Font.Black,
-			color = Theme.Color.text,
-			align = Enum.TextXAlignment.Center,
-			stroke = true,
-		})
-		number.Size = UDim2.fromScale(1, 1)
-		number.ZIndex = 4
-
-		local head = UiKit.label(card, {
-			text = step[2],
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.emerald,
-			align = Enum.TextXAlignment.Left,
-		})
-		head.Position = UDim2.fromOffset(48, 14)
-		head.Size = UDim2.fromOffset(196, 20)
-
-		local body = UiKit.label(card, {
-			text = step[3],
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Body,
-			color = Theme.Color.textSecondary,
-			align = Enum.TextXAlignment.Left,
-			wrap = true,
-		})
-		body.Position = UDim2.fromOffset(12, 46)
-		body.Size = UDim2.fromOffset(232, 58)
-	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -1193,9 +1171,12 @@ function TradeView.paintState(state: any)
 
 	local d = desk
 	if d ~= nil then
-		d.myShards.Text = string.format("SHARDS  %d", offerShards)
-		d.theirShards.Text = string.format("THEY OFFER  %d SHARDS", tonumber(state.theirShards) or 0)
+		d.myAether.Text = string.format("OF %s", NumberUtil.compact(tonumber(state.aetherOwned) or 0))
+		d.theirAether.Text = NumberUtil.compact(tonumber(state.theirAether) or 0)
 		d.timer.Text = string.format("EXPIRES IN %ds", math.max(0, tonumber(state.expiresIn) or 0))
+		if not d.aetherBox:IsFocused() then
+			d.aetherBox.Text = tostring(offerAether)
+		end
 	end
 
 	-- Their side repaints only when their side actually moved. Mine changes on
@@ -1232,7 +1213,7 @@ function TradeView.open()
 	end
 	offerUids = {}
 	table.clear(offerOrder)
-	offerShards = 0
+	offerAether = 0
 	acceptArmed = false
 	lastState = nil
 	lastSignature = ""
@@ -1312,11 +1293,11 @@ function TradeView.preview()
 		targetId = 1,
 		myBlades = rows,
 		theirBlades = rows,
-		myShards = 400,
-		theirShards = 250,
+		myAether = 400,
+		theirAether = 250,
 		myAccepted = false,
 		theirAccepted = true,
-		shardsOwned = 2400,
+		aetherOwned = 2400,
 		expiresIn = 187,
 	}
 	lastState = state
@@ -1332,7 +1313,7 @@ function TradeView.init(canvas: Frame)
 	local handle = ModalShell.build(canvas, {
 		name = "TradeOverlay",
 		title = "TRADE DESK",
-		subtitle = "BLADES AND SHARDS, BOTH SIDES CONFIRMED",
+		icon = "trade",
 		accent = Theme.Color.emerald,
 		width = 1120,
 		height = 700,
@@ -1418,7 +1399,7 @@ function TradeView.destroy()
 	lastState = nil
 	offerUids = {}
 	table.clear(offerOrder)
-	offerShards = 0
+	offerAether = 0
 end
 
 return TradeView

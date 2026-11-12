@@ -17,6 +17,7 @@ local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
 local Types = require(Shared:WaitForChild("Types"))
+local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 
 local Theme = require(script.Parent.Theme)
 local Layout = require(script.Parent.Layout)
@@ -62,6 +63,7 @@ local heatBandLabel: TextLabel? = nil
 local heatHold = false
 
 local strikeButton: TextButton? = nil
+local strikePlate: Frame? = nil
 local strikeFlash: Frame? = nil
 local strikeHint: TextLabel? = nil
 
@@ -98,6 +100,7 @@ local comboChip: TextLabel? = nil
 local comboText: string? = nil
 -- Streak rail: ten pips and one line, inside the anvil plate's bottom band.
 local streakLabel: TextLabel? = nil
+local streakRail: Frame? = nil
 local streakPips: { Frame } = {}
 local streakLit = -1
 local streakText: string? = nil
@@ -210,6 +213,8 @@ local function buildHeader(parent: Frame)
 		height = 64,
 		size = Theme.Text.Title - 4,
 		accent = Theme.Color.gold,
+		iconKind = "forge",
+		plaqueSize = 40,
 	})
 	banner.Name = "BladeBanner"
 
@@ -629,7 +634,32 @@ local function buildHud(parent: Frame)
 	--
 	-- The stage itself is the button (see the StrikeButton below). What is left
 	-- here is the caption: the verb, and what the next press pays.
-	strikeHint = UiKit.label(parent, {
+	strikePlate = UiKit.create("Frame", {
+		Name = "StrikePlate",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 18, 1, -46),
+		Size = UDim2.fromOffset(300, 24),
+		ZIndex = 7,
+	}) :: Frame
+	strikePlate.Parent = parent
+
+	-- The payout used to read "+25 SM". SM is an abbreviation the HUD never
+	-- teaches; the crystal is the same mark the top-bar pill uses, so the line
+	-- names the currency without a legend.
+	local strikeCurrency = UiKit.create("ImageLabel", {
+		Name = "StrikeCurrency",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(0, 4),
+		Size = UDim2.fromOffset(16, 16),
+		Image = AssetManifest.currencyArt("sm"),
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 7,
+	}) :: ImageLabel
+	strikeCurrency.Parent = strikePlate
+
+	strikeHint = UiKit.label(strikePlate, {
 		text = "",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
@@ -637,8 +667,8 @@ local function buildHud(parent: Frame)
 		align = Enum.TextXAlignment.Left,
 	})
 	strikeHint.Name = "StrikeHint"
-	strikeHint.Position = UDim2.new(0, 18, 1, -42)
-	strikeHint.Size = UDim2.fromOffset(300, 18)
+	strikeHint.Position = UDim2.fromOffset(20, 0)
+	strikeHint.Size = UDim2.fromOffset(280, 24)
 	strikeHint.ZIndex = 7
 
 	-- Top-right readout stack: cadence, then the streak. Both are live numbers
@@ -666,6 +696,7 @@ local function buildHud(parent: Frame)
 		ZIndex = 7,
 	}) :: Frame
 	rail.Parent = parent
+	streakRail = rail
 
 	streakLabel = UiKit.label(rail, {
 		text = string.format("STREAK 0/%d", Config.StreakForOverdrive),
@@ -1200,7 +1231,7 @@ function ForgeView.render(payload: Types.SyncPayload)
 		-- The caption is the live payout: what the next press pays, in
 		-- Star-Matter, not a rate. `/s` belongs on the auto-click readout, which
 		-- already has its own line in the top right of the stage.
-		strikeHint.Text = string.format("STRIKE   +%s SM", NumberUtil.abbreviate(payload.clickYield))
+		strikeHint.Text = string.format("STRIKE   +%s", NumberUtil.abbreviate(payload.clickYield))
 		strikeHint.TextColor3 = if payload.inSweetSpot then Theme.Color.heatSweet else Theme.Color.textFaint
 	end
 	-- Thermal vent key, on the right end of the heat rail. Two states, never
@@ -1790,19 +1821,87 @@ function ForgeView.init(canvas: Frame, x: number, y: number, width: number, heig
 		Size = UDim2.fromScale(1, 1),
 	}) :: Frame
 	inner.Parent = panel
-	UiKit.padding(inner, 18)
-	-- Children are positioned in the inner frame's *own* space, so shrink it to
-	-- the padded area and let absolute offsets inside stay simple.
-	inner.Size = UDim2.new(1, -36, 1, -36)
-	inner.Position = UDim2.fromOffset(18, 18)
+	-- 16, not 18: the forge's banner has to sit on the same rect as the section
+	-- banner every other screen uses, or switching tabs moves the header 2px and
+	-- narrows it 4px. Details that small still read as a different screen.
+	inner.Size = UDim2.new(1, -32, 1, -32)
+	inner.Position = UDim2.fromOffset(16, 16)
 
 	buildHeader(inner)
 	-- No roll column on this screen. Rolling lives on the CRATES page, where the
 	-- pools, odds and both keys already are; a second copy here put two gacha
 	-- verbs two inches apart and made the anvil look like a form footer.
+	--
+	-- The stage owns the left two thirds and a console card holds the heat
+	-- instrument and the purge key. When the render was full width, three live
+	-- readouts sat on the corners of a 2.5:1 letterbox and read as debris around
+	-- an empty black field. A 16:10 window with one control column is the shape
+	-- the rest of the game already uses.
+	local CONSOLE_W = 400
+	local CONSOLE_GAP = 10
 	local stageFrame = buildViewport(inner)
+	stageFrame.Size = UDim2.new(1, -(CONSOLE_W + CONSOLE_GAP), 1, -72)
 	buildHeat(stageFrame)
 	buildHud(stageFrame)
+
+	local console = UiKit.panel(inner, {
+		tier = "raised",
+		radius = Theme.Radius.md,
+	})
+	console.Name = "Console"
+	console.Position = UDim2.new(1, -CONSOLE_W, 0, 72)
+	console.Size = UDim2.new(0, CONSOLE_W, 1, -72)
+
+	local ruleTop = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.strokeFaint,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(12, 104),
+		Size = UDim2.new(1, -24, 0, 1),
+		ZIndex = 6,
+	}) :: Frame
+	ruleTop.Parent = console
+	local ruleBottom = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.strokeFaint,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 12, 1, -118),
+		Size = UDim2.new(1, -24, 0, 1),
+		ZIndex = 6,
+	}) :: Frame
+	ruleBottom.Parent = console
+
+	if heatBlock then
+		heatBlock.Parent = console
+		heatBlock.AnchorPoint = Vector2.zero
+		heatBlock.Position = UDim2.fromOffset(10, 16)
+	end
+	if comboChip then
+		comboChip.Parent = console
+		comboChip.Position = UDim2.fromOffset(12, 116)
+		comboChip.Size = UDim2.new(1, -24, 0, 16)
+		comboChip.TextXAlignment = Enum.TextXAlignment.Left
+	end
+	if streakRail then
+		streakRail.Parent = console
+		streakRail.Position = UDim2.fromOffset(12, 138)
+		streakRail.Size = UDim2.new(1, -24, 0, 20)
+	end
+	if strikePlate then
+		strikePlate.Parent = console
+		strikePlate.Position = UDim2.fromOffset(12, 170)
+		strikePlate.Size = UDim2.new(1, -24, 0, 24)
+	end
+	if ventPill then
+		ventPill.Parent = console
+		ventPill.AnchorPoint = Vector2.zero
+		ventPill.Position = UDim2.new(0, 10, 1, -106)
+		ventPill.Size = UDim2.new(1, -20, 0, 88)
+		if ventPillLabel then
+			ventPillLabel.Position = UDim2.fromOffset(0, 20)
+		end
+		if ventPillDetail then
+			ventPillDetail.Position = UDim2.fromOffset(4, 42)
+		end
+	end
 
 	-- Reset per-session state. `init` can run twice in one process (Play Again
 	-- rebuilds the ScreenGui), and stale timestamps would leave the cadence chip
