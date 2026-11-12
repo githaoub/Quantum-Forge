@@ -57,14 +57,14 @@ end
 
 local function rewardLines(reward: Config.DailyReward): { { text: string, color: Color3 } }
 	-- The Aether figure is already the headline under the day number, so the row
-	-- list starts at the toppings. Repeating `+5 AETHER` under a 40px `+5` over
-	-- `AETHER` was the same fact three times in 60 pixels.
+	-- list starts at the toppings. Repeating the Aether figure under the headline
+	-- was the same fact three times in 60 pixels.
 	local lines = {}
 	if (reward.scrap or 0) > 0 then
-		table.insert(lines, { text = string.format("+%d SCRAP", reward.scrap), color = Theme.Color.textSecondary })
+		table.insert(lines, { text = string.format("+%s SCRAP", NumberUtil.compact(reward.scrap)), color = Theme.Color.textSecondary })
 	end
 	if (reward.starMatter or 0) > 0 then
-		table.insert(lines, { text = string.format("+%s SM", NumberUtil.abbreviate(reward.starMatter)), color = Theme.Color.starMatter })
+		table.insert(lines, { text = string.format("+%s SM", NumberUtil.compact(reward.starMatter)), color = Theme.Color.starMatter })
 	end
 	if (reward.cores or 0) > 0 then
 		table.insert(lines, { text = string.format("+%d CORES", reward.cores), color = Theme.Color.quantum })
@@ -229,12 +229,16 @@ function DailyView.init(canvas: Frame)
 		day.Size = UDim2.new(1, 0, 0, 20)
 
 		local aether = UiKit.label(card, {
-			text = string.format("+%d", reward.aether or 0),
+			text = string.format("+%s", NumberUtil.compact(reward.aether or 0)),
 			size = 40,
 			font = Theme.Font.Black,
 			color = Theme.Color.aether,
 			align = Enum.TextXAlignment.Center,
 			stroke = true,
+			-- A seven-figure day has to fit the same 40px headline as a four-figure
+			-- one; scaling down is what keeps "2.5M" inside the card instead of
+			-- clipping it at the edge.
+			scaled = true,
 		})
 		aether.Position = UDim2.fromOffset(0, 40)
 		aether.Size = UDim2.new(1, 0, 0, 48)

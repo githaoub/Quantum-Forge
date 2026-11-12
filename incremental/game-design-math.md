@@ -450,10 +450,13 @@ price does.
 
 ### 5.5 Reachability — the open problem
 
-Aether income does not scale. It comes from venting (0.08 per heat, 6.8 AE per
-85-heat vent), first-time forge bonuses (1 to 16), dailies (5 to 50), the tutorial
-(10) and expeditions (45 / 165 / 1 100). Nothing multiplies it with fleet size or
-ascension count. Measured against the gates:
+Aether income from play does not scale. Venting pays a flat 0.08 per heat (6.8 AE
+per 85-heat vent), first-time forge bonuses pay 1 to 16, and the tutorial pays
+10; nothing there multiplies with fleet size or ascension count. The two
+appointment faucets are sized against the drone ladder instead: dailies pay 10K
+to 2.5M Aether, and expeditions pay 15K / 200K / 4M before the blade and account
+multipliers, which do apply. The table below measures the vent-only path and is
+kept to show why the faucets moved:
 
 | gate | cheapest route | AE | vents at 6.8 AE | realistic? |
 | --- | --- | --- | --- | --- |
@@ -582,14 +585,27 @@ the server will apply.
 
 ### 8.1 Daily streak
 
-Rewards by streak day: **5, 8, 12, 18, 25, 35, 50** Aether.
-A seven-day cycle is **153 Aether** — about 19 full vents, or 61% of the 252 AE
-that unlocks the Molten rung at 15 scrap drones. The exponential shape (5 → 50)
-means day 7 alone is a third of the week's value, which is what keeps a streak
-from being abandoned on day 5.
+Rewards by streak day, from `Config.DailyTrack`:
+
+| Day | Aether | Scrap | Star-Matter | Cores |
+| --- | --- | --- | --- | --- |
+| 1 | 10 000 | 250 | - | - |
+| 2 | 25 000 | 500 | - | - |
+| 3 | 60 000 | 750 | - | - |
+| 4 | 150 000 | 1 000 | 250 000 | - |
+| 5 | 350 000 | 1 500 | 1 000 000 | - |
+| 6 | 800 000 | 2 000 | 5 000 000 | - |
+| 7 | 2 500 000 | 3 000 | 25 000 000 | 3 |
+
+A seven-day cycle is **3 895 000 Aether** plus the Star-Matter and 3 Cores. The
+shape is still exponential (10K to 2.5M), so day 7 alone is 64% of the week's
+Aether and the last card is the one worth waiting for. Day one is already a
+Debris Sweep: the daily is a session-start moment, not a trickle. Scrap stays far
+below the Aether scale on purpose, because reroll costs are 12 to 52 and a week
+of dailies should not delete that sink.
 
 - Claimable every 24 h.
-- A gap of more than 48 h resets the streak to zero. The 24–48 h window is
+- A gap of more than 48 h resets the streak to zero. The 24-48 h window is
   deliberate grace: one missed evening does not destroy a week.
 
 ### 8.2 Playtime milestones
@@ -774,16 +790,16 @@ Void Shards are the only currency that does not reset on ascend.
 
 | Mission | Squad | Seconds | Aether | Cores | Shards |
 | --- | --- | --- | --- | --- | --- |
-| Debris Sweep | 5 | 300 | 45 | 0 | 0 |
-| Deep Salvage | 15 | 900 | 165 | 1 | 1 |
-| Void Run | 30 | 3 600 | 1 100 | 6 | 4 |
+| Debris Sweep | 5 | 300 | 15 000 | 0 | 0 |
+| Deep Salvage | 15 | 900 | 200 000 | 1 | 1 |
+| Void Run | 30 | 3 600 | 4 000 000 | 6 | 4 |
 
-The comparison that matters is against idling. A scrap drone at
-`BaseDroneYield = 0.6` and a 1× blade produces 36 SM/min. Five drones idling for
-five minutes produce 180 SM. Debris Sweep pays 45 Aether; Aether converts to
-drones at 5 for the first scrap copy, and a drone multiplies blade output forever.
-The short mission is deliberately worse than idling in SM terms and better in
-Aether terms, because Aether is the currency the active player is short of.
+The comparison that matters is against the next rung, not against idling. A
+Debris Sweep pays 15K Aether before multipliers, and the first Quantum Vector
+costs 42K at base, so one short mission plus a few vents is a rung. A Void Run
+pays 4M, which is a Celestial Swarm hull (2.6M) with change. The old table was
+tuned against idle income and paid 45 / 165 / 1 100, less than a single salvage
+cache; that made the tab a chore and is why the payouts were rescaled.
 
 The squad is taken off the **cheapest rung first**. Five Scrap Drones produce
 3 SM/s and five Cosmic Dreadnoughts produce 12M SM/s, so a top-down deduction

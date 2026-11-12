@@ -4934,3 +4934,80 @@ rise), and the audition montage lives at
 `%TEMP%\opencode\audio-lab\crate_kit\audition.wav`. Whether the shatter is the
 right kind of exciting is a human judgement. The public ids make a swap a
 one-line change per cue.
+
+## ADR-122 - The crate lets you keep moving, and the faucets stop apologising
+
+**Context.** A three or ten pull painted its copies one claim at a time: up to
+ten presses of a key whose only job was to read the next name. The daily track
+paid 5 to 50 Aether and the expeditions paid 45 / 165 / 1 100, while a single
+Void cache paid 7 000. The two appointment loops were worth less than the loop
+that runs by itself, so the only correct play was to ignore them. On the Fleet
+tab the buy keys read `BUILD 1 · 1.2K`, which does not say what is being spent.
+And the crate result held the blade in a fixed pose, so the one object the
+player paid for never turned.
+
+**Decision.**
+
+1. A batch result carries a second key, `CLAIM ALL`, beside the claim key. The
+   label carries the remaining count (`CLAIM ALL 3`), it is hidden on a single
+   copy, and it marks every chip before running the existing claim-all exit.
+   The copies were granted when the answer arrived; the queue is a reading
+   order, not a payout, so the key skips presses and never skips a reward. It
+   is hidden while a claim is in flight, so a held mouse cannot double-fire it.
+
+2. The daily track is sized against the run instead of against a vent:
+
+   | Day | Aether | Scrap | Star-Matter | Cores |
+   | --- | --- | --- | --- | --- |
+   | 1 | 10 000 | 250 | - | - |
+   | 2 | 25 000 | 500 | - | - |
+   | 3 | 60 000 | 750 | - | - |
+   | 4 | 150 000 | 1 000 | 250 000 | - |
+   | 5 | 350 000 | 1 500 | 1 000 000 | - |
+   | 6 | 800 000 | 2 000 | 5 000 000 | - |
+   | 7 | 2 500 000 | 3 000 | 25 000 000 | 3 |
+
+   A week is 3 895 000 Aether, and day one is already a Debris Sweep. Scrap is
+   deliberately held to 250 to 3 000 because reroll costs are 12 to 52: the
+   daily should not delete that sink. Day 7 still carries the Cores, which are
+   the only part of the week that survives an ascension.
+
+3. Expeditions pay 15 000 / 200 000 / 4 000 000 Aether before the blade and
+   account multipliers. The ladder is the yardstick: a sweep is a Quantum
+   Vector, a void run is a Celestial Swarm. The salvage rack stays the steady
+   faucet and the sigil source; a mission is the lump sum the player plans a
+   session around. The two faucets now have different jobs instead of the
+   expedition being the worse cache.
+
+4. The drone buy keys print the unit: `BUILD 1 · 7 AETHER`. The locked state
+   still prints the fleet gate (`LOCKED AT 32`), because that number is drones,
+   not currency, and appending AETHER there would be a lie.
+
+5. The crate result blade turns at 1.1 rad/s. The forge hero has spun since the
+   first build; holding the crate blade still made the reveal read as a model
+   swap next to it. 1.1 rad/s is a full turn every 5.7 s, slow enough to read
+   the silhouette and fast enough that the frame is never static.
+
+6. `NumberUtil.compact` strips the forced `.00` from an abbreviated number:
+   `10.00K` becomes `10K`, `1.50K` becomes `1.5K`, `1.24K` is untouched. Prices
+   and headlines use it; live counters keep the two decimals so a rising number
+   does not jitter in width.
+
+**What it costs.** The daily and the expedition are now the fastest Aether in
+the game by a wide margin. A week of dailies plus one Void Run buys multiple
+Celestial hulls, and the early ladder can be skipped by one good appointment.
+That is the requested shape: the faucets are loud, and the sinks (drone growth,
+rolls, tech, rerolls) still scale with the account. If the ladder needs its
+climb back, the numbers live in two tables and nothing else reads them. The
+claim-all key is one more button in the ceremony, and it only appears when the
+queue is longer than one.
+
+**Verification.** Studio, Client: a three-pull result showed `CLAIM ALL 3` at
+709,456 (114x36 at 0.72 scale); pressing it marked the queue and closed the
+ceremony. A ten-pull showed `CLAIM ALL 10` and closed the same way. A single-copy
+result showed no key. The result blade's LookVector moved from `(-0.40, 0.08,
+0.91)` to `(0.39, 0.08, 0.92)` in 0.7 s. Every daily card reported `TextFits =
+true` with the new figures and the compact strings (`+10K`, `+2.5M`, `+25M SM`);
+the Fleet rows read `+15K AETHER`, `+200K AETHER` and `+4M AETHER`, and the buy
+keys read `BUILD 1 · 7 AETHER` and `BUILD 10 · 177 AETHER`, all fitting. `selene
+src` is clean and `rojo build` succeeds.

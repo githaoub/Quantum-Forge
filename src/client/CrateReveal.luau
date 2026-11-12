@@ -67,6 +67,10 @@ local CHIP_MAX_W = 92
 
 local ACTION_W = 260
 local ACTION_H = 50
+--- The claim-all key sits beside the claim key on a batch result. It is a
+--- ceremony shortcut, not a purchase: every copy is already in the vault when
+--- the reveal paints, so the only thing it skips is the clicking.
+local SKIP_W = 158
 
 --- The burst behind the blade: eight stretched sparkle needles around a soft
 --- disc and one four-point star. Soft sprites instead of flat rectangles,
@@ -124,6 +128,8 @@ local subLabel: TextLabel? = nil
 local pipsHost: Frame? = nil
 local action: TextButton? = nil
 local actionLabel: TextLabel? = nil
+local skipButton: TextButton? = nil
+local skipLabel: TextLabel? = nil
 local railHost: Frame? = nil
 local rayHost: Frame? = nil
 local halo: ImageLabel? = nil
@@ -387,6 +393,9 @@ local function claimOut()
 	if action then
 		action.Visible = false
 	end
+	if skipButton then
+		skipButton.Visible = false
+	end
 	if stage then
 		Vfx.shake(stage, 7, 0.3)
 	end
@@ -425,6 +434,7 @@ end
 --- before them, so it needs a stable upvalue rather than a forward local
 --- function that would shadow the later definition.
 local claimOne: () -> () = function() end
+local claimRest: () -> () = function() end
 
 local function buildStage(canvas: Frame)
 	local button = UiKit.create("TextButton", {
@@ -690,6 +700,48 @@ local function buildStage(canvas: Frame)
 		end
 	end))
 
+	-- A three or ten pull paints one copy at a time, and ten clicks at 0.3s
+	-- apiece is three seconds of ceremony after the player already knows what
+	-- they paid for. The claim-all key is a quiet plate to the right of the
+	-- main key: same row, half the weight, only on a batch.
+	local skip = UiKit.create("TextButton", {
+		Name = "SkipClaims",
+		BackgroundColor3 = Theme.Color.panelRaised,
+		BackgroundTransparency = 0.05,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromOffset(SKIP_W, ACTION_H),
+		Visible = false,
+		ZIndex = 4,
+	}) :: TextButton
+	UiKit.corner(skip, Theme.Radius.md)
+	UiKit.stroke(skip, Theme.Color.outline, Theme.Stroke.thin, 0)
+	skip.Parent = frame
+	skipButton = skip
+
+	local skipText = UiKit.label(skip, {
+		text = "CLAIM ALL",
+		size = Theme.Text.Small,
+		font = Theme.Font.Black,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Center,
+	})
+	skipText.Size = UDim2.fromScale(1, 1)
+	skipText.ZIndex = 5
+	skipLabel = skipText
+
+	UiKit.track(skip, skip.MouseEnter:Connect(function()
+		if skip.Visible then
+			Sfx.hover()
+		end
+	end))
+	UiKit.track(skip, skip.Activated:Connect(function()
+		claimRest()
+	end))
+
 	UiKit.track(button, button.Activated:Connect(function()
 		if phase ~= "crate" or not landed then
 			return
@@ -889,6 +941,14 @@ local function layoutStage(batch: number, isResult: boolean)
 	if action then
 		action.Position = UDim2.new(0.5, 0, 0, if multi then viewH + 184 else STAGE_H - 68)
 	end
+	if skipButton then
+		skipButton.Position = UDim2.new(
+			0.5,
+			ACTION_W / 2 + 12,
+			0,
+			if multi then viewH + 184 else STAGE_H - 68
+		)
+	end
 end
 
 --- Lists every copy in claim order: the best first, then the rest in roll
@@ -1056,6 +1116,22 @@ local function markClaimed(index: number)
 	end
 end
 
+--- The claim-all key. It exists for the batch queue only: one copy has nothing
+--- to skip, and showing a second key under a single blade would ask the player
+--- to choose between two ways to do the same thing. The count is on the label
+--- so the shortcut never guesses at how much is left.
+local function paintSkip()
+	local skip = skipButton
+	if skip == nil then
+		return
+	end
+	local left = #claimQueue - claimCursor
+	skip.Visible = phase == "result" and left > 1
+	if skipLabel then
+		skipLabel.Text = string.format("CLAIM ALL %d", math.max(left, 0))
+	end
+end
+
 --- The hero copy. Every claim swaps this: name, condition line, rarity wash and
 --- the 3D blade. The pick is a queue now, not a summary.
 local function showCopy(position: number)
@@ -1143,11 +1219,14 @@ local function showCopy(position: number)
 			end
 		end
 		if blade then
+			-- The blade turns like the forge hero instead of holding a pose:
+			-- 1.1 rad/s is a full turn every 5.7 s, fast enough to read as a
+			-- turntable and slow enough to keep the name legible.
 			bladeCleanup = BladePreview.mount(viewport, blade, variant.color, {
 				surface = root,
 				frameFill = 0.9,
 				aimBias = 0,
-				spin = 0,
+				spin = 1.1,
 			})
 		end
 	end
@@ -1258,10 +1337,13 @@ claimOne = function()
 	Sfx.claim()
 	Haptics.pulse(0.55, 0.07)
 
-	-- Hide the key during the swap. The gate alone is not enough: a held mouse
+	-- Hide the keys during the swap. The gate alone is not enough: a held mouse
 	-- would claim the next copy the instant the key reappears.
 	if action then
 		action.Visible = false
+	end
+	if skipButton then
+		skipButton.Visible = false
 	end
 	if actionLabel then
 		actionLabel.Text = string.format("CLAIMED %d / %d", position, #claimQueue)
@@ -1276,8 +1358,24 @@ claimOne = function()
 		if action then
 			action.Visible = true
 		end
+		paintSkip()
 		resultReadyAt = os.clock() + CLAIM_LOCK
 	end)
+end
+
+--- Claims the rest of the queue in one press. Every copy was granted when the
+--- answer arrived; the queue is the reading order, not the payout. Filling the
+--- rail before the exit means the last frame under the flash shows a complete
+--- set rather than a half-claimed one.
+claimRest = function()
+	if phase ~= "result" or os.clock() < resultReadyAt then
+		return
+	end
+	for position = claimCursor + 1, #claimQueue do
+		markClaimed(claimQueue[position])
+	end
+	claimCursor = #claimQueue
+	claimOut()
 end
 
 -- ---------------------------------------------------------------------------
@@ -1370,8 +1468,11 @@ local function reveal(result: Types.FeedEvent)
 	resultReadyAt = os.clock() + RESULT_LOCK
 	local stamp = token
 	task.delay(0.22, function()
-		if stamp == token and phase == "result" and action then
-			action.Visible = true
+		if stamp == token and phase == "result" then
+			if action then
+				action.Visible = true
+			end
+			paintSkip()
 		end
 	end)
 
@@ -1662,6 +1763,9 @@ local function open(opts: {
 	if action then
 		action.Visible = false
 	end
+	if skipButton then
+		skipButton.Visible = false
+	end
 
 	root.Visible = true
 	hideGuide()
@@ -1890,6 +1994,9 @@ function CrateReveal.close()
 	end
 	beamTo(beamColor, 0, 0)
 	root.Visible = false
+	if skipButton then
+		skipButton.Visible = false
+	end
 	restoreGuide()
 	clearViewport()
 	Haptics.stop()
@@ -1949,6 +2056,8 @@ function CrateReveal.destroy()
 	pipsHost = nil
 	action = nil
 	actionLabel = nil
+	skipButton = nil
+	skipLabel = nil
 	currentCrate = nil
 end
 

@@ -190,20 +190,27 @@ export type DailyReward = {
 }
 
 --- Seven-day daily track. A day is a record rather than one number because the
---- card has to show what it is paying: five Aether and "Day 4: eighty Aether" are
---- the same slot in the old table and different promises on screen.
+--- card has to show what it is paying: a day of Aether and a day of Aether plus
+--- Star-Matter are the same slot in a flat table and different promises on
+--- screen.
+---
+--- The numbers are deliberately absurd. Aether and Star-Matter are the two
+--- currencies the run prints fastest, so a daily that pays a handful of either
+--- reads as an insult next to a salvage cache or a single click. A daily should
+--- be a reason to come back, not a rounding error: day one pays what a short
+--- expedition used to, and day seven pays a top-tier drone.
 ---
 --- Day 7 pays Cores, which is the only reward in the track that survives a
 --- prestige. That is deliberate: the last card has to be worth waiting a week
 --- for, and a week of Aether is not.
 Config.DailyTrack = {
-	{ aether = 5, scrap = 4, label = "Aether and a little Scrap" },
-	{ aether = 8, scrap = 6, label = "Aether and Scrap" },
-	{ aether = 12, scrap = 10, label = "Aether and Scrap" },
-	{ aether = 18, scrap = 14, starMatter = 1500, label = "Aether, Scrap and Star-Matter" },
-	{ aether = 25, scrap = 20, starMatter = 4000, label = "Aether, Scrap and Star-Matter" },
-	{ aether = 35, scrap = 30, starMatter = 12000, label = "Aether, Scrap and Star-Matter" },
-	{ aether = 50, scrap = 50, starMatter = 40000, cores = 1, label = "The week: Cores, Aether, Scrap and Star-Matter" },
+	{ aether = 10000, scrap = 250, label = "Aether and Scrap" },
+	{ aether = 25000, scrap = 500, label = "Aether and Scrap" },
+	{ aether = 60000, scrap = 750, label = "Aether and Scrap" },
+	{ aether = 150000, scrap = 1000, starMatter = 250000, label = "Aether, Scrap and Star-Matter" },
+	{ aether = 350000, scrap = 1500, starMatter = 1000000, label = "Aether, Scrap and Star-Matter" },
+	{ aether = 800000, scrap = 2000, starMatter = 5000000, label = "Aether, Scrap and Star-Matter" },
+	{ aether = 2500000, scrap = 3000, starMatter = 25000000, cores = 3, label = "The week: Cores, Aether, Scrap and Star-Matter" },
 } :: { DailyReward }
 
 -- Granted once, the first time a player finishes the guided onboarding. Sized to

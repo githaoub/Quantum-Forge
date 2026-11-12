@@ -109,6 +109,23 @@ function NumberUtil.abbreviateRate(value: number): string
 	return NumberUtil.abbreviate(value) .. "/s"
 end
 
+--- Abbreviated without the forced decimals when they are zero: 10000 -> "10K",
+--- 1500 -> "1.5K", 1240 -> "1.24K". Live counters keep the two decimals so a
+--- rising number does not jitter in width; a headline or a price reads better
+--- with the trailing zeros gone.
+function NumberUtil.compact(value: number): string
+	local text = NumberUtil.abbreviate(value)
+	local number, suffix = string.match(text, "^([%d%.%-]+)(.*)$")
+	if number == nil then
+		return text
+	end
+	if string.find(number, ".", 1, true) then
+		number = string.gsub(number, "0+$", "")
+		number = string.gsub(number, "%.$", "")
+	end
+	return number .. suffix
+end
+
 --- 3725 -> "1h 2m". For offline modal and playtime rewards.
 function NumberUtil.abbreviateTime(totalSeconds: number): string
 	local seconds = math.max(0, math.floor(totalSeconds))

@@ -221,8 +221,11 @@ Three layers sit on top of the heat loop:
   whole chain in one column: rank bar, socket rack, rune shelf.
 - **Expeditions** spend drones instead of counting them, taken off the cheapest rung
   first. Debris Sweep (5 drones, 5 min), Deep Salvage (15, 15 min) and Void Run
-  (30, 60 min) pay Aether plus Cores and Shards at the deep end. The squad earns
-  nothing while it is away, and the payout is locked at dispatch.
+  (30, 60 min) pay Aether plus Cores and Shards at the deep end. The payouts are
+  sized against the drone ladder, not against idle income: a sweep pays 15K and a
+  void run 4M before multipliers, so a returning fleet is a purchase rather than
+  a rounding error. The squad earns nothing while it is away, and the payout is
+  locked at dispatch.
 - **Ascension** at 1e9 run Star-Matter grants `floor((run/1e9)^0.5)` Cores.
 
 ### Network model

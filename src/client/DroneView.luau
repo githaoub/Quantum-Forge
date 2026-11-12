@@ -299,7 +299,7 @@ local function buildExpedition(parent: Instance)
 				"%d DRONES  ·  %s  ·  +%s AETHER",
 				mission.squad,
 				if mission.seconds >= 3600 then string.format("%dH", mission.seconds // 3600) else string.format("%dM", mission.seconds // 60),
-				NumberUtil.abbreviate(mission.aether)
+				NumberUtil.compact(mission.aether)
 			),
 			size = Theme.Text.Micro,
 			font = Theme.Font.Numeric,
@@ -901,7 +901,7 @@ local function paintExpedition(payload: Types.SyncPayload)
 		expBar.set(math.clamp(elapsed / math.max(1, mission.seconds), 0, 1))
 	end
 	if expReward then
-		local parts = { string.format("+%s AETHER", NumberUtil.abbreviate(payload.expAether)) }
+		local parts = { string.format("+%s AETHER", NumberUtil.compact(payload.expAether)) }
 		if payload.expCores > 0 then
 			parts[#parts + 1] = string.format("+%d CORES", payload.expCores)
 		end
@@ -923,7 +923,7 @@ end
 --- Base payout at the current blade. The rack states what a cache is worth before
 --- it is claimed, because a reward the player cannot see is not a decision.
 local function rewardHint(rarity: SalvageConfig.Rarity): string
-	local parts = { string.format("+%s AE", NumberUtil.abbreviate(rarity.aether)) }
+	local parts = { string.format("+%s AE", NumberUtil.compact(rarity.aether)) }
 	if rarity.cores > 0 then
 		table.insert(parts, string.format("%dC", rarity.cores))
 	end
@@ -1074,8 +1074,8 @@ function DroneView.render(payload: Types.SyncPayload)
 		buyOneHandle.set(
 			if oneReady then "ready" else "locked",
 			if entry.unlocked
-				then string.format("BUILD 1  ·  %s", NumberUtil.abbreviate(entry.cost))
-				else string.format("LOCKED AT %s", NumberUtil.abbreviate(entry.unlockAt)),
+				then string.format("BUILD 1  ·  %s AETHER", NumberUtil.compact(entry.cost))
+				else string.format("LOCKED AT %s", NumberUtil.compact(entry.unlockAt)),
 			Theme.Color.actionCyan
 		)
 	end
@@ -1083,8 +1083,8 @@ function DroneView.render(payload: Types.SyncPayload)
 		buyTenHandle.set(
 			if tenReady then "ready" else "locked",
 			if entry.unlocked
-				then string.format("BUILD 10  ·  %s", NumberUtil.abbreviate(entry.bulk))
-				else string.format("LOCKED AT %s", NumberUtil.abbreviate(entry.unlockAt)),
+				then string.format("BUILD 10  ·  %s AETHER", NumberUtil.compact(entry.bulk))
+				else string.format("LOCKED AT %s", NumberUtil.compact(entry.unlockAt)),
 			Theme.Color.deepBlue
 		)
 	end
