@@ -4297,3 +4297,111 @@ with music on. The switch is separate, so a player can run the anvil dry or keep
 the bed with the effects muted, which is the point. The crate landing is drier
 now; if it needs air later, it should be a purpose-built riser rather than the
 water impact returning.
+
+## ADR-103 - Audio is a level, not a switch
+
+**Context.** The settings sheet could only mute. A player who wanted the crate
+quieter had two choices: full mix or silence, and the only way to make the crate
+sound bigger was to change the mix for everyone.
+
+**Decision.** `Settings.sfx` and `Settings.music` become `sfxVolume` and
+`musicVolume`, both 0..1 and persisted. The settings sheet draws them as 0..100
+sliders: the percentage is the readout, the whole 26px strip is the hit area, and
+0 is the mute. `Sfx.setVolume` is the one gain every layer passes through;
+`Music.setVolume` scales the 0.16 bed and pauses at zero without restarting the
+track when the level returns. A drag applies locally on every step and writes
+the latest value after a 120 ms settle, so a sweep is one action on the wire.
+Old saves migrate once: a muted boolean becomes 0, an unmuted one becomes the
+default level (0.8 SFX, 0.55 music), not full.
+
+**What it costs.** Two numeric fields instead of two booleans, and every audio
+call now reads a multiplier. The crate mix was raised in the same pass because a
+default 0.8 would otherwise have made it quieter than the build players already
+heard: `crateLand` gained a low chest layer, `crateBreak` and `crateShatter`
+gained body, and the tick, heartbeat and riser all moved up. The old `sfx` and
+`music` keys are still accepted by `setSetting` so a client that was already open
+during the deploy does not get a rejected write.
+
+## ADR-104 - The strike plate leaves, the stage keeps the click
+
+**Context.** The forge had a 240x64 orange STRIKE key in the lower-left corner.
+It was the only saturated rectangle on a screen whose subject is a blade, so the
+eye went to the button rather than the sword. It also duplicated the stage,
+which was already a full-bleed hit target.
+
+**Decision.** Delete the key. The transparent full-bleed `StrikeButton` remains,
+with the same `InputBegan` handler, so every pixel of the render still strikes
+and the latency is unchanged. What is left in the corner is a small caption,
+`STRIKE  +N SM`, which turns sweet-spot gold when the band is live. The heat dial
+and the purge key keep their own clicks above the stage layer.
+
+**What it costs.** The verb is now carried by the render and the caption rather
+than a button face. That is enough for a player who has already struck once, and
+the tutorial and the `STRIKE SPEED` readout still name the action. A first-join
+player who does not read the caption has the whole stage as the target, which is
+the larger affordance anyway.
+
+## ADR-105 - A crit is a gold ring, not a bigger flash
+
+**Context.** A crit already fired a gold float, a screen flash and a spark
+burst. At strike speed that read as "a slightly bigger hit"; there was no shape
+the player could learn to look for, and the sound arrived without a matching
+silhouette.
+
+**Decision.** The crit branch calls `Vfx.strikeBurst(anchor, gold, 2.3, true)`
+when no sprite sheet is available. That composite adds a gold shockwave ring to
+the sparks and the flash, and `Sfx.crit` still fires on the same server event.
+The ring expands from 32px to roughly 100px over 0.28s, which is long enough to
+register and short enough not to sit over the next strike.
+
+**What it costs.** Three more tweens on the crit frame and one more frame in the
+VFX layer. The ring is skipped under reduce-motion, like every other travelling
+effect, so the crit still has the float and the flash for those players.
+
+## ADR-106 - A mesh renders only after its content fetch succeeds
+
+**Context.** `InsertService:LoadAsset` can return a Model whose MeshParts have
+names, sizes and CFrames but no renderable mesh, because the experience is not
+allowed to fetch the asset. `applyMesh` counted the parts, returned true, and the
+viewport showed an empty stage. That is the "the sword sometimes does not show up
+at all" report. The primitive recipe existed the whole time; it was simply never
+reached.
+
+**Decision.** `BladeModelBuilder` keeps a per-asset state: unknown, verified or
+failed. `verifyMesh` gathers every `MeshPart.MeshId`, calls
+`ContentProvider:PreloadAsync`, then requires
+`GetAssetFetchStatus == Enum.AssetFetchStatus.Success` for every id. Until that
+lands, `meshSource` returns nil and the primitive recipe renders. `watch` fires
+only on a verified asset, so the mesh hot-swaps in place when the fetch succeeds.
+A failed mesh never replaces a visible sword.
+
+**What it costs.** The first viewport on a server renders primitives for a few
+seconds longer than before, and a client that cannot fetch the mesh keeps them
+for the session. That is the correct trade: a visible placeholder beats an
+invisible upgrade. The checks run once per asset in a background task, never on
+the UI path.
+
+## ADR-107 - Forge Feats keep the next goal alive
+
+**Context.** The next-goal rail could go blank. Crates, drones and tech are all
+finite, and after the tree is maxed the game answered "what now?" with nothing.
+The economy still moved, but there was no named target. External design sources
+agree on the failure mode: an incremental without a visible next goal is a
+number going up in an empty room.
+
+**Decision.** Add `FeatConfig`, thirty-five one-time feats across fortune,
+lifetime cores, ascensions, tech levels, blade mastery, codex discoveries,
+sigil sets and fleet size. Every feat is +1% to click and drone yield, scored
+from counters the save already keeps, so there are no new fields and no claim
+button. The Tech section gets a gold FORGE FEATS card: completed count, the
+permanent bonus, the progress bar and the four nearest incomplete goals.
+`NextGoal` adds the nearest feat as a candidate, which keeps the rail foot alive
+after every other ladder is finished.
+
+**What it costs.** `clickYield` and `passiveYield` now build a feat snapshot, so
+the hot path walks the mastery map and the thirty-five-row table. The tables are
+small and the alternative was a second cached counter that could drift. The
+bonus is deliberately modest: 35% at full completion sits under one blade step,
+so feats are direction, not a replacement for the blade ladder. The feat card
+reads existing counters, which means a hand-edited save can complete a feat it
+did not earn; the bonus is small enough that this is not worth a signature.

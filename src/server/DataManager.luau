@@ -118,7 +118,7 @@ local function defaults(): Types.ProfileState
 		tech = {},
 		passes = {},
 
-		settings = { sfx = true, music = true, vfx = true, shake = true, trades = true },
+		settings = { sfxVolume = 0.8, musicVolume = 0.55, vfx = true, shake = true, trades = true },
 
 		boostX2Until = 0,
 		overdriveUntil = 0,
@@ -309,20 +309,40 @@ local function sanitiseBlades(raw: any): { [string]: Types.BladeInstance }
 	return out
 end
 
+--- One audio level, migrated from the boolean switch it replaced.
+---
+--- A save written before the slider has `sfx`/`music` booleans. Muted used to
+--- mean off, so it migrates to 0; unmuted migrates to the default level, not
+--- to full, because the old mix was already mastered and 100% would be louder
+--- than the player ever agreed to.
+local function audioVolume(raw: any, legacy: any, fallback: number): number
+	if type(raw) == "number" and raw == raw then
+		return math.clamp(raw, 0, 1)
+	end
+	if type(legacy) == "boolean" then
+		return if legacy then fallback else 0
+	end
+	return fallback
+end
+
 local function sanitiseSettings(raw: any): Types.Settings
-	local fallback: Types.Settings = { sfx = true, music = true, vfx = true, shake = true, trades = true }
+	local fallback: Types.Settings = {
+		sfxVolume = 0.8,
+		musicVolume = 0.55,
+		vfx = true,
+		shake = true,
+		trades = true,
+	}
 	if type(raw) ~= "table" then
 		return fallback
 	end
+	-- Music was folded into the SFX switch before it had a row of its own. An
+	-- old save with sound effects muted should not come back with the loop
+	-- playing, so it inherits that once; after this the two are independent.
+	local musicLegacy = if type(raw.music) == "boolean" then raw.music else raw.sfx
 	return {
-		sfx = if type(raw.sfx) == "boolean" then raw.sfx else true,
-		-- Music was folded into the SFX switch before it had a row of its own.
-		-- An old save with sound effects muted should not come back with the loop
-		-- playing, so inherit that value once; after this the two are independent.
-		music = if type(raw.music) == "boolean"
-			then raw.music
-			elseif type(raw.sfx) == "boolean" then raw.sfx
-			else true,
+		sfxVolume = audioVolume(raw.sfxVolume, raw.sfx, 0.8),
+		musicVolume = audioVolume(raw.musicVolume, musicLegacy, 0.55),
 		vfx = if type(raw.vfx) == "boolean" then raw.vfx else true,
 		shake = if type(raw.shake) == "boolean" then raw.shake else true,
 		-- A save written before the toggle existed has no key, and the honest

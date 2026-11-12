@@ -13,6 +13,7 @@ local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
 local DroneRegistry = require(Shared:WaitForChild("DroneRegistry"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
+local FeatConfig = require(Shared:WaitForChild("FeatConfig"))
 local ExpeditionConfig = require(Shared:WaitForChild("ExpeditionConfig"))
 local RuneConfig = require(Shared:WaitForChild("RuneConfig"))
 local SalvageConfig = require(Shared:WaitForChild("SalvageConfig"))
@@ -184,6 +185,7 @@ function ProgressionService.clickYield(state: Types.ProfileState): number
 		* bonus.clickMult
 		* ProgressionService.salvageBonus(state).clickMult
 		* ProgressionService.globalMultiplier(state)
+		* FeatConfig.multiplier(FeatConfig.fromState(state))
 	if ProgressionService.forgeOverdriveActive(state) then
 		mult *= Config.OverdriveMultiplier
 	end
@@ -235,6 +237,7 @@ function ProgressionService.passiveYield(state: Types.ProfileState): number
 		* stats.droneYieldMult
 		* ProgressionService.bladeMultiplier(state)
 		* ProgressionService.globalMultiplier(state)
+		* FeatConfig.multiplier(FeatConfig.fromState(state))
 end
 
 --- Drones owned across every tier. The fleet is a map, so this is the one place
@@ -820,20 +823,54 @@ end
 
 --- Persists a client preference. Only the known keys are accepted; an unknown
 --- key is a no-op rather than a new field in the save.
-function ProgressionService.setSetting(player: Player, key: string, value: boolean): (boolean, string?)
+---
+--- Audio arrives as a level and the switches arrive as booleans, so the action
+--- accepts both. The old `sfx`/`music` keys are still mapped for a client that
+--- was already open when the slider shipped: muted becomes 0, on becomes the
+--- default level rather than a sudden 100%.
+function ProgressionService.setSetting(
+	player: Player,
+	key: string,
+	value: boolean | number
+): (boolean, string?)
 	local state = DataManager.get(player)
 	if not state then
 		return false, "Profile not loaded"
 	end
-	if key == "sfx" then
-		state.settings.sfx = value
-	elseif key == "music" then
-		state.settings.music = value
+	if key == "sfxVolume" or key == "musicVolume" then
+		if type(value) ~= "number" or value ~= value then
+			return false, "Bad volume"
+		end
+		local level = math.clamp(value, 0, 1)
+		if key == "sfxVolume" then
+			state.settings.sfxVolume = level
+		else
+			state.settings.musicVolume = level
+		end
+	elseif key == "sfx" or key == "music" then
+		if type(value) ~= "boolean" then
+			return false, "Bad setting"
+		end
+		local level = if value then (if key == "sfx" then 0.8 else 0.55) else 0
+		if key == "sfx" then
+			state.settings.sfxVolume = level
+		else
+			state.settings.musicVolume = level
+		end
 	elseif key == "vfx" then
+		if type(value) ~= "boolean" then
+			return false, "Bad setting"
+		end
 		state.settings.vfx = value
 	elseif key == "shake" then
+		if type(value) ~= "boolean" then
+			return false, "Bad setting"
+		end
 		state.settings.shake = value
 	elseif key == "trades" then
+		if type(value) ~= "boolean" then
+			return false, "Bad setting"
+		end
 		state.settings.trades = value
 	else
 		return false, "Unknown setting"
@@ -1491,6 +1528,8 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		forgeCrate = state.forgeCrate,
 		tech = state.tech,
 		ascensions = state.ascensions,
+		lifetimeSm = state.lifetimeStarMatter,
+		lifetimeCores = state.lifetimeCores,
 		clickYield = ProgressionService.clickYield(state),
 		passiveYield = ProgressionService.passiveYield(state),
 		mult = ProgressionService.bladeMultiplier(state),

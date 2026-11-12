@@ -114,7 +114,7 @@ src/
     Sections.luau         Left rail, section host, one repainted 64px banner
     StateStore.luau       Sync store, pending-credit prediction buffer
     HudController.luau    Top bar, currencies, utility keys, rate readout
-    ForgeView.luau        Full-bleed stage, strike key, heat dial, purge key
+    ForgeView.luau        Full-bleed stage, strike caption, heat dial, purge key
     CratesView.luau       Crate page, pool rail, stacked odds bar, roll keys
     DroneView.luau        Fleet hero, five-rung ladder, expeditions, salvage
     RuneView.luau         Blade bay, sockets, live bonus grid, rune shelf
@@ -257,11 +257,14 @@ looped 144-second Creator Store track (`Dark Pulsing Synth`) at 0.16 underneath.
 Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
 the strike chime climbs with the streak so the ear tracks the rail before the eye
 does. The side-panel header holds a backpack and a gear; sound effects, music,
-screen effects, shake and trade requests are five switches in the settings sheet,
-persisted to the profile. Each setting is a full-width row and the row is the
-switch: title, note and an `ON` / `OFF` chip, with the whole row surface flipping
-it. The old `SFX` text key is gone, because a mute that does not say what it
-mutes is a puzzle, and music has its own switch so the anvil can play dry.
+screen effects, shake and trade requests are five rows in the settings sheet,
+persisted to the profile. Sound effects and music are 0..100 sliders: the row
+shows the percentage, the whole 26px strip is draggable, and 0 is the mute. The
+old `SFX` text key is gone, because a mute that does not say what it mutes is a
+puzzle, and music has its own level so the anvil can play dry. The other three
+rows stay full-width ON/OFF switches, with title, note and a chip. A drag applies
+locally on every step and writes the latest value once the hand settles, so one
+decision is one action rather than fifty.
 
 Two rules keep it from becoming noise:
 
@@ -725,9 +728,11 @@ rather than failing, which is why the real run also handles a duplicate graceful
 printing the id rather than erroring.
 
 Every surface is opaque and carries a 1px rule; headers are flat steel plates,
-modals are a flat plate on a dim scrim, and the only heavy outline is the strike key
-(ADR-076). The forge has no deck: the 240×64 strike key, 380×78 heat dial and 136×64
-purge key float over a full-bleed stage, so nothing covers the blade (ADR-078). The
+modals are a flat plate on a dim scrim, and the forge deliberately has no heavy
+strike plate (ADR-104). The forge has no deck either: the strike caption, 380×78
+heat dial and 136×64 purge key float over a full-bleed stage, so nothing covers
+the blade (ADR-078). The stage itself is the hit target, which is why removing
+the orange key did not remove a single click. The
 left rail owns navigation; the top bar is chrome plus the utility keys and the two
 verbs. Layout numbers for the rail, bar and content rect live in one
 `src/client/Layout.luau`, required by `Main` and `HudController`, because duplicated
@@ -998,7 +1003,7 @@ tables if changed.
 | Icons | `rbxassetid://0` | UI falls back to vector glyphs. |
 | VFX sheets | `rbxassetid://0` | 22 sheets are generated and margin-checked; effects fall back to the procedural burst in `Vfx.luau`. |
 | Leaderboards | Absent | `lifetimeStarMatter` is already tracked, ready to sync. |
-| Sound | Engine samples plus one Creator Store loop | Every cue is layered from five proven `rbxasset://` samples across a 24-slot pool. `ForgeMusic` is APMOfficial's free "Dark Pulsing Synth" at 0.16. The kit and the loop have separate persisted switches in the settings sheet. |
+| Sound | Engine samples plus one Creator Store loop | Every cue is layered from five proven `rbxasset://` samples across a 24-slot pool. `ForgeMusic` is APMOfficial's free "Dark Pulsing Synth" at `0.16 * musicVolume`. The kit and the loop have separate persisted 0..100 sliders in the settings sheet; 0 is the mute. The crate ceremony is mixed hotter than the anvil (ADR-103). |
 
 ---
 

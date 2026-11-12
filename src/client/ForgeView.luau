@@ -121,10 +121,8 @@ local ventDetailText: string? = nil
 local viewportScale: UIScale? = nil
 local viewportFlash: Frame? = nil
 
--- The strike key on the deck. The whole stage is still a hit target; this is the
--- affordance that says so, and it is the only element in the forge with a heavy
--- outline and a saturated fill.
-local strikeKeyLabel: TextLabel? = nil
+-- The strike caption on the deck. The whole stage is the hit target; this only
+-- names the verb and the payout, so removing it never removes the click.
 
 -- The stage wash behind the blade. One handle: repainting a tier is two colours
 -- on the same layers, not a rebuild.
@@ -623,71 +621,28 @@ end
 --- the strike target.
 ---
 --- Nothing sits on a plate: the render runs to the bottom edge, and the strike
---- key, the heat dial and the purge key float over it. A solid deck across the
---- bottom covered a fifth of the blade, which is the one thing on this screen
---- worth looking at.
+--- caption, the heat dial and the purge key float over it. A solid deck across
+--- the bottom covered a fifth of the blade, which is the one thing on this
+--- screen worth looking at.
 local function buildHud(parent: Frame)
-	-- The strike key. Heavy outline, saturated fill, black legend: a stamped
-	-- industrial button rather than another dark plate. Its sublabel is the live
-	-- payout, so the key tells the player what it is worth before they press it.
-	local key = UiKit.create("TextButton", {
-		Name = "StrikeKey",
-		BackgroundColor3 = Theme.Color.actionOrange,
-		BackgroundTransparency = 0,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		Position = UDim2.new(0, 16, 1, -84),
-		Size = UDim2.fromOffset(240, 64),
-		ZIndex = 9,
-	}) :: TextButton
-	UiKit.corner(key, Theme.Radius.md)
-	local keyStroke = UiKit.stroke(key, Theme.Color.outline, Theme.Stroke.bold, 0)
-	key.Parent = parent
-
-	strikeKeyLabel = UiKit.label(key, {
-		text = "STRIKE",
-		size = Theme.Text.Heading,
-		font = Theme.Font.Display,
-		color = Theme.Color.ink,
-		align = Enum.TextXAlignment.Center,
-	})
-	strikeKeyLabel.Name = "Face"
-	strikeKeyLabel.Position = UDim2.fromOffset(0, 12)
-	strikeKeyLabel.Size = UDim2.new(1, 0, 0, 26)
-	strikeKeyLabel.ZIndex = 10
-
-	strikeHint = UiKit.label(key, {
+	-- No strike plate. There was a 240x64 orange key in this corner, and it was
+	-- the only saturated rectangle on a screen whose subject is a blade: the eye
+	-- went to the button, not the sword, and a key that duplicates the whole
+	-- stage behind it says the render is not clickable when it is.
+	--
+	-- The stage itself is the button (see the StrikeButton below). What is left
+	-- here is the caption: the verb, and what the next press pays.
+	strikeHint = UiKit.label(parent, {
 		text = "",
 		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.ink,
-		align = Enum.TextXAlignment.Center,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Left,
 	})
-	strikeHint.Position = UDim2.fromOffset(0, 38)
-	strikeHint.Size = UDim2.new(1, 0, 0, 16)
-	strikeHint.TextTransparency = 0.25
-	strikeHint.ZIndex = 10
-
-	local function press()
-		ForgeView.strike()
-	end
-	key.InputBegan:Connect(function(input: InputObject)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			press()
-		end
-	end)
-
-	UiKit.track(key, key.MouseEnter:Connect(function()
-		UiKit.tween(key, Theme.Duration.fast, { BackgroundColor3 = Theme.Color.actionOrange:Lerp(Theme.Color.white, 0.12) })
-		UiKit.tween(keyStroke, Theme.Duration.fast, { Color = Theme.Color.text })
-	end))
-	UiKit.track(key, key.MouseLeave:Connect(function()
-		UiKit.tween(key, Theme.Duration.normal, { BackgroundColor3 = Theme.Color.actionOrange })
-		UiKit.tween(keyStroke, Theme.Duration.normal, { Color = Theme.Color.outline })
-	end))
+	strikeHint.Name = "StrikeHint"
+	strikeHint.Position = UDim2.new(0, 18, 1, -42)
+	strikeHint.Size = UDim2.fromOffset(300, 18)
+	strikeHint.ZIndex = 7
 
 	-- Top-right readout stack: cadence, then the streak. Both are live numbers
 	-- and both are secondary to the blade, so they sit in the stage's empty
@@ -1230,15 +1185,11 @@ function ForgeView.render(payload: Types.SyncPayload)
 		strikeButton.Active = true
 	end
 	if strikeHint then
-		-- The key's sublabel is the live payout: what the next press pays, in
-		-- Star-Matter. Not a rate. `/s` belongs on the auto-click readout, which
+		-- The caption is the live payout: what the next press pays, in
+		-- Star-Matter, not a rate. `/s` belongs on the auto-click readout, which
 		-- already has its own line in the top right of the stage.
-		strikeHint.Text = string.format("+%s SM", NumberUtil.abbreviate(payload.clickYield))
-		strikeHint.TextColor3 = Theme.Color.ink
-		strikeHint.TextTransparency = 0.3
-	end
-	if strikeKeyLabel and payload.inSweetSpot then
-		strikeKeyLabel.Text = "STRIKE"
+		strikeHint.Text = string.format("STRIKE   +%s SM", NumberUtil.abbreviate(payload.clickYield))
+		strikeHint.TextColor3 = if payload.inSweetSpot then Theme.Color.heatSweet else Theme.Color.textFaint
 	end
 	-- Thermal vent key, on the right end of the heat rail. Two states, never
 	-- ambiguous: a flat slate key that names the gap while locked, and a solid

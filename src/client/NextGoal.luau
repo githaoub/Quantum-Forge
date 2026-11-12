@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Types = require(Shared:WaitForChild("Types"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local TechTreeConfig = require(Shared:WaitForChild("TechTreeConfig"))
+local FeatConfig = require(Shared:WaitForChild("FeatConfig"))
 
 local NextGoal = {}
 
@@ -106,6 +107,20 @@ function NextGoal.compute(state: Types.SyncPayload): Goal?
 			label = "TECH",
 			section = "tech",
 			fraction = state.qc / tech.cost,
+		})
+	end
+
+	-- Forge feat. The feats panel lives at the top of Tech, so a feat goal walks
+	-- the player to the same screen as the node they might buy next. This is the
+	-- candidate that keeps the rail alive after the tree is maxed and every crate
+	-- and drone is open, which is exactly when the game used to go quiet.
+	local feat = FeatConfig.next(FeatConfig.fromSync(state), 1)[1]
+	if feat ~= nil then
+		best = nearer(best, {
+			key = "feat",
+			label = "FEAT",
+			section = "tech",
+			fraction = feat.progress,
 		})
 	end
 

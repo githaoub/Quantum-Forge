@@ -261,7 +261,11 @@ local function registerActions()
 			return false
 		end
 		local data = payload :: any
-		if type(data.key) ~= "string" or type(data.value) ~= "boolean" then
+		if type(data.key) ~= "string" then
+			return false
+		end
+		local valueType = type(data.value)
+		if valueType ~= "boolean" and valueType ~= "number" then
 			return false
 		end
 		local ok, reason = ProgressionService.setSetting(player, data.key, data.value)

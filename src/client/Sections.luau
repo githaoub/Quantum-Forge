@@ -352,16 +352,36 @@ function Sections.openSettings()
 	local current = StateStore.current
 	local values = if current
 		then current.settings
-		else { sfx = Sfx.isEnabled(), music = Music.isEnabled(), vfx = Vfx.isEnabled(), shake = true, trades = true }
-	Modals.settings(values, function(key: Modals.PreferenceKey, value: boolean)
-		if key == "sfx" then
-			Sfx.setEnabled(value)
-		elseif key == "music" then
-			Music.setEnabled(value)
-		elseif key == "vfx" then
+		else {
+			sfxVolume = Sfx.getVolume(),
+			musicVolume = Music.getVolume(),
+			vfx = Vfx.isEnabled(),
+			shake = true,
+			trades = true,
+		}
+	local pendingWrites: { [string]: number } = {}
+	Modals.settings(values, function(key: Modals.PreferenceKey, value: boolean | number)
+		if key == "sfxVolume" and type(value) == "number" then
+			Sfx.setVolume(value)
+		elseif key == "musicVolume" and type(value) == "number" then
+			Music.setVolume(value)
+		elseif key == "vfx" and type(value) == "boolean" then
 			Vfx.setEnabled(value)
-		elseif key == "shake" then
+		elseif key == "shake" and type(value) == "boolean" then
 			Vfx.setShakeEnabled(value)
+		end
+		if type(value) == "number" then
+			-- A drag fires per pixel. Apply locally on every step, write the
+			-- latest value once the hand settles, or a slider sweep puts fifty
+			-- actions on the wire for one decision.
+			pendingWrites[key] = (pendingWrites[key] or 0) + 1
+			local token = pendingWrites[key]
+			task.delay(0.12, function()
+				if token == pendingWrites[key] then
+					StateStore.send("setting", { key = key, value = value })
+				end
+			end)
+			return
 		end
 		StateStore.send("setting", { key = key, value = value })
 	end)
@@ -518,10 +538,11 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	railFoot = foot
 
 	settingsListener = StateStore.onSync(function(payload)
-		-- Keep the audio gate honest on a fresh client: the saved preference is
+		-- Keep the audio levels honest on a fresh client: the saved mix is
 		-- authoritative, and applying it on every payload cannot fight a local
-		-- tap because the tap writes through the server first.
-		Sfx.setEnabled(payload.settings.sfx)
+		-- drag because the drag writes through the server first.
+		Sfx.setVolume(payload.settings.sfxVolume)
+		Music.setVolume(payload.settings.musicVolume)
 	end)
 
 	-- Section panel. Every management screen is the same shell and the same

@@ -51,6 +51,10 @@ local BASE_VOLUME = 0.2
 local pool: { Sound } = {}
 local nextIndex = 1
 local enabled = true
+--- Player-controlled gain, 0..1. The mix below is authored at 100%; this is the
+--- one multiplier every layer passes through, so the settings slider cannot
+--- drift from the kit.
+local volumeScale = 1
 
 local function ensurePool()
 	if #pool > 0 then
@@ -60,7 +64,7 @@ local function ensurePool()
 		local sound = Instance.new("Sound")
 		sound.Name = string.format("SfxSlot%d", index)
 		sound.SoundId = PING
-		sound.Volume = BASE_VOLUME
+		sound.Volume = BASE_VOLUME * volumeScale
 		sound.Parent = SoundService
 		pool[index] = sound
 	end
@@ -107,19 +111,19 @@ end
 --- Plays one layer on a pooled slot. `delay` staggers a chord without spawning
 --- a task for the zero case.
 local function play(asset: string, speed: number, volume: number, delay: number?)
-	if not enabled then
+	if not enabled or volumeScale <= 0 then
 		return
 	end
 	local sound = take()
 	sound.SoundId = asset
 	sound.PlaybackSpeed = speed
-	sound.Volume = volume
+	sound.Volume = math.clamp(volume * volumeScale, 0, 1)
 	if delay == nil or delay <= 0 then
 		sound:Play()
 		return
 	end
 	task.delay(delay, function()
-		if enabled and sound.Parent ~= nil then
+		if enabled and volumeScale > 0 and sound.Parent ~= nil then
 			sound:Play()
 		end
 	end)
@@ -142,7 +146,24 @@ function Sfx.setEnabled(value: boolean)
 end
 
 function Sfx.isEnabled(): boolean
-	return enabled
+	return enabled and volumeScale > 0
+end
+
+--- Sets the player's SFX level. Zero is a mute: every ringing layer stops on
+--- the same frame, because a slider that only takes effect on the next click
+--- reads as broken while a crate is mid-ceremony.
+function Sfx.setVolume(value: number)
+	volumeScale = math.clamp(if value == value then value else 1, 0, 1)
+	if volumeScale > 0 then
+		return
+	end
+	for _, sound in pool do
+		sound:Stop()
+	end
+end
+
+function Sfx.getVolume(): number
+	return volumeScale
 end
 
 -- ---------------------------------------------------------------------------
@@ -292,20 +313,23 @@ end
 --- graphic arriving rather than as an object landing.
 function Sfx.crateLand(gain: number?)
 	local g = gain or 1
-	play(SMACK, jitter(0.44, 0.03), 0.34 * g)
-	play(SNAP, jitter(0.72, 0.04), 0.17 * g, 0.005)
-	play(RING, jitter(0.66, 0.02), 0.11 * g, 0.03)
+	-- Four layers, not three. The low `SMACK` at 0.30 is the chest hitting the
+	-- bench; without it the crate sounds like a box of cutlery being set down.
+	play(SMACK, jitter(0.44, 0.03), 0.42 * g)
+	play(SNAP, jitter(0.72, 0.04), 0.18 * g, 0.005)
+	play(RING, jitter(0.66, 0.02), 0.13 * g, 0.03)
+	play(SMACK, jitter(0.30, 0.02), 0.12 * g, 0.012)
 end
 
 --- One crate taking the hit. This is the per-click payoff, not the reveal: a
 --- short crack and a wooden knock, with a heavier body only on the crate that
 --- actually opens.
 function Sfx.crateBreak(final: boolean?)
-	play(SNAP, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.3 else 0.18)
-	play(SMACK, jitter(0.82, 0.05), if final then 0.24 else 0.13, 0.005)
+	play(SNAP, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.42 else 0.26)
+	play(SMACK, jitter(0.82, 0.05), if final then 0.34 else 0.19, 0.005)
 	if final then
-		play(SMACK, jitter(0.55, 0.03), 0.18, 0.03)
-		play(RING, jitter(0.92, 0.02), 0.15, 0.05)
+		play(SMACK, jitter(0.55, 0.03), 0.26, 0.03)
+		play(RING, jitter(0.92, 0.02), 0.22, 0.05)
 	end
 end
 
@@ -314,22 +338,25 @@ end
 --- louder than the anvil without changing the anvil's mix.
 function Sfx.crateShatter(gain: number?)
 	local g = gain or 1
-	play(SNAP, jitter(0.95, 0.03), 0.22 * g)
-	play(SMACK, jitter(0.6, 0.03), 0.24 * g, 0.02)
-	play(RING, jitter(1.2, 0.02), 0.14 * g, 0.04)
+	-- The reveal downbeat. The low body is what makes the snap read as wood
+	-- giving way instead of a firecracker in a cupboard.
+	play(SNAP, jitter(0.95, 0.03), 0.34 * g)
+	play(SMACK, jitter(0.6, 0.03), 0.30 * g, 0.02)
+	play(RING, jitter(1.2, 0.02), 0.18 * g, 0.04)
+	play(SMACK, jitter(0.40, 0.02), 0.12 * g, 0.01)
 end
 
 --- One tick of the roll cadence, climbing the same ladder as the strike band so
 --- the wind-up and the payoff are in the same key.
 function Sfx.rollTick(index: number)
 	local step = math.clamp(index, 1, 8)
-	local weight = 0.05 + step * 0.008
+	local weight = 0.06 + step * 0.010
 	play(CLICK, jitter(1.05 * note(step), 0.02), weight)
-	play(PING, jitter(1.6 * note(step), 0.02), weight - 0.01, 0.005)
+	play(PING, jitter(1.6 * note(step), 0.02), weight + 0.02, 0.005)
 	-- The last two beats get a low body. Without it the rattle climbs in pitch
 	-- but not in mass, and the crate reads as a timer rather than as pressure.
 	if index >= 5 then
-		play(SMACK, jitter(0.6 + step * 0.03, 0.03), 0.1, 0)
+		play(SMACK, jitter(0.6 + step * 0.03, 0.03), 0.13, 0)
 	end
 end
 
@@ -350,25 +377,25 @@ function Sfx.crateTick(index: number, total: number)
 	local ten = { 1, 2, 3, 4, 5, 6, 7, 8, 5, 8 }
 	local ladder = if total >= 10 then ten else six
 	local step = ladder[math.clamp(index, 1, #ladder)]
-	local weight = 0.09 + math.min(index, 10) * 0.014
+	local weight = 0.11 + math.min(index, 10) * 0.016
 	play(CLICK, jitter(1.05, 0.02), weight * 0.8)
-	play(PING, jitter(degree(step), 0.005), weight + 0.08, 0.005)
+	play(PING, jitter(degree(step), 0.005), weight + 0.10, 0.005)
 	-- The last note lands on the tonic an octave up; give it a low octave so the
 	-- click has a floor instead of only a ceiling. The first tonic in a ten-pull
 	-- is the top of the scale, not the end, so only the actual last click gets it.
 	if step == 8 and index >= total then
-		play(PING, 0.5, 0.14, 0.01)
+		play(PING, 0.5, 0.18, 0.01)
 	end
 	if index >= 5 then
-		play(SMACK, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.16, 0)
+		play(SMACK, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.20, 0)
 	end
 end
 
 --- A single heartbeat under the sealed hold. Low, soft and deliberately not a
 --- tick: the rattle is over, and what is left is the player waiting.
 function Sfx.heartbeat()
-	play(SMACK, jitter(0.42, 0.03), 0.3)
-	play(PING, jitter(0.55, 0.02), 0.085, 0.03)
+	play(SMACK, jitter(0.42, 0.03), 0.38)
+	play(PING, jitter(0.55, 0.02), 0.12, 0.03)
 end
 
 --- The last half-second before a reveal. The top of the do-re-mi ladder, ending
@@ -380,9 +407,9 @@ function Sfx.riser(steps: number?)
 	local last = 7
 	local first = math.max(1, last - count + 1)
 	for index = first, last do
-		play(PING, jitter(degree(index), 0.005), 0.09 + (index - first) * 0.009, (index - first) * 0.06)
+		play(PING, jitter(degree(index), 0.005), 0.12 + (index - first) * 0.012, (index - first) * 0.06)
 	end
-	play(SMACK, jitter(0.5, 0.03), 0.16, count * 0.06)
+	play(SMACK, jitter(0.5, 0.03), 0.2, count * 0.06)
 end
 
 --- One copy leaving the ceremony. Deliberately smaller than the reveal: a claim

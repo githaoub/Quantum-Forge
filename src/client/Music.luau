@@ -7,11 +7,11 @@
 -- slow, sinister synth pulse, which is the same temperature as the forge: not a
 -- melody to listen to, a bed the anvil and the crate can land on top of.
 --
--- Music has its own persisted switch, separate from `Sfx`. A player may want the
+-- Music has its own persisted level, separate from `Sfx`. A player may want the
 -- anvil and the crate without a bed under them, or the reverse; folding both into
--- one mute makes the settings sheet lie about what it controls. `Main` applies
--- the saved `settings.music` on the first payload and `Sections` calls this when
--- the MUSIC row flips.
+-- one slider makes the settings sheet lie about what it controls. `Main` applies
+-- the saved `settings.musicVolume` on the first payload and `Sections` calls this
+-- while the MUSIC slider moves.
 local ContentProvider = game:GetService("ContentProvider")
 local SoundService = game:GetService("SoundService")
 
@@ -21,14 +21,19 @@ local Music = {}
 
 local TRACK = "rbxassetid://9042781325"
 --- Under the quietest body layer. The track is mastered hot; 0.16 sits under the
---- anvil without disappearing on a laptop speaker.
+--- anvil without disappearing on a laptop speaker. This is the 100% level; the
+--- player's saved slider scales it.
 local TARGET_VOLUME = 0.16
 local FADE_IN = 2.4
-local FADE_OUT = 0.5
+-- Shorter than the intro fade: the slider has to answer while the hand is still
+-- on it, and a 2.4s lag reads as a broken control.
+local FADE_OUT = 0.35
 
 local sound: Sound? = nil
-local enabled = true
---- Invalidates a pending pause when the switch flips back on inside the fade.
+--- 0..1 slider level. Defaults to the same 55% the save migration writes, so a
+--- client that boots before the first payload is not briefly full volume.
+local volumeScale = 0.55
+--- Invalidates a pending pause when the level comes back up inside the fade.
 local fadeToken = 0
 --- The running gain tween. Starting a second fade without cancelling the first
 --- lets the mute and the intro fight over `Volume` for a frame or two.
@@ -66,24 +71,31 @@ function Music.init()
 		pcall(function()
 			ContentProvider:PreloadAsync({ current })
 		end)
-		if sound ~= current or not enabled then
+		if sound ~= current or volumeScale <= 0 then
 			return
 		end
 		current:Play()
-		fadeTo(TARGET_VOLUME, FADE_IN)
+		fadeTo(TARGET_VOLUME * volumeScale, FADE_IN)
 	end)
 end
 
---- Follows the SFX preference. Disabling fades out before pausing so a mute
---- never clips a note in half.
-function Music.setEnabled(value: boolean)
-	enabled = value
+--- Sets the player's music level. Zero fades out and pauses; any level above
+--- zero resumes the same loop where it stopped, so a slider nudge never restarts
+--- the track.
+function Music.setVolume(value: number)
+	local nextVolume = math.clamp(if value == value then value else 0.55, 0, 1)
+	if nextVolume == volumeScale then
+		return
+	end
+	local wasSilent = volumeScale <= 0
+	volumeScale = nextVolume
 	fadeToken += 1
+
 	local current = sound
 	if current == nil then
 		return
 	end
-	if value then
+	if volumeScale > 0 then
 		if not current.IsPlaying then
 			if current.IsPaused then
 				current:Resume()
@@ -91,21 +103,25 @@ function Music.setEnabled(value: boolean)
 				current:Play()
 			end
 		end
-		fadeTo(TARGET_VOLUME, FADE_OUT)
+		fadeTo(TARGET_VOLUME * volumeScale, if wasSilent then FADE_IN else FADE_OUT)
 		return
 	end
 
 	local token = fadeToken
 	fadeTo(0, FADE_OUT)
 	task.delay(FADE_OUT + 0.05, function()
-		if token == fadeToken and sound == current and not enabled then
+		if token == fadeToken and sound == current and volumeScale <= 0 then
 			current:Pause()
 		end
 	end)
 end
 
+function Music.getVolume(): number
+	return volumeScale
+end
+
 function Music.isEnabled(): boolean
-	return enabled
+	return volumeScale > 0
 end
 
 function Music.destroy()

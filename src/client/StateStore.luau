@@ -350,7 +350,9 @@ function StateStore.setting(key: string): boolean
 	end
 	local settings = state.settings
 	if key == "sfx" then
-		return settings.sfx
+		return settings.sfxVolume > 0
+	elseif key == "music" then
+		return settings.musicVolume > 0
 	elseif key == "vfx" then
 		return settings.vfx
 	elseif key == "shake" then

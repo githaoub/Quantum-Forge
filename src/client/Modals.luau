@@ -12,6 +12,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContentProvider = game:GetService("ContentProvider")
+local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
@@ -335,26 +336,30 @@ function Modals.confirm(title: string, body: string, confirmText: string, accent
 	confirm.button.Size = UDim2.new(0.5, -42, 0, 50)
 end
 
---- Settings sheet. Five persisted preferences, each with an explicit ON/OFF
---- face: a toggle that only changes colour is unreadable to a colour-blind
---- player and invisible at a glance. `onChange` fires after the local face has
---- already flipped, so the UI never waits on a server round trip to feel alive.
-export type PreferenceKey = "sfx" | "music" | "vfx" | "shake" | "trades"
+--- Settings sheet. Audio is a level, not a switch: a player asking for "quieter"
+--- has no use for a control that only offers silence. The two audio rows carry
+--- a 0..100 slider; 0 is the mute. The remaining rows keep an explicit ON/OFF
+--- face, because a toggle that only changes colour is unreadable to a
+--- colour-blind player and invisible at a glance.
+---
+--- `onChange` fires after the local face has already moved, so the UI never
+--- waits on a server round trip to feel alive.
+export type PreferenceKey = "sfxVolume" | "musicVolume" | "vfx" | "shake" | "trades"
 
 function Modals.settings(
-	values: { sfx: boolean, music: boolean, vfx: boolean, shake: boolean, trades: boolean },
-	onChange: (key: PreferenceKey, value: boolean) -> ()
+	values: { sfxVolume: number, musicVolume: number, vfx: boolean, shake: boolean, trades: boolean },
+	onChange: (key: PreferenceKey, value: boolean | number) -> ()
 )
-	-- 462 rather than 400: the fifth row would otherwise leave the DONE plate
-	-- sitting two pixels under it.
-	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 462)
+	-- 500 rather than 462: two audio rows are 72 tall to hold the slider track.
+	-- Five 58px rows plus the DONE plate left the old sheet two pixels short.
+	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 500)
 
-	local rows: { { key: PreferenceKey, label: string, note: string } } = {
-		{ key = "sfx", label = "SOUND EFFECTS", note = "Strikes, forge results, UI ticks" },
-		{ key = "music", label = "MUSIC", note = "The looped room tone under the forge" },
-		{ key = "vfx", label = "SCREEN EFFECTS", note = "Sparks, rings, embers, flashes" },
-		{ key = "shake", label = "SCREEN SHAKE", note = "Anvil and forge impact shake" },
-		{ key = "trades", label = "ALLOW TRADE REQUESTS", note = "Off means other forgers cannot ask" },
+	local rows: { { key: PreferenceKey, label: string, note: string, volume: boolean } } = {
+		{ key = "sfxVolume", label = "SOUND EFFECTS", note = "Strikes, crate ceremony, UI ticks", volume = true },
+		{ key = "musicVolume", label = "MUSIC", note = "The looped room tone under the forge", volume = true },
+		{ key = "vfx", label = "SCREEN EFFECTS", note = "Sparks, rings, embers, flashes", volume = false },
+		{ key = "shake", label = "SCREEN SHAKE", note = "Anvil and forge impact shake", volume = false },
+		{ key = "trades", label = "ALLOW TRADE REQUESTS", note = "Off means other forgers cannot ask", volume = false },
 	}
 
 	-- The whole row is the switch. A 108px plaque at the far right is a target a
@@ -375,17 +380,24 @@ function Modals.settings(
 		end
 	end
 
-	for index, row in rows do
-		local y = 38 + (index - 1) * 58
-		local on = values[row.key]
+	local y = 38
+	for _, row in rows do
+		local height = if row.volume then 72 else 54
+		local on = row.key == "vfx" and values.vfx
+			or row.key == "shake" and values.shake
+			or row.key == "trades" and values.trades
+			or false
 
 		local button = UiKit.button(panel, {
 			text = "",
 			fill = Theme.Color.panelSunken,
 			stroke = Theme.Color.stroke,
-			height = 54,
+			height = height,
 			radius = Theme.Radius.sm,
 			handler = function()
+				if row.volume then
+					return
+				end
 				on = not on
 				paint(row.key, on)
 				onChange(row.key, on)
@@ -393,7 +405,7 @@ function Modals.settings(
 		})
 		button.Name = string.format("Setting_%s", row.key)
 		button.Position = UDim2.fromOffset(34, y)
-		button.Size = UDim2.new(1, -68, 0, 54)
+		button.Size = UDim2.new(1, -68, 0, height)
 
 		local title = UiKit.label(button, {
 			text = row.label,
@@ -401,7 +413,7 @@ function Modals.settings(
 			font = Theme.Font.Heading,
 			color = Theme.Color.text,
 		})
-		title.Position = UDim2.fromOffset(14, 7)
+		title.Position = UDim2.fromOffset(14, if row.volume then 6 else 7)
 		title.Size = UDim2.new(1, -108, 0, 22)
 		title.ZIndex = 2
 
@@ -410,37 +422,168 @@ function Modals.settings(
 			size = Theme.Text.Tiny,
 			color = Theme.Color.textSecondary,
 		})
-		note.Position = UDim2.fromOffset(14, 29)
+		note.Position = UDim2.fromOffset(14, if row.volume then 26 else 29)
 		note.Size = UDim2.new(1, -108, 0, 16)
 		note.ZIndex = 2
 
-		local chip = UiKit.create("Frame", {
-			Name = "Chip",
-			BackgroundColor3 = Theme.Color.slate,
-			BorderSizePixel = 0,
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -14, 0.5, 0),
-			Size = UDim2.fromOffset(64, 28),
-			ZIndex = 2,
-		}) :: Frame
-		UiKit.corner(chip, Theme.Radius.sm)
-		UiKit.stroke(chip, Theme.Color.outline, 2, 0)
-		chip.Parent = button
+		if row.volume then
+			local initial = if row.key == "sfxVolume" then values.sfxVolume else values.musicVolume
 
-		local face = UiKit.label(chip, {
-			text = "OFF",
-			size = Theme.Text.Small,
-			font = Theme.Font.Black,
-			color = Theme.Color.locked,
-			align = Enum.TextXAlignment.Center,
-		})
-		face.Name = "Face"
-		face.Size = UDim2.fromScale(1, 1)
-		face.ZIndex = 3
+			local percent = UiKit.label(button, {
+				text = "0%",
+				size = Theme.Text.Small,
+				font = Theme.Font.Numeric,
+				color = Theme.Color.cyan,
+				align = Enum.TextXAlignment.Right,
+			})
+			percent.Name = "Volume"
+			percent.Position = UDim2.new(1, -78, 0, 7)
+			percent.Size = UDim2.fromOffset(58, 20)
+			percent.ZIndex = 2
 
-		chips[row.key] = chip
-		faces[row.key] = face
-		paint(row.key, on)
+			local track = UiKit.create("Frame", {
+				Name = "Track",
+				BackgroundColor3 = Theme.Color.slate,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(14, 50),
+				Size = UDim2.new(1, -28, 0, 6),
+				ZIndex = 2,
+			}) :: Frame
+			UiKit.corner(track, 3)
+			track.Parent = button
+
+			local fill = UiKit.create("Frame", {
+				Name = "Fill",
+				BackgroundColor3 = Theme.Color.cyan,
+				BorderSizePixel = 0,
+				Size = UDim2.fromScale(0, 1),
+				ZIndex = 3,
+			}) :: Frame
+			UiKit.corner(fill, 3)
+			fill.Parent = track
+
+			local knob = UiKit.create("Frame", {
+				Name = "Knob",
+				BackgroundColor3 = Theme.Color.text,
+				BorderSizePixel = 0,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0, 0.5),
+				Size = UDim2.fromOffset(14, 14),
+				ZIndex = 4,
+			}) :: Frame
+			UiKit.corner(knob, 7)
+			UiKit.stroke(knob, Theme.Color.outline, 2, 0)
+			knob.Parent = track
+
+			-- The hit area is taller than the 6px track: a thumb needs 24px, and
+			-- the rail still draws as a thin line.
+			local hit = UiKit.create("TextButton", {
+				Name = "Slider",
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				AutoButtonColor = false,
+				Text = "",
+				Position = UDim2.fromOffset(14, 38),
+				Size = UDim2.new(1, -28, 0, 26),
+				ZIndex = 5,
+			}) :: TextButton
+			hit.Parent = button
+
+			local function paintLevel(level: number, notify: boolean)
+				local snapped = math.clamp(math.floor(level * 20 + 0.5) / 20, 0, 1)
+				fill.Size = UDim2.fromScale(snapped, 1)
+				knob.Position = UDim2.fromScale(snapped, 0.5)
+				percent.Text = string.format("%d%%", math.floor(snapped * 100 + 0.5))
+				if notify then
+					onChange(row.key, snapped)
+				end
+			end
+
+			local dragging = false
+			local dragChanged: RBXScriptConnection? = nil
+			local dragEnded: RBXScriptConnection? = nil
+
+			local function stopDrag()
+				dragging = false
+				if dragChanged then
+					dragChanged:Disconnect()
+					dragChanged = nil
+				end
+				if dragEnded then
+					dragEnded:Disconnect()
+					dragEnded = nil
+				end
+			end
+
+			local function applyAtX(x: number)
+				local width = track.AbsoluteSize.X
+				if width <= 0 then
+					return
+				end
+				paintLevel((x - track.AbsolutePosition.X) / width, true)
+			end
+
+			hit.InputBegan:Connect(function(input: InputObject)
+				if input.UserInputType ~= Enum.UserInputType.MouseButton1
+					and input.UserInputType ~= Enum.UserInputType.Touch
+				then
+					return
+				end
+				dragging = true
+				applyAtX(input.Position.X)
+				stopDrag()
+				dragging = true
+				dragChanged = UserInputService.InputChanged:Connect(function(move: InputObject)
+					if dragging
+						and (move.UserInputType == Enum.UserInputType.MouseMovement
+							or move.UserInputType == Enum.UserInputType.Touch)
+					then
+						applyAtX(move.Position.X)
+					end
+				end)
+				dragEnded = UserInputService.InputEnded:Connect(function(stopped: InputObject)
+					if stopped.UserInputType == Enum.UserInputType.MouseButton1
+						or stopped.UserInputType == Enum.UserInputType.Touch
+					then
+						stopDrag()
+						Sfx.ui()
+					end
+				end)
+			end)
+			hit.Destroying:Connect(stopDrag)
+
+			paintLevel(initial, false)
+		else
+			local chip = UiKit.create("Frame", {
+				Name = "Chip",
+				BackgroundColor3 = Theme.Color.slate,
+				BorderSizePixel = 0,
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -14, 0.5, 0),
+				Size = UDim2.fromOffset(64, 28),
+				ZIndex = 2,
+			}) :: Frame
+			UiKit.corner(chip, Theme.Radius.sm)
+			UiKit.stroke(chip, Theme.Color.outline, 2, 0)
+			chip.Parent = button
+
+			local face = UiKit.label(chip, {
+				text = "OFF",
+				size = Theme.Text.Small,
+				font = Theme.Font.Black,
+				color = Theme.Color.locked,
+				align = Enum.TextXAlignment.Center,
+			})
+			face.Name = "Face"
+			face.Size = UDim2.fromScale(1, 1)
+			face.ZIndex = 3
+
+			chips[row.key] = chip
+			faces[row.key] = face
+			paint(row.key, on)
+		end
+
+		y += height + 6
 	end
 
 	local done = UiKit.actionButton(panel, {

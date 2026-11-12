@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TechTreeConfig = require(Shared:WaitForChild("TechTreeConfig"))
+local FeatConfig = require(Shared:WaitForChild("FeatConfig"))
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 local Types = require(Shared:WaitForChild("Types"))
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
@@ -35,7 +36,21 @@ type NodeCard = {
 	lastLabel: string?,
 }
 
+type FeatRow = {
+	name: TextLabel,
+	progress: TextLabel,
+	bar: UiKit.BarParts,
+}
+
+type FeatPanel = {
+	count: TextLabel,
+	bonus: TextLabel,
+	bar: UiKit.BarParts,
+	rows: { FeatRow },
+}
+
 local cards: { NodeCard } = {}
+local featPanel: FeatPanel? = nil
 local balance: TextLabel? = nil
 local unsubscribe: (() -> ())? = nil
 
@@ -146,8 +161,139 @@ local function buildCard(parent: Instance, node: TechTreeConfig.Node, order: num
 	}
 end
 
+--- The forge-feat ladder. One card rather than thirty-five: the section already
+--- has nine tech rows, and a second full list would turn the page into a wall.
+--- Four nearest goals is enough to answer "what now"; the count and the bonus
+--- carry the rest.
+local function buildFeatPanel(parent: Instance, order: number): FeatPanel
+	local root = UiKit.panel(parent, {
+		tier = "item",
+		radius = Theme.Radius.md,
+		stroke = Theme.Color.gold,
+		strokeTransparency = 0.7,
+	})
+	root.Size = UDim2.new(1, -4, 0, 232)
+	root.LayoutOrder = order
+
+	local title = UiKit.label(root, {
+		text = "FORGE FEATS",
+		size = Theme.Text.Micro,
+		font = Theme.Font.Heading,
+		color = Theme.Color.gold,
+	})
+	title.Position = UDim2.fromOffset(14, 8)
+	title.Size = UDim2.new(1, -160, 0, 16)
+
+	local count = UiKit.label(root, {
+		text = "0 / 0",
+		size = Theme.Text.Micro,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	count.Position = UDim2.new(1, -132, 0, 8)
+	count.Size = UDim2.fromOffset(118, 16)
+
+	local bonus = UiKit.label(root, {
+		text = "PERMANENT +0% ALL YIELD",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.gold,
+	})
+	bonus.Position = UDim2.fromOffset(14, 26)
+	bonus.Size = UDim2.new(1, -28, 0, 16)
+
+	local bar = UiKit.bar(root, {
+		height = 4,
+		radius = 2,
+		gradient = { Theme.Color.goldDeep, Theme.Color.gold },
+	})
+	bar.track.Position = UDim2.fromOffset(14, 48)
+	bar.track.Size = UDim2.new(1, -28, 0, 4)
+
+	local rows: { FeatRow } = {}
+	for index = 1, 4 do
+		local y = 60 + (index - 1) * 42
+		local name = UiKit.label(root, {
+			text = "",
+			size = Theme.Text.Small,
+			font = Theme.Font.Heading,
+			color = Theme.Color.text,
+		})
+		name.Position = UDim2.fromOffset(14, y)
+		name.Size = UDim2.new(1, -150, 0, 18)
+
+		local progress = UiKit.label(root, {
+			text = "",
+			size = Theme.Text.Micro,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Right,
+		})
+		progress.Position = UDim2.new(1, -142, 0, y + 1)
+		progress.Size = UDim2.fromOffset(128, 16)
+
+		local rowBar = UiKit.bar(root, {
+			height = 3,
+			radius = 2,
+			gradient = { Theme.Color.goldDeep, Theme.Color.gold },
+		})
+		rowBar.track.Position = UDim2.fromOffset(14, y + 22)
+		rowBar.track.Size = UDim2.new(1, -28, 0, 3)
+
+		table.insert(rows, { name = name, progress = progress, bar = rowBar })
+	end
+
+	return { count = count, bonus = bonus, bar = bar, rows = rows }
+end
+
+local function renderFeats(payload: Types.SyncPayload)
+	local panel = featPanel
+	if panel == nil then
+		return
+	end
+	local input = FeatConfig.fromSync(payload)
+	local done = FeatConfig.completed(input)
+	local total = FeatConfig.total()
+	panel.count.Text = string.format("%d / %d", done, total)
+	panel.bonus.Text = string.format(
+		"PERMANENT +%d%% ALL YIELD",
+		math.floor(FeatConfig.PerFeatBonus * done * 100 + 0.5)
+	)
+	panel.bar.set(if total > 0 then done / total else 1)
+
+	local nextFeats = FeatConfig.next(input, #panel.rows)
+	for index, row in panel.rows do
+		local entry = nextFeats[index]
+		if entry ~= nil then
+			row.name.Visible = true
+			row.name.Text = entry.feat.name
+			row.progress.Visible = true
+			row.progress.Text = string.format(
+				"%s / %s",
+				NumberUtil.abbreviate(entry.value),
+				NumberUtil.abbreviate(entry.feat.target)
+			)
+			row.bar.track.Visible = true
+			row.bar.set(entry.progress)
+		elseif index == 1 then
+			row.name.Visible = true
+			row.name.Text = "ALL FEATS COMPLETE"
+			row.progress.Visible = true
+			row.progress.Text = "EVERY LADDER FINISHED"
+			row.bar.track.Visible = true
+			row.bar.set(1)
+		else
+			row.name.Visible = false
+			row.progress.Visible = false
+			row.bar.track.Visible = false
+		end
+	end
+end
+
 function TechTreeView.init(parent: Instance)
 	cards = {}
+	featPanel = nil
 
 	local header = UiKit.panel(parent, {
 		tier = "well",
@@ -176,8 +322,10 @@ function TechTreeView.init(parent: Instance)
 	balance.Position = UDim2.fromOffset(14, 24)
 	balance.Size = UDim2.new(1, -28, 0, 34)
 
+	featPanel = buildFeatPanel(parent, 1)
+
 	for index, node in TechTreeConfig.list() do
-		table.insert(cards, buildCard(parent, node, index))
+		table.insert(cards, buildCard(parent, node, 10 + index))
 	end
 
 	unsubscribe = StateStore.onSync(function(payload: Types.SyncPayload)
@@ -194,6 +342,7 @@ function TechTreeView.render(payload: Types.SyncPayload)
 	if balance then
 		balance.Text = NumberUtil.abbreviate(payload.qc)
 	end
+	renderFeats(payload)
 
 	for _, card in cards do
 		local level = payload.tech[card.node.id] or 0
@@ -241,6 +390,7 @@ function TechTreeView.destroy()
 		unsubscribe = nil
 	end
 	cards = {}
+	featPanel = nil
 end
 
 return TechTreeView

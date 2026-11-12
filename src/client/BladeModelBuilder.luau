@@ -16,6 +16,7 @@
 -- Parts are anchored, non-colliding, non-queryable, and cast no shadows. A
 -- ViewportFrame ignores physics anyway, and these get cloned into 25 thumbnails.
 
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
@@ -1028,9 +1029,106 @@ function BladeModelBuilder.bounds(root: Instance): (Vector3, Vector3)
 	return (min + max) * 0.5, max - min
 end
 
---- The loaded mesh Model for an asset id, if `MeshService` has replicated it.
---- Returns nil while the asset is still loading, which is the normal state for
---- the first few seconds after a server starts.
+-- Mesh verification.
+--
+-- A replicated Model is not proof that the sword can be seen. `LoadAsset` can
+-- return a wrapper whose MeshParts point at an asset this experience is not
+-- allowed to render; the parts have names, sizes and CFrames, so `applyMesh`
+-- happily reports success and the viewport shows nothing. That is the exact
+-- failure behind "the sword sometimes does not show up at all".
+--
+-- The rule is now explicit: use the mesh only after every MeshPart's content
+-- fetch succeeds. Until then the primitive recipe renders, and a watcher swaps
+-- in the mesh when the check lands. A failed mesh never replaces a visible
+-- sword.
+local meshState: { [string]: boolean } = {}
+local meshWaiters: { [string]: { () -> () } } = {}
+local meshCheckRunning = false
+local meshCheckAgain = false
+
+local function meshPartsOf(source: Model): { MeshPart }
+	local parts: { MeshPart } = {}
+	for _, descendant in source:GetDescendants() do
+		if descendant:IsA("MeshPart") then
+			table.insert(parts, descendant)
+		end
+	end
+	return parts
+end
+
+local function verifyMesh(source: Model): boolean
+	local parts = meshPartsOf(source)
+	if #parts == 0 then
+		return false
+	end
+	local ids: { string } = {}
+	local seen: { [string]: boolean } = {}
+	for _, meshPart in parts do
+		local meshId = meshPart.MeshId
+		if meshId == "" then
+			return false
+		end
+		if not seen[meshId] then
+			seen[meshId] = true
+			table.insert(ids, meshId)
+		end
+	end
+	pcall(function()
+		ContentProvider:PreloadAsync(ids)
+	end)
+	for _, meshId in ids do
+		if ContentProvider:GetAssetFetchStatus(meshId) ~= Enum.AssetFetchStatus.Success then
+			return false
+		end
+	end
+	return true
+end
+
+local function fireMeshWaiters(assetId: string)
+	local list = meshWaiters[assetId]
+	if list == nil then
+		return
+	end
+	meshWaiters[assetId] = nil
+	for _, callback in list do
+		task.spawn(callback)
+	end
+end
+
+--- Checks every replicated mesh model that has not been scored yet. Runs in the
+--- background: `build` is on the UI path and must never yield for a network
+--- fetch. Repeats when a child arrives mid-scan.
+local function requestMeshChecks()
+	if meshCheckRunning then
+		meshCheckAgain = true
+		return
+	end
+	meshCheckRunning = true
+	task.spawn(function()
+		repeat
+			meshCheckAgain = false
+			local folder = ReplicatedStorage:FindFirstChild(Config.MeshFolder)
+			if folder ~= nil then
+				for _, child in folder:GetChildren() do
+					if child:IsA("Model") and meshState[child.Name] == nil then
+						local ok = verifyMesh(child)
+						meshState[child.Name] = ok
+						if ok then
+							fireMeshWaiters(child.Name)
+						else
+							warn(string.format("[mesh] %s has no renderable mesh; using the primitive recipe", child.Name))
+						end
+					end
+				end
+			end
+		until not meshCheckAgain
+		meshCheckRunning = false
+	end)
+end
+
+--- The loaded mesh Model for an asset id, if `MeshService` has replicated it
+--- *and* its mesh content fetched. Returns nil while the asset is still loading,
+--- which is the normal state for the first few seconds after a server starts.
 local function meshSource(assetId: string): Model?
 	local folder = ReplicatedStorage:FindFirstChild(Config.MeshFolder)
 	if folder == nil then
@@ -1038,7 +1136,13 @@ local function meshSource(assetId: string): Model?
 	end
 	local found = folder:FindFirstChild(assetId)
 	if found ~= nil and found:IsA("Model") then
-		return found
+		if meshState[assetId] == nil then
+			requestMeshChecks()
+			return nil
+		end
+		if meshState[assetId] == true then
+			return found
+		end
 	end
 	return nil
 end
@@ -1145,15 +1249,20 @@ local function applyMesh(
 	return true
 end
 
---- True when the uploaded asset for `bladeId` is already replicated.
+--- True when the uploaded asset for `bladeId` is replicated *and* verified.
 function BladeModelBuilder.hasMesh(bladeId: string): boolean
 	return meshSource(bladeId) ~= nil
 end
 
---- Calls `onArrive` when the mesh for `assetId` replicates. Returns a cancel
---- function. Needed because the server loads the assets in the background: the
---- viewport is usually built before they land, and without this the first player
---- on a server keeps the placeholder until they re-open the tab.
+--- Calls `onArrive` when the mesh for `assetId` replicates and passes the
+--- content check. Returns a cancel function. Needed because the server loads the
+--- assets in the background: the viewport is usually built before they land, and
+--- without this the first player on a server keeps the placeholder until they
+--- re-open the tab.
+---
+--- `onArrive` does not fire for a mesh that fails verification. The primitive
+--- recipe is already on screen, so the viewport stays visible instead of
+--- swapping a sword for an empty frame.
 function BladeModelBuilder.watch(assetId: string, onArrive: () -> ()): () -> ()
 	local connections: { RBXScriptConnection } = {}
 	local finished = false
@@ -1168,16 +1277,48 @@ function BladeModelBuilder.watch(assetId: string, onArrive: () -> ()): () -> ()
 		table.clear(connections)
 	end
 
+	local function addWaiter()
+		local list = meshWaiters[assetId]
+		if list == nil then
+			list = {}
+			meshWaiters[assetId] = list
+		end
+		table.insert(list, function()
+			if finished then
+				return
+			end
+			stop()
+			onArrive()
+		end)
+	end
+
+	local function arm()
+		if finished then
+			return
+		end
+		if meshState[assetId] == true then
+			stop()
+			onArrive()
+			return
+		end
+		if meshState[assetId] == false then
+			-- Already checked and unrenderable. Primitive is the answer for
+			-- this session; do not park a waiter that can never fire.
+			return
+		end
+		addWaiter()
+		requestMeshChecks()
+	end
+
 	local function bindFolder(folder: Instance)
 		if finished or not folder:IsA("Folder") then
 			return
 		end
 		if folder:FindFirstChild(assetId) ~= nil then
 			-- The asset beat us here: the caller checked `hasMesh` before the
-			-- load finished. Without this branch the viewport would keep its
+			-- verify ran. Without this branch the viewport would keep its
 			-- placeholder forever, because there is no later ChildAdded to hear.
-			stop()
-			onArrive()
+			arm()
 			return
 		end
 		table.insert(
@@ -1187,8 +1328,7 @@ function BladeModelBuilder.watch(assetId: string, onArrive: () -> ()): () -> ()
 					return
 				end
 				if child.Name == assetId and child:IsA("Model") then
-					stop()
-					onArrive()
+					arm()
 				end
 			end)
 		)

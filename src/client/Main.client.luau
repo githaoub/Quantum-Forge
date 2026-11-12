@@ -109,8 +109,12 @@ local function onFeedEvent(event: Types.FeedEvent)
 			-- Flipbook if the sheets are uploaded, procedural sparks otherwise.
 			-- Never both: the sheet already contains the burst, and stacking them
 			-- doubles brightness on the frame that is already the busiest.
+			--
+			-- The ring is not optional. A crit used to be a flash, a float and a
+			-- spark spray, which at speed reads as "a slightly bigger hit"; the
+			-- gold shockwave ring is the shape the player learns to look for.
 			if not SpriteFx.play(anchor, "impact", Theme.Color.starMatter, { size = 420 }) then
-				Vfx.burst(anchor, Theme.Color.starMatter, 2.2)
+				Vfx.strikeBurst(anchor, Theme.Color.gold, 2.3, true)
 			end
 			-- The crit lands on the anvil face, not on the button plate: the plate is
 			-- full-width and any positional animation on it leaves the card.
@@ -347,8 +351,8 @@ local function boot()
 			return
 		end
 		settingsApplied = true
-		Sfx.setEnabled(payload.settings.sfx)
-		Music.setEnabled(payload.settings.music)
+		Sfx.setVolume(payload.settings.sfxVolume)
+		Music.setVolume(payload.settings.musicVolume)
 		Vfx.setEnabled(payload.settings.vfx)
 		Vfx.setShakeEnabled(payload.settings.shake)
 	end)

@@ -56,12 +56,17 @@ export type FleetEntry = {
 	unlockAt: number,
 }
 
---- Client-side preferences. Server-persisted so a mute survives a rejoin.
+--- Client-side preferences. Server-persisted so a mix survives a rejoin.
+---
+--- Audio is a level, not a switch. A slider at 0 is the mute, which keeps one
+--- value authoritative instead of a boolean and a volume that can disagree.
+--- Values are 0..1, rounded to 5% steps by the settings sheet.
 export type Settings = {
-	sfx: boolean,
-	--- The looped room tone. Its own switch rather than a passenger on `sfx`:
-	--- a player may want the anvil and the crate without a bed under them.
-	music: boolean,
+	sfxVolume: number,
+	--- The looped room tone. Its own level rather than a passenger on the FX
+	--- slider: a player may want the anvil and the crate without a bed under
+	--- them, or the bed alone.
+	musicVolume: number,
 	vfx: boolean,
 	shake: boolean,
 	--- Accept trade requests from other players. Off answers `ASK` with
@@ -261,6 +266,10 @@ export type SyncPayload = {
 	forgeRolls: number,
 	tech: { [string]: number },
 	ascensions: number,
+	--- Lifetime totals, carried so the forge-feat ladder can be scored on the
+	--- client from the same numbers the server uses. Both are monotonic.
+	lifetimeSm: number,
+	lifetimeCores: number,
 	--- True when the account owns the VIP pass. Drives the plate badge; the
 	--- bundle's actual passes are granted server-side and never read here.
 	vip: boolean,
