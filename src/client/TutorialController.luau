@@ -101,7 +101,6 @@ local sawVent = false
 local sawAnyVent = false
 local dronesAtStart = 0
 local invAtStart = 0
-local lastHoldRequest = 0
 local pollAccum = 0
 local lastCardX = -1
 local lastCardY = -1
@@ -446,7 +445,6 @@ local function start()
 	index = 1
 	sawVent = false
 	sawAnyVent = false
-	lastHoldRequest = 0
 	lastCardX = -1
 	lastCardY = -1
 	dronesAtStart = if payload ~= nil then payload.drones else 0
@@ -547,7 +545,6 @@ local function buildSteps()
 			end,
 			enter = function()
 				sawVent = false
-				lastHoldRequest = os.clock()
 				-- Refresh the deadline: step one can take longer than the hold.
 				StateStore.send("tutorialHold", true)
 			end,
@@ -938,15 +935,6 @@ function TutorialController.step(dt: number)
 	local payload = StateStore.current
 	local step = steps[index]
 	if step ~= nil then
-		-- Step 2 holds the gauge so reading the note cannot cost the vent. The
-		-- server clamps and expires the hold on its own; this is only a refresh
-		-- while the step is still open and the heat is still near the line.
-		if step.key == "purge" and payload ~= nil then
-			if payload.heat >= Config.VentThreshold - 5 and os.clock() - lastHoldRequest > 2 then
-				lastHoldRequest = os.clock()
-				StateStore.send("tutorialHold", true)
-			end
-		end
 		refreshCopy(payload)
 		updateTarget()
 	end
