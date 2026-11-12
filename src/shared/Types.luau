@@ -197,10 +197,13 @@ export type ProfileState = {
 	settings: Settings,
 
 	--- Timed 2x from the Starter Forge Pack or the welcome boost. Stacks with
-	--- the paid 3x below, so both can be live at once.
+	--- the paid multiplier below, so both can be live at once.
 	boostX2Until: number,
-	--- Paid 3x from Instant Overdrive. Separate from `forgeOverdriveUntil`.
+	--- Paid boost from Instant Overdrive. Separate from `forgeOverdriveUntil`.
 	overdriveUntil: number,
+	--- Instant Overdrive charges bought. Never spent, so the paid multiplier
+	--- climbs forever; only the timer is capped at one hour.
+	overdriveStacks: number,
 
 	-- Onboarding
 	tutorialCompleted: boolean,
@@ -287,9 +290,13 @@ export type SyncPayload = {
 	overdriveRemaining: number,
 	--- Timed 2x boost (welcome or Starter Forge Pack), seconds remaining.
 	boostRemaining: number,
-	--- Paid 3x boost (Instant Overdrive), seconds remaining. Stacks with
-	--- `boostRemaining`, so the HUD can print x6 while both are live.
+	--- Paid boost (Instant Overdrive), seconds remaining. Resets to one hour on
+	--- every charge. Stacks with `boostRemaining`.
 	paidBoostRemaining: number,
+	--- The live paid multiplier, already including every charge. Idle reads 1,
+	--- so a consumer can multiply it unconditionally: a 2x Starter Pack boost
+	--- and one charge print x6.
+	paidBoostMult: number,
 	--- Consecutive in-band strikes, and how many are needed.
 	streak: number,
 	streakGoal: number,

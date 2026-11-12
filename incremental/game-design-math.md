@@ -646,8 +646,11 @@ content, and nothing removes another player's advantage. There are no raw
 Star-Matter or Aether packs: a cash-to-currency pack would let a payer skip the
 number the game is built around grinding. The permanent multipliers stack
 multiplicatively in `globalMultiplier`, and the timed 2x from the Starter Pack is a
-separate field (`boostX2Until`) so it stacks with the pass and the paid 3x instead
-of replacing either.
+separate field (`boostX2Until`) so it stacks with the pass and the paid track
+instead of replacing either. The paid track itself is `OverdriveMultiplier *
+max(1, overdriveStacks)` while `overdriveUntil` is live: each Instant Overdrive
+charge adds a stack and resets the clock to one hour, and the clock never runs
+past that hour.
 
 `2x Star-Matter` interacts multiplicatively with everything, including offline and
 drone income, because it lives in `ProgressionService.globalMultiplier`. That is
@@ -812,8 +815,9 @@ and the window covers ~30 strikes. The reward is therefore about 30 extra strike
 yields per 35 seconds of precise play, which is meaningful without making the band
 mandatory. A miss resets the count to zero, and so does a burn-out.
 
-Paid Overdrive (`overdriveUntil`) is a separate `×3` for fifteen minutes and does
-not touch the streak. Anomaly chance reads the skill window, not the paid one.
+Paid Overdrive (`overdriveUntil`) is a separate track: `×3` per charge, stacked
+without a cap, for one hour per recharge. It does not touch the streak. Anomaly
+chance reads the skill window, not the paid one.
 
 ### 15.2 First-minute multiplier
 

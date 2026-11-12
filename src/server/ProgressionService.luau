@@ -113,13 +113,14 @@ function ProgressionService.globalMultiplier(state: Types.ProfileState): number
 	if state.passes.eternalForge then
 		mult *= 1.25
 	end
-	-- Timed 2x from the Starter Forge Pack. Separate field from the paid 3x so
-	-- the two boosts stack instead of one silently overwriting the other.
+	-- Timed 2x from the Starter Forge Pack. Separate field from the paid
+	-- multiplier so the two boosts stack instead of one silently overwriting
+	-- the other.
 	if now() < state.boostX2Until then
 		mult *= 2
 	end
 	if now() < state.overdriveUntil then
-		mult *= MonetizationConfig.OverdriveMultiplier
+		mult *= MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
 	end
 	return mult
 end
@@ -1495,6 +1496,14 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		}
 	end
 
+	-- The paid track, resolved once. `paidBoostMult` is 1 while the clock is
+	-- idle so a consumer can multiply it unconditionally; the stack count is
+	-- only read while the boost is actually live.
+	local paidRemaining = math.max(0, state.overdriveUntil - now())
+	local paidMult = if paidRemaining > 0
+		then MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
+		else 1
+
 	return {
 		sm = state.starMatter,
 		as = state.aether,
@@ -1543,7 +1552,8 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		inSweetSpot = state.heat >= band.min and state.heat <= band.max,
 		overdriveRemaining = math.max(0, state.forgeOverdriveUntil - now()),
 		boostRemaining = math.max(0, state.boostX2Until - now()),
-		paidBoostRemaining = math.max(0, state.overdriveUntil - now()),
+		paidBoostRemaining = paidRemaining,
+		paidBoostMult = paidMult,
 		streak = state.streak,
 		streakGoal = Config.StreakForOverdrive,
 		shards = state.voidShards,

@@ -73,7 +73,7 @@ MonetizationConfig.Passes = {
 	x2StarMatter = {
 		id = 2079002443,
 		name = "2x Star-Matter",
-		description = "Doubles all Star-Matter income, forever.",
+		description = "Doubles all Star-Matter income, forever. Stacks with every boost; it does not add to their duration.",
 		enabled = true,
 		price = 59,
 		badge = "2X",
@@ -97,7 +97,7 @@ MonetizationConfig.Passes = {
 	eternalForge = {
 		id = 2078156449,
 		name = "Eternal Forge",
-		description = "+25% to all Star-Matter income, forever.",
+		description = "+25% to all Star-Matter income, forever. Stacks with every boost; it does not add to their duration.",
 		enabled = true,
 		price = 59,
 		badge = "ETERNAL",
@@ -121,10 +121,10 @@ MonetizationConfig.Products = {
 	instantOverdrive = {
 		id = 3730425423,
 		name = "Instant Overdrive",
-		description = "Fifteen minutes of triple Star-Matter.",
+		description = "3x Star-Matter for 1 hour. Multiplier stacks infinitely, and with 2x Star-Matter. Duration does not stack: each charge resets the hour.",
 		enabled = true,
 		price = 25,
-		badge = "BOOST",
+		badge = "STACK",
 		icon = "instant_overdrive",
 	} :: ProductDef,
 
@@ -143,7 +143,14 @@ MonetizationConfig.Products = {
 
 -- What each developer product actually pays out. Kept here rather than in the
 -- service so a designer can rebalance without touching logic.
-MonetizationConfig.OverdriveSeconds = 900
+--
+-- `OverdriveSeconds` is both the length of one charge and the hard ceiling on
+-- the paid boost: every Instant Overdrive resets the timer to an hour instead of
+-- extending it, so the multiplier can climb forever while the clock cannot.
+MonetizationConfig.OverdriveSeconds = 3600
+MonetizationConfig.OverdriveMaxSeconds = 3600
+--- The multiplier one charge applies. Charges multiply: two are x6, ten are
+--- x30; there is no cap.
 MonetizationConfig.OverdriveMultiplier = 3
 MonetizationConfig.StarterSeconds = 1200
 MonetizationConfig.StarterAether = 500000

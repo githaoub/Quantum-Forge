@@ -122,6 +122,9 @@ local function defaults(): Types.ProfileState
 
 		boostX2Until = 0,
 		overdriveUntil = 0,
+		--- Instant Overdrive charges. Number rather than boolean so the paid
+		--- multiplier can stack without a second save field.
+		overdriveStacks = 0,
 		starterBoostAt = 0,
 
 		tutorialCompleted = false,
@@ -496,6 +499,10 @@ local function reconcile(saved: any): Types.ProfileState
 		then base.forgeCrate
 		else ""
 	base.starterBoostAt = math.max(0, if isFiniteNumber(base.starterBoostAt) then base.starterBoostAt else 0)
+	base.overdriveStacks = math.max(
+		0,
+		math.floor(if isFiniteNumber(base.overdriveStacks) then base.overdriveStacks else 0)
+	)
 	base.runes = sanitiseCounts(base.runes)
 	base.sockets = sanitiseSockets(base.sockets)
 	base.expedition = sanitiseExpedition(base.expedition)

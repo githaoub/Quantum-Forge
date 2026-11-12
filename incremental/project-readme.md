@@ -515,9 +515,15 @@ kills the long game. What is on the shelf is acceleration and utility: Fast Forg
 (119, status badge and aura) as passes, and Starter Forge Pack (9 Robux: 500K
 Aether plus twenty minutes of 2x), Instant Overdrive (25) and Express Salvage (35)
 as products. Emergency Vent was delisted: the free vent key already does the same
-thing, so it was a trap. The Starter Pack's timer writes `boostX2Until`;
-`globalMultiplier` reads that field and multiplies it with the paid 3x, so the two
-boosts stack instead of replacing each other.
+thing, so it was a trap. Instant Overdrive is the repeat purchase: each charge
+adds a stack to the paid multiplier (x3, x6, x9 and on, no cap) and resets its
+clock to one hour. The clock never passes that hour, so a large multiplier still
+has to be recharged; a second charge with forty minutes left trades those
+minutes for another stack. `globalMultiplier` multiplies the paid track with
+`boostX2Until` (the Starter Pack's twenty minutes) and with the 2x and Eternal
+Forge passes, and none of those add duration to anything, which is what the row
+copy now says. Instant Overdrive sits in the second 176px hero tile, tagged
+`STACKABLE`, so the repeatable offer looks repeatable.
 
 Pass rows remember ownership. The sync carries `ownedPasses`, and an owned pass
 prints `BOUGHT` on the green plate with the button inactive, so a receipt never
@@ -535,6 +541,7 @@ with it.
 | `Layout.SIDE_WIDTH` | 432 | **468** | room for a 72px badge without stealing width from the description |
 | forge card width | 806 | 770 | the 36px the panel took |
 | store row height | 88 | **104** | holds a 72px badge beside a 22px title and a three-line 14px description |
+| hero row height | 176 | unchanged | VIP and Starter Forge already used it; Instant Overdrive joined them with a `STACKABLE` ribbon |
 | badge well | 48 | **72** | |
 | text column x | 70 | **96** | |
 | text column width | 214 | **224** | wider, not narrower |
@@ -549,6 +556,11 @@ The forge card is the one that paid for it. It is a 3D viewport with a full-widt
 heat rail, and losing 36px costs it nothing; the store column had no width left to
 give. Everything downstream reads `Layout`, so the tutorial ring and the objective
 strip followed the change without edits.
+
+The section panel also reserves a 28px footer strip for a gold `SCROLL DOWN` pill
+(`Sections.SCROLL_INSET_Y`). It shows while the active list has somewhere to go,
+hides within 6px of the end, and cannot cover a buy button because it sits below
+the scroll rect rather than over it.
 
 ### Store art
 

@@ -380,8 +380,11 @@ function ShopView.init(parent: Instance)
 				accent = Theme.Color.aether,
 				enabled = def.enabled,
 				configured = def.id ~= 0,
-				hero = key == "starterForge",
-				ribbon = if key == "starterForge" then "FIRST BUY" else nil,
+				hero = key == "starterForge" or key == "instantOverdrive",
+				ribbon = if key == "starterForge"
+					then "FIRST BUY"
+					elseif key == "instantOverdrive" then "STACKABLE"
+					else nil,
 				onBuy = function()
 					StateStore.send("prompt", { kind = "product", key = key })
 				end,

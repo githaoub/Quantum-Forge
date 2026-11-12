@@ -49,7 +49,7 @@ Config.AetherPerHeat = 0.08
 -- Ten clean strikes in the band, in a row, open a short window where every hit
 -- pays double. A miss or a burn-out breaks the streak: the reward is for
 -- precision, not for holding the mouse down. This is separate from the paid
--- `overdriveUntil` boost, which is a flat 3x for fifteen minutes.
+-- `overdriveUntil` boost, which is a stacking paid multiplier capped at an hour.
 Config.StreakForOverdrive = 10
 Config.OverdriveSeconds = 15
 Config.OverdriveMultiplier = 2

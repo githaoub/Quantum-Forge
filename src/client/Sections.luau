@@ -127,6 +127,10 @@ end
 Layout.TAB_COUNT = #SECTIONS
 
 local content: ScrollingFrame? = nil
+--- The scroll rect stops this far from the panel bottom. The last 28px is the
+--- scroll-hint strip: the pill lives outside the list, so it can never cover a
+--- row or its buy button.
+local SCROLL_INSET_Y = 128
 local host: Frame? = nil
 local columns: { Frame } = {}
 local rowSink: Frame? = nil
@@ -422,7 +426,7 @@ function Sections.layout()
 		headerBox.Size = UDim2.new(1, -32, 0, 64)
 	end
 	if content then
-		content.Size = UDim2.new(1, -32, 1, -100)
+		content.Size = UDim2.new(1, -32, 1, -SCROLL_INSET_Y)
 	end
 end
 
@@ -633,11 +637,58 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	headerDetail.Position = UDim2.new(1, -150, 0, 24)
 	headerDetail.Size = UDim2.fromOffset(138, 16)
 
-	local scroll = UiKit.scroll(panel)
+	local scroll = UiKit.scroll(panel, { thickness = 6, transparency = 0.1 })
 	scroll.Name = "Content"
-	scroll.Size = UDim2.new(1, -32, 1, -100)
+	-- The scroll rect stops 28px short of the panel's old bottom edge: that
+	-- strip belongs to the scroll hint, so the pill never sits on a row or a
+	-- buy button. Every section pays the 28px whether or not its list overflows;
+	-- the rows are already sized to the taller column, so the cost is padding.
+	scroll.Size = UDim2.new(1, -32, 1, -SCROLL_INSET_Y)
 	scroll.Position = UDim2.fromOffset(16, 92)
 	content = scroll
+
+	-- Scroll affordance. The two-column store is taller than the panel, and a
+	-- 6px scrollbar at the far edge is not a hint: players were stopping at the
+	-- first screen of rows and assuming that was the whole shop. A gold pill
+	-- fills the footer strip while there is somewhere left to go, and disappears
+	-- the moment the player reaches the end.
+	local scrollHint = UiKit.create("Frame", {
+		Name = "ScrollHint",
+		BackgroundColor3 = Theme.Color.gold,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.fromOffset(154, 26),
+		ZIndex = 30,
+		Visible = false,
+	}) :: Frame
+	UiKit.corner(scrollHint, 13)
+	UiKit.stroke(scrollHint, Theme.Color.outline, 2, 0.2)
+	scrollHint.Parent = panel
+
+	local scrollHintLabel = UiKit.label(scrollHint, {
+		text = "SCROLL DOWN",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.onColor(Theme.Color.gold),
+		align = Enum.TextXAlignment.Center,
+	})
+	scrollHintLabel.Size = UDim2.fromScale(1, 1)
+
+	local function updateScrollHint()
+		if content == nil then
+			return
+		end
+		-- `CanvasSize.Y` is a UDim, not a pixel count; `AbsoluteCanvasSize` is
+		-- the resolved height and is the only field comparable to the frame.
+		local overflow = content.AbsoluteCanvasSize.Y - content.AbsoluteSize.Y
+		local atBottom = content.CanvasPosition.Y >= overflow - 6
+		scrollHint.Visible = overflow > 8 and not atBottom
+	end
+	UiKit.track(scrollHint, content:GetPropertyChangedSignal("CanvasPosition"):Connect(updateScrollHint))
+	UiKit.track(scrollHint, content:GetPropertyChangedSignal("CanvasSize"):Connect(updateScrollHint))
+	UiKit.track(scrollHint, content:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScrollHint))
+	updateScrollHint()
 
 	-- Two columns. At 1685 design px a single column of rows stretches a card to
 	-- the full width: two 500px buttons inside one row, five 330px ladder rungs.
@@ -696,6 +747,7 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 			height = math.max(height, column.AbsoluteSize.Y / scale)
 		end
 		content.CanvasSize = UDim2.fromOffset(0, math.ceil(height + Theme.Space.lg))
+		updateScrollHint()
 	end
 	for _, column in columns do
 		UiKit.track(column, column:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCanvas))

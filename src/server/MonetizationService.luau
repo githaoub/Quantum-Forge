@@ -109,9 +109,14 @@ local function grantProduct(player: Player, key: string): boolean
 	local now = os.time()
 
 	if key == "instantOverdrive" then
-		-- Stacks on an active boost rather than replacing it.
-		local base = math.max(now, state.overdriveUntil)
-		state.overdriveUntil = base + MonetizationConfig.OverdriveSeconds
+		-- Each charge stacks the multiplier and resets the clock to exactly one
+		-- hour. It does not extend the timer: recharging with 40 minutes left
+		-- trades those minutes for another stack, which is the greedy part.
+		-- `OverdriveMaxSeconds` is the named ceiling; the reset can never buy
+		-- more than that even if a designer raises `OverdriveSeconds`.
+		local seconds = math.min(MonetizationConfig.OverdriveSeconds, MonetizationConfig.OverdriveMaxSeconds)
+		state.overdriveStacks += 1
+		state.overdriveUntil = now + seconds
 	elseif key == "starterForge" then
 		ProgressionService.addAether(state, MonetizationConfig.StarterAether)
 		local base = math.max(now, state.boostX2Until)
@@ -132,7 +137,14 @@ local function grantProduct(player: Player, key: string): boolean
 	end
 
 	DataManager.markDirty(player)
-	Net.sendEvent(player, { kind = "toast", text = "Purchase applied" })
+	local message = "Purchase applied"
+	if key == "instantOverdrive" then
+		message = string.format(
+			"Overdrive x%d for one hour",
+			MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
+		)
+	end
+	Net.sendEvent(player, { kind = "toast", text = message })
 	return true
 end
 

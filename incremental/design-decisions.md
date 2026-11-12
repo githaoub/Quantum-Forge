@@ -4675,3 +4675,63 @@ resident audio than the old shared pool, but every one holds a decoded buffer th
 is already being played. The screen shake moves the whole canvas, so any code that
 reads `AbsolutePosition` during a shake sees the displaced value; nothing in the
 client keys off that mid-frame.
+
+## ADR-117 - The paid multiplier stacks forever, its clock never passes an hour
+
+**Context.** Instant Overdrive was a flat 3x for fifteen minutes. A consumable
+that replaces its own value cannot be bought twice in a row: a second purchase
+while the first is live only overwrote the clock, so the store asked the player
+to wait before giving it money again. The multiplier is the part that should
+compound; the clock is the part that should not.
+
+**Decision.** `overdriveStacks` is a saved integer. `globalMultiplier`
+multiplies by `OverdriveMultiplier * max(1, stacks)` while `overdriveUntil`
+is in the future. Every grant adds a stack and sets `overdriveUntil = now +
+min(OverdriveSeconds, OverdriveMaxSeconds)`, which is one hour. Duration is a
+hard ceiling, not an extension: a recharge with forty minutes left trades those
+minutes for another stack. Charges are never spent, so the multiplier survives
+expiration; a player with thirty charges who lets the hour lapse keeps x90 and
+only needs one more charge to run it again.
+
+The HUD chip prints the live product from `paidBoostMult`, which the server
+computes: x6 with a 2x pass and one charge, x12 with two, x90 at thirty. The
+client never derives the multiplier from a count it cannot see.
+
+Storefront copy names which half stacks. Instant Overdrive: "Multiplier stacks
+infinitely, and with 2x Star-Matter. Duration does not stack: each charge resets
+the hour." 2x Star-Matter and Eternal Forge: "Stacks with every boost; it does
+not add to their duration." Instant Overdrive shares the 176px hero row and the
+gold ribbon treatment with the Starter Forge Pack, tagged `STACKABLE` instead
+of `FIRST BUY`, so the repeatable offer looks repeatable at a glance.
+
+**What it costs.** There is no cap on the multiplier, so one account can print an
+arbitrarily large number for an hour. That is the offer, but the economy has to
+treat the top end as unbounded; `overdriveStacks` is the only saved integer
+that maps directly to income, and it is the first field to check if a leaderboard
+ever looks wrong. The count is monotonic, so a refund is a manual data edit.
+
+## ADR-118 - The scroll hint gets its own strip under the list
+
+**Context.** The store is two columns of tall cards and its scroll rect ended at
+the panel edge. A 4px scrollbar was the only signal that more rows existed, and
+players stopped at the first screen, assuming the visible rows were the whole
+store. A bottom pill is the standard affordance, but overlaying it on the list
+would cover a row's buy button.
+
+**Decision.** The panel reserves a 28px footer strip. `Sections.SCROLL_INSET_Y`
+shortens the scroll rect in both `init` and `layout`, and `ScrollHint` is
+anchored to the panel bottom inside that strip. It is a gold pill reading
+`SCROLL DOWN`, shown only when `AbsoluteCanvasSize.Y - AbsoluteSize.Y > 8`
+and hidden once the player is within 6px of the end. It listens to canvas size,
+canvas position and frame size, so it also appears on any other overflowing
+section rather than being store-only.
+
+The first implementation subtracted `CanvasSize.Y`, which is a `UDim`, from a
+pixel height. That error aborted `Sections.init` and took the whole client boot
+with it: no `QF_Dev` seam, no state sync. The check now uses
+`AbsoluteCanvasSize`.
+
+**What it costs.** Every row section loses 28px of list height whether or not it
+overflows. The rows are already sized to the taller column, so the visible cost
+is padding; the benefit is that the hint can never sit on a button. The pill is a
+`Frame`, not a button, so it never captures input.

@@ -869,8 +869,9 @@ function HudController.apply(state: Types.SyncPayload)
 	-- was dismissed, so it is not optional decoration.
 	--
 	-- The two timed boosts stack in `globalMultiplier`, so the chip prints the
-	-- product (x6 while a 2x and a 3x are both live) and counts down to the first
-	-- one to expire. That is the number the player is actually earning.
+	-- product (x6 with a 2x pass and one charge, x12 after a second charge) and
+	-- counts down to the first one to expire. That is the number the player is
+	-- actually earning.
 	local boostMult = 1
 	local boostSeconds = 0
 	if state.boostRemaining and state.boostRemaining > 0 then
@@ -878,7 +879,9 @@ function HudController.apply(state: Types.SyncPayload)
 		boostSeconds = state.boostRemaining
 	end
 	if state.paidBoostRemaining and state.paidBoostRemaining > 0 then
-		boostMult *= 3
+		-- The stack count lives on the server, so the chip prints the multiplier
+		-- it sent instead of assuming x3. Ten charges read x30 on the same chip.
+		boostMult *= math.max(1, math.floor(state.paidBoostMult or 3))
 		boostSeconds = if boostSeconds > 0
 			then math.min(boostSeconds, state.paidBoostRemaining)
 			else state.paidBoostRemaining
