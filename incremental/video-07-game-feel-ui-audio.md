@@ -103,13 +103,16 @@ ADR-115):
 | metal tick | `sounds/electronicpingshort.wav` | chimes, ladders, UI |
 | click | `sounds/clickfast.wav` | UI tick, hover, tab, transient |
 | strike | uploaded metal ping `71886932584271` | forge click |
-| band | uploaded metal ping `139799433605109` | sweet spot answer |
+| sweet | uploaded metal chord `97522852807133` | green bar |
 | crit | uploaded metal ping `121142281920008` | crit |
 | body | uploaded metal ping `95191181057410` | crates, forge, ascent |
 
 The four uploaded samples are rendered from inharmonic plate modes and a 10ms
 hammer transient, so the strike is a ping with a metal edge rather than a
-broadband boom.
+broadband boom. Each sample owns a small pool of `Sound` instances created at boot
+and warmed with `ContentProvider:PreloadAsync`; the old shared pool rewrote
+`SoundId` on every cue, which invalidated the decoder and put the click behind the
+press.
 
 `rollTick` climbs a major pentatonic ladder in semitones instead of the old
 `1.15 + 0.09 * n` ramp, so the wind-up and the band climb share a key.

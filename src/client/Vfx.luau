@@ -553,6 +553,18 @@ function Vfx.shake(target: GuiObject, magnitude: number?, duration: number?)
 	state.connection = connection
 end
 
+--- Shakes the whole HUD, not one control.
+---
+--- The canvas holds every panel, so a few pixels here is the screen taking the
+--- hit while the wash layer stays still. It supersedes rather than stacks for the
+--- same reason `Vfx.shake` does: ten clicks a second must not walk the layout.
+function Vfx.shakeScreen(magnitude: number?, duration: number?)
+	local canvas = layer and layer.Parent
+	if canvas and canvas:IsA("GuiObject") then
+		Vfx.shake(canvas, magnitude, duration)
+	end
+end
+
 -- ---------------------------------------------------------------------------
 -- Lightning
 -- ---------------------------------------------------------------------------

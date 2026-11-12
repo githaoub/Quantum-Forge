@@ -259,13 +259,17 @@ rather than spawned per frame.
 
 The sound kit is 24 pooled slots over two families: the client `electronicpingshort`
 and `clickfast` samples for melody and interface, and four purpose-built metal pings
-uploaded to the account for the strike, the band answer, the crit and the heavy
+uploaded to the account for the strike, the green-bar chord, the crit and the heavy
 body. Nothing in the kit is a broadband blast; `impact_explosion_03` was retired
-along with `snap`, `hit`, `metal` and `impact_water`. A looped 144-second Creator
+along with `snap`, `hit`, `metal` and `impact_water`. Each sample keeps its own pool
+of `Sound` instances created at boot and preloaded, so a click never waits on a
+decoder. A looped 144-second Creator
 Store track (`Dark Pulsing Synth`) sits at 0.16 underneath.
 Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
-the forge click is one bright metal ping, and its band answer is the same instrument
-a fourth higher. The side-panel header holds a backpack and a gear; sound effects, music,
+the forge click is one bright metal ping, the green bar replaces it with a
+fifth-stacked chord, and the crit answers an octave above. A strike also shakes the
+whole HUD: 7 design pixels on a normal click, 9 in the band, 11 on a crit, 15 on a
+forge result. The side-panel header holds a backpack and a gear; sound effects, music,
 screen effects, shake and trade requests are five rows in the settings sheet,
 persisted to the profile. Sound effects and music are 0..100 sliders: the row
 shows the percentage, the whole 26px strip is draggable, and 0 is the mute. The

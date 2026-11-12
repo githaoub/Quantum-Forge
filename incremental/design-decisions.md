@@ -4642,3 +4642,36 @@ fresh place needs them published with the account. Per-click washes are full
 screen, so their peaks were lowered (0.15 white, 0.22 gold) to keep a ten-click
 streak from strobing. A wash above every panel is deliberate, and any future
 full-screen overlay has to accept being washed over.
+
+## ADR-116 - One pool per sample, a chord on the green bar, and a real screen shake
+
+**Context.** The sound kit shared 24 `Sound` instances and rewrote `SoundId` on
+every cue. Reassigning `SoundId` invalidates the decoder buffer attached to that
+instance, so a click could start a frame or more after the press while the new
+asset resolved. That is the delay the forge click had. Separately, the sweet spot
+answered with the same sample as an ordinary hit, only pitched up, so the reward
+for precision was a slightly higher version of the normal click. And the only
+shake on a strike was a 4px jitter on the clipped blade viewport, which reads as
+the stage rattling rather than the screen taking a hit.
+
+**Decision.** `Sfx` now owns one pool per sample, sized per cue
+(`STRIKE` 10, `SWEET` 5, `CRIT` 3, `ANVIL` 6, `PING` 6, `CLICK` 6). The
+`SoundId` is set once at creation, never again, and `Sfx.preload` warms every
+pool through `ContentProvider:PreloadAsync` during boot. `play` picks the next
+slot from that sample's pool, so `:Play()` starts on the press frame.
+
+The green bar gets its own hit: a fifth-stacked metal chord with a low thump and a
+short glint, uploaded as `SWEET` (97522852807133). It is a different sound, not a
+louder one, and it lifts two semitones per in-band streak point so a run builds.
+
+`Vfx.shakeScreen` shakes the canvas, which every panel is a child of, so a strike
+moves the HUD instead of only the blade. The viewport shake stays moderate because
+the viewport is full-bleed inside a clipped frame. Base magnitudes: 7 design px
+on a normal click, 9 on a band hit, 11 on a crit, 15 on a forge result and 8 on a
+crate landing.
+
+**What it costs.** Thirty-six `Sound` instances exist from boot, which is more
+resident audio than the old shared pool, but every one holds a decoded buffer that
+is already being played. The screen shake moves the whole canvas, so any code that
+reads `AbsolutePosition` during a shake sees the displaced value; nothing in the
+client keys off that mid-frame.

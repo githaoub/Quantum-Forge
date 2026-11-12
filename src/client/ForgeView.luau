@@ -752,14 +752,21 @@ end
 --- forge card, so it never moves: the jitter runs on the inset content layer and
 --- the card's own outline stays put. `strength` scales travel and settle, which
 --- is how a crit reads as heavier than a click without a second animation path.
+---
+--- The viewport shake is now mirrored by a smaller whole-HUD shake. The stage is
+--- clipped, so a few pixels there read as the blade rattling inside its window;
+--- the canvas shake is what makes the hit felt across the screen.
 function ForgeView.punch(strength: number?)
 	if Theme.reducedMotion() then
 		return
 	end
 	local amount = math.clamp(strength or 1, 0.5, 2.5)
 	if viewport then
-		Vfx.shake(viewport, 4 * amount, 0.12 + 0.06 * amount)
+		-- Kept moderate on purpose: the viewport is full-bleed inside a clipped
+		-- frame, so a large offset exposes the frame edge behind the blade.
+		Vfx.shake(viewport, 6 * amount, 0.15 + 0.05 * amount)
 	end
+	Vfx.shakeScreen(3.5 + 3.5 * amount, 0.16 + 0.05 * amount)
 end
 
 --- Wash over the screen. `hold` is the fade length; a strike wants a short
@@ -820,7 +827,7 @@ function ForgeView.strike()
 	end
 
 	if viewport then
-		ForgeView.punch(1)
+		ForgeView.punch(if current.inSweetSpot then 1.7 else 1)
 		Vfx.float(viewport, "+" .. NumberUtil.abbreviate(predicted), {
 			color = if current.inSweetSpot then Theme.Color.heatSweet else Theme.Color.starMatter,
 			crit = false,
@@ -1385,6 +1392,7 @@ function ForgeView.celebrate(bladeId: string?, variantId: string?, batch: number
 	if root then
 		Vfx.shake(root, 7 + rank, 0.3 + rank * 0.02)
 	end
+	Vfx.shakeScreen(5 + rank * 1.2, 0.3 + rank * 0.02)
 	if viewport then
 		Vfx.sparks(viewport, tint, 18 + rank * 4, 1.6 + rank * 0.12)
 	end
@@ -1479,6 +1487,7 @@ local function revealRoll()
 		Vfx.burst(viewport, tint, 1.4 + rank * 0.2)
 	end
 	screenFlash(Theme.Color.white, 0.85, 0.22)
+	Vfx.shakeScreen(7, 0.26)
 	Sfx.crateShatter()
 	Sfx.forge()
 	if token == rollToken then
@@ -1570,12 +1579,12 @@ function ForgeView.roll(count: number?)
 			if token ~= rollToken then
 				return
 			end
-			-- Slam. The camera shake lives on the blade viewport even though it is
-			-- hidden: `Vfx.shake` writes the canvas, not the frame, and the reveal
-			-- turns the viewport back on inside the same beat.
+			-- Slam. The crate is the heaviest object in the loop, so this is the
+			-- one beat that shakes the whole HUD as well as the stage.
 			if viewport then
 				Vfx.shake(viewport, 16, 0.2)
 			end
+			Vfx.shakeScreen(8, 0.26)
 			Sfx.crateLand()
 		end,
 		onBeat = function(beat: number)

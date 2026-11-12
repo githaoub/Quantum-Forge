@@ -19,6 +19,7 @@
 -- preference on boot and the settings modal writes it back.
 
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local Sfx = {}
 
@@ -27,11 +28,12 @@ local Sfx = {}
 -- `PING` and `CLICK` are client assets, so they resolve offline in Studio and in
 -- a published place with no upload step. They carry melody and interface.
 --
--- `STRIKE`, `BAND`, `CRIT` and `ANVIL` are purpose-built metal pings, uploaded
+-- `STRIKE`, `SWEET`, `CRIT` and `ANVIL` are purpose-built metal pings, uploaded
 -- to the account that owns the place: inharmonic plate modes with a 10ms hammer
 -- transient, tuned so the click reads as struck steel instead of a body blow.
--- The strike is a fourth below the band answer and the crit is an octave above,
--- so the three are one instrument played at three pitches.
+-- `STRIKE` is one voice, `SWEET` is a fifth-stacked chord with a low thump for
+-- the green bar, and `CRIT` is the long ring an octave up. They share a key, so a
+-- run of clicks is one instrument rather than three unrelated samples.
 --
 -- `impact_explosion_03`, `snap`, `hit`, `metal` and `impact_water` are gone for
 -- good. The explosion was the last one standing and it was the wrong texture
@@ -40,43 +42,81 @@ local Sfx = {}
 local PING = "rbxasset://sounds/electronicpingshort.wav"
 local CLICK = "rbxasset://sounds/clickfast.wav"
 local STRIKE = "rbxassetid://71886932584271"
-local BAND = "rbxassetid://139799433605109"
+local SWEET = "rbxassetid://97522852807133"
 local CRIT = "rbxassetid://121142281920008"
 local ANVIL = "rbxassetid://95191181057410"
 
--- 24 slots: a burst of eight clicks can each want four layers, a forge result
--- can want eight, and reusing a slot mid-playback truncates the previous hit,
--- which is audible.
-local POOL_SIZE = 24
 local BASE_VOLUME = 0.2
 
-local pool: { Sound } = {}
-local nextIndex = 1
+-- One pool per asset, created once, preloaded at boot.
+--
+-- This used to be 24 shared slots that had their `SoundId` rewritten on every
+-- cue. That is why the kit felt late: reassigning `SoundId` invalidates the
+-- decoded buffer attached to that instance, so a click could wait on a decode
+-- before it started. Dedicated pools mean the buffer is already resident and
+-- `:Play()` starts on the same frame as the press.
+--
+-- Sizes are per cue, not per pool: the strike is the only thing that fires at
+-- click rate, so it gets the deepest pool and everything else stays small.
+local POOL_SIZES: { [string]: number } = {
+	[STRIKE] = 10,
+	[SWEET] = 5,
+	[CRIT] = 3,
+	[ANVIL] = 6,
+	[PING] = 6,
+	[CLICK] = 6,
+}
+
+local pools: { [string]: { Sound } } = {}
+local cursors: { [string]: number } = {}
 local enabled = true
 --- Player-controlled gain, 0..1. The mix below is authored at 100%; this is the
 --- one multiplier every layer passes through, so the settings slider cannot
 --- drift from the kit.
 local volumeScale = 1
 
-local function ensurePool()
-	if #pool > 0 then
-		return
+local function poolFor(asset: string): { Sound }
+	local existing = pools[asset]
+	if existing then
+		return existing
 	end
-	for index = 1, POOL_SIZE do
+	local size = POOL_SIZES[asset] or 4
+	local made = table.create(size)
+	for index = 1, size do
 		local sound = Instance.new("Sound")
-		sound.Name = string.format("SfxSlot%d", index)
-		sound.SoundId = PING
+		sound.Name = "SfxSlot"
+		sound.SoundId = asset
 		sound.Volume = BASE_VOLUME * volumeScale
 		sound.Parent = SoundService
-		pool[index] = sound
+		made[index] = sound
 	end
+	pools[asset] = made
+	cursors[asset] = 1
+	return made
 end
 
-local function take(): Sound
-	ensurePool()
-	local sound = pool[nextIndex]
-	nextIndex = nextIndex % POOL_SIZE + 1
-	return sound
+local function take(asset: string): Sound
+	local made = poolFor(asset)
+	local index = cursors[asset] or 1
+	cursors[asset] = index % #made + 1
+	return made[index]
+end
+
+--- Builds every pool and warms the decoder before the first click. Called once
+--- from boot; the player's first strike should never be the frame that loads
+--- the strike.
+function Sfx.preload()
+	local list: { Instance } = {}
+	for asset in POOL_SIZES do
+		for _, sound in poolFor(asset) do
+			table.insert(list, sound)
+		end
+	end
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync(list)
+		end)
+	end)
 end
 
 --- Random spread for a hammer: never the same pitch twice in a row.
@@ -110,14 +150,13 @@ local function degree(step: number): number
 	return 2 ^ (MAJOR[index] / 12)
 end
 
---- Plays one layer on a pooled slot. `delay` staggers a chord without spawning
---- a task for the zero case.
+--- Plays one layer on that asset's own pool. `delay` staggers a chord without
+--- spawning a task for the zero case.
 local function play(asset: string, speed: number, volume: number, delay: number?)
 	if not enabled or volumeScale <= 0 then
 		return
 	end
-	local sound = take()
-	sound.SoundId = asset
+	local sound = take(asset)
 	sound.PlaybackSpeed = speed
 	sound.Volume = math.clamp(volume * volumeScale, 0, 1)
 	if delay == nil or delay <= 0 then
@@ -131,6 +170,14 @@ local function play(asset: string, speed: number, volume: number, delay: number?
 	end)
 end
 
+local function stopAll()
+	for _, made in pools do
+		for _, sound in made do
+			sound:Stop()
+		end
+	end
+end
+
 -- ---------------------------------------------------------------------------
 -- Mute
 -- ---------------------------------------------------------------------------
@@ -142,9 +189,7 @@ function Sfx.setEnabled(value: boolean)
 	if value then
 		return
 	end
-	for _, sound in pool do
-		sound:Stop()
-	end
+	stopAll()
 end
 
 function Sfx.isEnabled(): boolean
@@ -159,9 +204,7 @@ function Sfx.setVolume(value: number)
 	if volumeScale > 0 then
 		return
 	end
-	for _, sound in pool do
-		sound:Stop()
-	end
+	stopAll()
 end
 
 function Sfx.getVolume(): number
@@ -228,17 +271,23 @@ end
 --- inharmonic steel ring. Nothing else is layered under it, because the whole
 --- point of the pass that produced it was to hear the ping and not a thud.
 ---
---- `sweet` is the band state at the moment of the click; the band answer is the
---- same instrument a fourth up. `streak` walks that answer up a little further,
---- so the tenth strike of a run is audibly a different note from the first: the
---- ear tracks the rail before the eye does.
+--- `sweet` is the band state at the moment of the click. The green bar gets a
+--- different hit, not a louder one: a fifth-stacked chord with a low thump and a
+--- short glint, so the reward for precision is a bigger sound rather than the
+--- same sound with the volume up. `streak` lifts the whole chord a whole tone per
+--- in-band hit, which is what makes a run of green-bar clicks build instead of
+--- repeating.
 function Sfx.strike(sweet: boolean, streak: number?)
 	local climb = if streak then math.min(streak, 10) else 0
-	play(STRIKE, jitter(1.0, 0.05), 0.15)
 
 	if sweet then
-		play(BAND, jitter(1 + climb * 0.025, 0.02), 0.12)
+		local lift = 2 ^ (math.min(climb, 5) * 2 / 12)
+		play(SWEET, jitter(lift, 0.015), 0.22)
+		play(PING, 2 * lift, 0.06, 0.03)
+		return
 	end
+
+	play(STRIKE, jitter(1.0, 0.05), 0.15)
 end
 
 --- A critical strike, fired from the server event so it lands on the frame the

@@ -231,6 +231,10 @@ local function boot()
 	Layout.init(designWidth)
 
 	Vfx.init(canvas, uiScale)
+	-- Warm the sound pools before the first click. Each cue owns its own Sound
+	-- instances now, so preloading here means the decoder is never the reason a
+	-- strike sounds late.
+	Sfx.preload()
 	-- Same canvas, one ZIndex below: the flipbook is the effect, `Vfx` is the
 	-- numbers and screen shake that must stay legible on top of it.
 	SpriteFx.init(canvas, uiScale)
