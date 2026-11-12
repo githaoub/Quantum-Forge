@@ -72,7 +72,7 @@ local PASS_FACE: { [string]: Face } = {
 	},
 	x2StarMatter = {
 		eyebrow = "INCOME",
-		blurb = "Doubles all income, forever. Adds no boost time.",
+		blurb = "Doubles all Star-Matter income, forever.",
 		fact = "×2 STAR-MATTER",
 	},
 	fastForge = {
@@ -87,23 +87,28 @@ local PASS_FACE: { [string]: Face } = {
 	},
 	eternalForge = {
 		eyebrow = "INCOME",
-		blurb = "+25% to all income, forever. Adds no boost time.",
+		blurb = "+25% to all Star-Matter income, forever.",
 		fact = "+25% INCOME",
 	},
 }
+
+--- The idle summary for Instant Overdrive. The live summary replaces it with
+--- the current multiplier and clock; keeping one constant means the card and
+--- the repaint cannot drift apart.
+local OVERDRIVE_FACT = "MULTIPLIER STACKS · CLOCK RESETS TO 1 HR"
 
 local PRODUCT_FACE: { [string]: Face } = {
 	starterForge = {
 		eyebrow = "STARTER",
 		tag = "FIRST BUY",
-		blurb = "Aether and twenty minutes of double income.",
-		fact = "500K AETHER · 20 MIN",
+		blurb = "A head start for a fresh forge.",
+		fact = "500K AETHER · 20 MIN OF 2X STAR MATTER",
 	},
 	instantOverdrive = {
 		eyebrow = "BOOST",
 		tag = "STACKABLE",
-		blurb = "Stacks forever, and with 2x. Each charge resets the hour.",
-		fact = "×3 PER CHARGE · 1 HOUR",
+		blurb = "Each charge adds ×3 for one hour.",
+		fact = OVERDRIVE_FACT,
 	},
 	expressSalvage = {
 		eyebrow = "EXPEDITION",
@@ -608,7 +613,7 @@ local function applyState(state: Types.SyncPayload)
 			text = string.format("LIVE ×%d · %s LEFT", mult, timeLeft(remaining))
 			color = Theme.Color.aether
 		else
-			text = "×3 PER CHARGE · 1 HOUR"
+			text = OVERDRIVE_FACT
 			color = Theme.Color.textFaint
 		end
 		if overdriveFact.Text ~= text then

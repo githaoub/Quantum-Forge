@@ -1,18 +1,18 @@
-# Quantum Forge: Blade Evolution
+﻿# Quantum Forge: Blade Evolution
 
 A Roblox incremental where clicking a forge builds heat, holding the heat in the
 sweet spot multiplies your yield, and the blade you forge changes the weapon on your
 character. Prestige buys new rules, not bigger numbers.
 
 **Everything is code.** No models, no marketplace assets, no Studio-authored UI. The
-whole game — geometry, interface, icons — is generated from `src/` and `scripts/`.
+whole game â€” geometry, interface, icons â€” is generated from `src/` and `scripts/`.
 Clone it, `rojo serve`, press Play.
 
 > [!warning] Superseded in places
 > This is the long-form project record through Forge 12. Forge 13 replaced the tab
 > strip and side panel with the Foundry Instrument rail, deleted the forge roll
 > column, and replaced the heat lockout with the 90% lean point. Where this note
-> describes the old UI or the old heat rule, the ADR log wins: ADR-076…082. The
+> describes the old UI or the old heat rule, the ADR log wins: ADR-076â€¦082. The
 > mechanics that have not changed are still accurate.
 
 ---
@@ -27,7 +27,7 @@ rojo plugin install     # once, installs the Studio plugin
 rojo serve              # start the live sync server
 ```
 
-In Studio: **Rojo → Connect**, address `localhost:34872`, then press **Play**.
+In Studio: **Rojo â†’ Connect**, address `localhost:34872`, then press **Play**.
 
 The server prints:
 
@@ -39,9 +39,9 @@ The server prints:
 [QuantumForge] lobby constructed
 ```
 
-and the client prints a `[QuantumForge] ui built in …ms (content …x…)` line.
+and the client prints a `[QuantumForge] ui built in â€¦ms (content â€¦xâ€¦)` line.
 
-No API key, no upload, and no asset import is needed — `AssetManifest` falls back to
+No API key, no upload, and no asset import is needed â€” `AssetManifest` falls back to
 `rbxassetid://0` and the UI draws vector glyphs.
 
 ### One-shot build
@@ -60,13 +60,13 @@ Open the `.rbxlx` directly in Studio to test without the plugin, or to publish.
 | --- | --- |
 | Left click the blade stage | Strike the forge (+1 click of Star-Matter, +2.5 heat) |
 | **Spacebar** | Same as clicking the anvil |
-| PURGE key (bottom-right of the stage) | Dump all heat for Aether Shards (legal at ≥85 heat) |
-| Left rail | **FORGE** · **CRATES** · **FLEET** · **RUNES** · **TECH** · **STORE** |
-| Top-bar utility keys | **VAULT** · **CODEX** · **BOARDS** · **TRADE** · **NOTES** · **GUIDE** · **SETUP** |
+| PURGE key (bottom-right of the stage) | Dump all heat for Aether Shards (legal at â‰¥85 heat) |
+| Left rail | **FORGE** Â· **CRATES** Â· **FLEET** Â· **RUNES** Â· **TECH** Â· **STORE** |
+| Top-bar utility keys | **VAULT** Â· **CODEX** Â· **BOARDS** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
 | The whole blade stage | Strike the forge; the strike, heat and purge controls float on top of it |
 | Ascend | In the **TECH** section, behind a confirmation modal |
 
-Keep the heat gauge inside the highlighted band (65–85 by default) and every strike
+Keep the heat gauge inside the highlighted band (65â€“85 by default) and every strike
 pays **2.5x**. Past 90 the core runs lean and every strike pays half until you purge;
 heat caps at 100 and the anvil never locks.
 
@@ -76,14 +76,14 @@ heat caps at 100 and the anvil never locks.
 
 ```
 default.project.json      Rojo mappings, baseplate, lighting
-selene.toml               Linter config — std = "roblox" is required for Luau
+selene.toml               Linter config â€” std = "roblox" is required for Luau
 requirements.txt          Python deps for the asset pipeline only
 
 src/
   shared/                 Replicated to both sides. Pure data + pure functions.
     Config.luau           Every tunable: heat, economy, retention, remotes
     NumberUtil.luau       Suffix formatting, safe arithmetic
-    BladeRegistry.luau    25 blade patterns, 5 rarities — the catalogue
+    BladeRegistry.luau    25 blade patterns, 5 rarities â€” the catalogue
     ForgeConfig.luau      Banners, rarity weights, variants, pity, scrap values
     TechTreeConfig.luau   8 prestige nodes + compute(), the only stat derivation
     RuneConfig.luau       Mastery thresholds, sockets, rune table
@@ -155,7 +155,7 @@ incremental/               The vault: every .md in the repo lives here.
   README.md                Vault index and naming rules
   project-readme.md        This file
   code-map.md              Module-by-module codebase map for fresh sessions
-  design-decisions.md      ADR log — every decision with its trade-off
+  design-decisions.md      ADR log â€” every decision with its trade-off
   game-design-math.md      Heat curve, blade ratios, pacing, ascension, retention
 ```
 
@@ -166,7 +166,7 @@ incremental/               The vault: every .md in the repo lives here.
 ### The forge loop
 
 Clicking adds 2.5 heat; heat decays at 5/s. Sustained clicking above **2 clicks per
-second** makes heat climb; below that it falls. Holding 65–85 pays 2.5x. Above 85 you
+second** makes heat climb; below that it falls. Holding 65â€“85 pays 2.5x. Above 85 you
 can vent for Aether; past 90 every strike pays half until you purge. Heat caps at 100
 and the anvil never locks (ADR-079).
 
@@ -233,7 +233,7 @@ held back by the sync tick. Clicking is predicted locally against a pending-cred
 buffer and reconciled on the next sync, so the number responds in one frame without
 ever drifting from the server.
 
-Action handlers receive `(player, payload)` — the verb was already consumed by the
+Action handlers receive `(player, payload)` â€” the verb was already consumed by the
 dispatcher to pick the handler. Passing it through as a third argument meant every
 handler read the action name as its payload: `forge` looked up a blade called
 "forge", found nothing, and rejected with `Unknown blade`. Forging *and* equipping
@@ -289,8 +289,8 @@ Two rules keep it from becoming noise:
   width and colour, which is exactly what the gauge says.
 
 The blade is framed from its own measured bounds at a 77% fill, on a three-quarter
-hero camera (26° azimuth, 11° elevation) with a continuous roll and a 2.3%-of-height
-bob. Measured through a full turntable cycle on the live build: 70.8–77.1% of frame
+hero camera (26Â° azimuth, 11Â° elevation) with a continuous roll and a 2.3%-of-height
+bob. Measured through a full turntable cycle on the live build: 70.8â€“77.1% of frame
 height, never touching an edge, worst case included.
 
 ### The crate rolls; the inventory keeps
@@ -381,14 +381,14 @@ key turns into a slate `CANCEL`, every card that owns a meltable copy grows a ti
 box, and a click anywhere on a card tray toggles that copy. A red `MELT n` plate
 appears at the right end of the bar once something is ticked and settles the batch
 through a single `salvageMany` behind a confirm. The four keys sit in fixed slots
-left to right — `EQUIP BEST`, `MELT MULTIPLE` / `CANCEL`, `SELECT DUPES`, `CLEAR` —
+left to right â€” `EQUIP BEST`, `MELT MULTIPLE` / `CANCEL`, `SELECT DUPES`, `CLEAR` â€”
 40px tall with 10px of air, so the strip never reflows as a selection appears.
 
 A card carries a rarity accent bar along the top (`EQUIPPED` when the group holds
 the equipped copy, printed inside the same bar), a live `ViewportFrame` render on a
 gradient art well, the blade name, a variant tag, the multiplier, an `xN` chip and
 a favourite star. The tick box exists only while the mode is armed: an empty
-warm-edged box unselected, a gold `✓` when ticked, and no box at all on a group
+warm-edged box unselected, a gold `âœ“` when ticked, and no box at all on a group
 whose only copies are protected. Thumbnails are built for the rows inside the
 scroll window only; a sixty-card inventory keeps about a dozen models mounted.
 
@@ -465,7 +465,7 @@ See [ADR-017](design-decisions.md), [ADR-028](design-decisions.md),
 
 `Theme.Text` is the only type ladder in the client, and the bottom two rungs were
 the problem: `Micro = 12` and `Tiny = 10`. The canvas is fit-scaled, so 10 design px
-lands at 7 screen px on a 1366-wide laptop — the rank counter, the shard balance and
+lands at 7 screen px on a 1366-wide laptop â€” the rank counter, the shard balance and
 the rune descriptions were all unreadable at the size they actually rendered.
 
 | Token | Before | After | Used for |
@@ -483,8 +483,8 @@ Tab pills are 16px `GothamBlack`. Measured in Studio with `TextService:GetTextSi
 the widest label (`BLADES`) is 60px at 16, and a tab in the 468px panel is 84.8px,
 so the five-tab strip carries the larger type with 24px of air either side.
 
-Card geometry moved with the type, because a 13px line needs a 18–20px band and the
-old cards gave it 14–16. The mastery card is 178 tall (was 156), a rune row 68 (was
+Card geometry moved with the type, because a 13px line needs a 18â€“20px band and the
+old cards gave it 14â€“16. The mastery card is 178 tall (was 156), a rune row 68 (was
 58), a mission row 48 (was 42), the expedition band 186 (was 168), the heat rail and
 its vent key 40 (was 34). Secondary copy switched from warm `textFaint` to a new cool
 `textSecondary` (`#B8C2D6`), which holds contrast against the brown card stock
@@ -503,7 +503,7 @@ Verified live on the five row tabs and the store page with `TextLabel.TextFits`:
 `UiKit.actionButton` is the single CTA control in the side panel. A ready control is
 a solid accent gradient with a lit top bevel and white stroked text; a locked one is a
 flat `#181C26` slate plate with a dim face and its cost; an owned-but-not-worn blade
-shows `✓ EQUIPPED` as a low-alpha green badge. Blade and tech cards carry a 4px
+shows `âœ“ EQUIPPED` as a low-alpha green badge. Blade and tech cards carry a 4px
 rarity bar down the left edge and a live progress bar toward the price or the next
 level. The active tab is a solid accent pill; inactive tabs are flat slate with no
 glow, so the selected tab is the only one carrying colour. A store card with no
@@ -523,12 +523,13 @@ clock to one hour. The clock never passes that hour, so a large multiplier still
 has to be recharged; a second charge with forty minutes left trades those
 minutes for another stack. `globalMultiplier` multiplies the paid track with
 `boostX2Until` (the Starter Pack's twenty minutes) and with the 2x and Eternal
-Forge passes, and none of those add duration to anything, which is what the card
-copy now says. Instant Overdrive is the raised card on the boost shelf, tagged
-`STACKABLE`, and its fact line reports the live paid multiplier and clock while a
-charge is running. The rail-foot chip counts down the paid clock while it is live;
-the welcome or Starter 2x clock only owns the chip when no paid boost is running,
-so a fresh hour is visible immediately.
+Forge passes. None of those add duration to anything; the Overdrive card carries
+that rule on its own summary (`MULTIPLIER STACKS · CLOCK RESETS TO 1 HR`), so the
+permanent pass cards stay clean. Instant Overdrive is the raised card on the
+boost shelf, tagged `STACKABLE`, and its fact line reports the live paid
+multiplier and clock while a charge is running. The rail-foot chip counts down
+the paid clock while it is live; the welcome or Starter 2x clock only owns the
+chip when no paid boost is running, so a fresh hour is visible immediately.
 
 Pass cards remember ownership. The sync carries `ownedPasses`, and an owned pass
 drops to the kit's `equipped` badge: a green tint and border, not a solid plate,
@@ -588,10 +589,10 @@ is a pass, and are Developer Product icons where it is not.
 
 The STORE tab shows real art for a pass when it exists. `MonetizationConfig` carries
 `icon = "fast_forge"` next to the pass, `AssetManifest.gamepassIcon("fast_forge")`
-resolves it to an `rbxthumb://` URL, and `ShopView` draws a 64×64 circular well with a
+resolves it to an `rbxthumb://` URL, and `ShopView` draws a 64Ã—64 circular well with a
 2px `#05070B` ring and the badge `Fit` inside.
 
-A pass with no art is not broken: it keeps the 64×64 category plate (`FAST`, `AUTO`).
+A pass with no art is not broken: it keeps the 64Ã—64 category plate (`FAST`, `AUTO`).
 That is the fallback for a fresh clone with zero uploads, and it is why
 `gamepassIcon` returns `""` rather than `rbxassetid://0`: the view branches on empty
 to pick the plate, and a placeholder id would branch the wrong way into an empty
@@ -608,8 +609,8 @@ Decal object; `ImageLabel.Image` wants a bitmap. Web-uploaded decals do work in 
 wrong.
 
 **Read badges through the thumbnail CDN, not `rbxassetid://`.** The raw asset route
-does not serve these Open Cloud uploads here — `CreateEditableImageAsync` returns
-`HttpError` for the badge Image, the badge Decal and an earlier badge Image alike —
+does not serve these Open Cloud uploads here â€” `CreateEditableImageAsync` returns
+`HttpError` for the badge Image, the badge Decal and an earlier badge Image alike â€”
 while `rbxthumb://type=Asset&id=<id>&w=420&h=420` returns a real 420x420 RGBA bitmap
 with transparency intact. `AssetManifest.gamepassIcon` builds that URL from the
 stored id, so the table stays readable and callers stay unchanged. 420 is a served
@@ -617,7 +618,7 @@ size; 512 is rejected, and 420 is ~9x the 46.2px the shelf actually draws.
 
 **An image is on screen when `IsLoaded` is `true`.** Not when the frame has the right
 size. `ImageLabel.IsLoaded` was read as unreliable for most of this investigation
-because it was `false` everywhere — including for `rbxasset://` built-ins used as a
+because it was `false` everywhere â€” including for `rbxasset://` built-ins used as a
 control. It was reporting the truth. `ContentProvider:PreloadAsync` *is* useless as a
 gate here (it returns `Failure` for every id, built-ins included), but `IsLoaded` is
 not. A failing remote image also logs `ContentId: ... failed due to: <reason>`, and
@@ -627,7 +628,7 @@ three different things.
 
 **The badge is drawn at 46.2 real px, and the field still has to be bright.** The
 well is 64 design px and the canvas runs at 0.722 scale. The first art composition
-was honest work — a steel hammer on an obsidian disc — and at the old 34.5 real px
+was honest work â€” a steel hammer on an obsidian disc â€” and at the old 34.5 real px
 it measured p50 = 28 luminance with 7% of pixels above 120, which on a store card
 is a black circle. The shipped composition inverts it: gold field (`FIELD_HOT` to
 `FIELD_DEEP`), ink subject, p50 = 112 and 43% of pixels above 120. If you add a
@@ -747,7 +748,7 @@ It prints the luminance numbers and writes a `_<name>_at_size.png` strip at 64/4
 so the thumbnail read is checked rather than assumed.
 
 `ImageDraw.floodfill` is **not** used, and that is not a style preference. It still
-exists in Pillow 13 but returns without filling anything — a silent no-op on a mask
+exists in Pillow 13 but returns without filling anything â€” a silent no-op on a mask
 where a BFS finds 388,118 pixels. A keying step that quietly does nothing is worse
 than one that crashes, because the output still looks like an image. `SUPPLIED` in
 `generate_gamepass_icons.py` records which passes came from outside, so
@@ -758,7 +759,7 @@ missing.
 of a plain checkerboard. `x2_star_matter` came back as a disc sitting on a dotted
 grey plate inside a white margin: the background key removed only the white band, and
 the plate would have shown as a square behind the circle. The flag cuts at the disc's
-own ink contour — the outermost radius whose whole circumference is dark — and falls
+own ink contour â€” the outermost radius whose whole circumference is dark â€” and falls
 back to the percentile clamp when no ring clears the threshold.
 
 ### Creating the Marketplace items
@@ -772,7 +773,7 @@ Roblox shipped Open Cloud endpoints for both in December 2025, still BETA:
 | Game Pass | `POST /game-passes/v1/universes/{universeId}/game-passes` | `game-pass:write` |
 | Developer Product | `POST /developer-products/v2/universes/{universeId}/developer-products` | `developer-product:write` |
 
-Both take `multipart/form-data` and an **`imageFile` part** — a file upload, not an
+Both take `multipart/form-data` and an **`imageFile` part** â€” a file upload, not an
 asset id. That is the trap: a JSON body with `imageId` is rejected, and the error is a
 bare `Scope not authorized` if the key also lacks the scope, so the two failures look
 identical from the outside.
@@ -794,8 +795,8 @@ printing the id rather than erroring.
 
 Every surface is opaque and carries a 1px rule; headers are flat steel plates,
 modals are a flat plate on a dim scrim, and the forge deliberately has no heavy
-strike plate (ADR-104). The forge has no deck either: the strike caption, 380×78
-heat dial and 136×64 purge key float over a full-bleed stage, so nothing covers
+strike plate (ADR-104). The forge has no deck either: the strike caption, 380Ã—78
+heat dial and 136Ã—64 purge key float over a full-bleed stage, so nothing covers
 the blade (ADR-078). The stage itself is the hit target, which is why removing
 the orange key did not remove a single click. The
 left rail owns navigation; the top bar is chrome plus the utility keys and the two
@@ -856,7 +857,7 @@ python scripts/upload_assets.py --manifest-only
 ### VFX sprite sheets
 
 The effects are generated, not drawn by hand. `generate_vfx.py` builds five
-effects — `slash`, `impact`, `vent`, `overheat`, `aura` — as four 4×4 flipbooks
+effects â€” `slash`, `impact`, `vent`, `overheat`, `aura` â€” as four 4Ã—4 flipbooks
 each (`glow`, `rim`, `body`, `hotcore`) at 512px per frame, plus two single-image
 particles. Every sheet is pure white with an alpha channel, so the runtime tints
 one upload to any blade rarity; nothing is re-exported per tier.
@@ -872,7 +873,7 @@ python scripts/upload_assets.py --vfx --creator user:123456789
 ```
 
 The generator prints the measured edge margin per effect and exits non-zero if
-any frame violates the 4px rule — a sheet that would show its own bounding box
+any frame violates the 4px rule â€” a sheet that would show its own bounding box
 cannot ship. Output is deterministic: two runs produce byte-identical PNGs.
 
 Sheets are white-on-alpha, so opening one directly looks empty. Composite them
@@ -883,7 +884,7 @@ If the IDs are still `rbxassetid://0`, `SpriteFx.play` returns `false` and every
 call site falls back to `Vfx.burst`. `aura` is the one effect with no procedural
 equivalent: without its sheet the anvil simply has no halo.
 
-### Blade meshes (Blender → Open Cloud)
+### Blade meshes (Blender â†’ Open Cloud)
 
 `scripts/build_models.py` sculpts every blade in the catalogue, plus the fleet
 drone, without anyone modelling by hand. It parses `BladeRegistry.luau` exactly
@@ -892,7 +893,7 @@ get it into the build.
 
 ```powershell
 # Blender is not on PATH after a default Windows install, and its version folder
-# changes on every upgrade — the launcher resolves it for you.
+# changes on every upgrade â€” the launcher resolves it for you.
 scripts\blender.cmd build_models.py     # -> assets/models/*.fbx + index.json
 scripts\blender.cmd render_models.py    # -> assets/models/contact_sheet.png
 
@@ -902,7 +903,7 @@ python scripts\upload_assets.py --mesh --creator user:123456789
 ```
 
 The uploader reads the Open Cloud key from `ROBLOX_OPEN_CLOUD_KEY` or
-`ROBLOX_API_KEY` — either name works, so an existing `setx ROBLOX_API_KEY` keeps
+`ROBLOX_API_KEY` â€” either name works, so an existing `setx ROBLOX_API_KEY` keeps
 functioning. It is never passed on the command line.
 
 `scripts\blender.cmd` forwards to `--background --python`, so it needs no GUI.
@@ -915,24 +916,24 @@ What the builder guarantees, because the engine cares about every line of it:
 
 | Property | Value | Why it matters |
 | --- | --- | --- |
-| Triangles | 586–1 064 per blade, 21 540 total | Budget is 2 500 each; two lanes of 16 rings plus a 6-part guard |
+| Triangles | 586â€“1 064 per blade, 21 540 total | Budget is 2 500 each; two lanes of 16 rings plus a 6-part guard |
 | Height | 4.0 / 4.6 / 5.2 / 5.8 / 6.4 studs by tier, +0.0 to +0.28 from grip and guard proportions | Sized in the asset, not per-model in Studio |
-| Orientation | tip +Y, cutting edge −Z, thickness X | FBX `axis_forward="−Z"`, `axis_up="Y"` |
+| Orientation | tip +Y, cutting edge âˆ’Z, thickness X | FBX `axis_forward="âˆ’Z"`, `axis_up="Y"` |
 | Origin | base of the hilt, exactly (0, 0, 0) | A pivot at the bounding-box centre mounts a sword half underground |
 | Objects | two per asset: `<id>` and `<id>_glow` | One material per MeshPart: metal body, `Neon` core. `rivet_edge` has no emissive geometry, so it exports one |
 | Shading | flat, no textures | Colour and `Material` come from the registry at runtime |
 
 **Two objects, not one.** Roblox gives a MeshPart a single `Material`, so the
 only way to have a glowing core inside a metal blade is to ship them as separate
-objects. `InsertService:LoadAsset` returns the parts with their names intact —
-verified live, `comets_wake` and `comets_wake_glow` both arrive — and
+objects. `InsertService:LoadAsset` returns the parts with their names intact â€”
+verified live, `comets_wake` and `comets_wake_glow` both arrive â€” and
 `BladeModelBuilder` classifies by name, giving the `_glow` half `Neon` and the
 body an opaque metal.
 
 **The body is never `Neon` or `Glass`, whatever the registry says.** Those
 values described the primitive build (an emissive slab, or a transparent shell
 with light inside it). On a sculpted mesh an emissive body flattens the shading
-that makes the bevels legible, and a glass body is literally see-through —
+that makes the bevels legible, and a glass body is literally see-through â€”
 measured live, Comet's Wake rendered as a transparent shell around its core,
 which reads as a hollow sword. The energy lives in `_glow`; the body is metal.
 
@@ -949,11 +950,11 @@ stops you passing one to an `ImageLabel`.
 **Rendered in-game.** `MeshService` (`src/server/MeshService.luau`) reads the
 manifest at boot and pulls every uploaded Model through
 `InsertService:LoadAsset`, four at a time, into `ReplicatedStorage.BladeModels`
-keyed by asset id — blades and the drone alike. Measured on a live server:
+keyed by asset id â€” blades and the drone alike. Measured on a live server:
 **26/26 in ~9s**; serial was ~35s.
 
 `BladeModelBuilder` then clones the Model into its `ViewportFrame`, measuring and
-rescaling it — the FBX imports at 100× (a 4-stud blade arrives 400 studs tall),
+rescaling it â€” the FBX imports at 100Ã— (a 4-stud blade arrives 400 studs tall),
 so `entry.height` from `index.json` is the target, not the imported size. Until a
 mesh lands the blade draws from its procedural recipe, so the game is fully
 playable with zero uploads; `BladeModelBuilder.watch` fires when the asset
@@ -964,19 +965,19 @@ two motions that never consult each other: the model turns on Y at 0.9 rad/s eve
 frame, and the camera orbits the framed centre at the player's yaw and pitch.
 
 Drag with **left or right mouse button** to move the *camera*: LMB anywhere on the
-3D view, RMB anywhere — the habit every other 3D viewer on the platform trains.
+3D view, RMB anywhere â€” the habit every other 3D viewer on the platform trains.
 Touch drags too. Once a drag starts it keeps orbiting even if the cursor leaves the
-frame, pitch clamps at ±40°, and releasing leaves the camera where the player put
+frame, pitch clamps at Â±40Â°, and releasing leaves the camera where the player put
 it. Three stages share it: the forge anvil, the fleet hero and the vault inspector.
-The press has to come from a control that sits over the render — the forge's
-`StrikeButton` and the vault's `VaultStageGrab` — because a `ViewportFrame` never
+The press has to come from a control that sits over the render â€” the forge's
+`StrikeButton` and the vault's `VaultStageGrab` â€” because a `ViewportFrame` never
 receives a mouse press and a modal's scrim eats it first. A press that starts a
 drag on the anvil still strikes once: the strike fires on press, and the
 alternative would put a full click of latency on the core loop.
 
 The wash behind every stage is composited, not painted: one opaque tier ramp plus
 four crossed gradient bands, each transparent at both ends. Where they overlap the
-colours add up under the blade and the corners stay dark — the same fog a radial
+colours add up under the blade and the corners stay dark â€” the same fog a radial
 would give, with none of the stepping a stack of circles leaves. The forge and the
 fleet pass `Theme.tierBackdrop`, the vault passes the blade's rarity and variant,
 and `StageBackdrop.setColors` re-tints in place on an equip or a card click.
@@ -985,7 +986,7 @@ Two measured traps in that control, both of which made dragging do nothing:
 
 | Trap | What happens | Fix |
 | --- | --- | --- |
-| `ViewportFrame.Active = true` | Every click on the frame is marked **game-processed**, so `UserInputService.InputBegan` never sees it — and the frame does not fire `InputBegan` either. Measured: `processed=true` with no frame event | `Active = false`; input is resolved globally against the frame rectangle |
+| `ViewportFrame.Active = true` | Every click on the frame is marked **game-processed**, so `UserInputService.InputBegan` never sees it â€” and the frame does not fire `InputBegan` either. Measured: `processed=true` with no frame event | `Active = false`; input is resolved globally against the frame rectangle |
 | `GetMouseLocation()` vs `AbsolutePosition` | The mouse call reports from the top of the screen while a non-inset `ScreenGui` starts below the top bar. Measured: a click at `445,200` read back as `GetMouseLocation() = 445,258` | Compare against `InputObject.Position`, which is in the same space as `AbsolutePosition` |
 | `InputObject.Delta` on a warped cursor | A synthetic or mouselocked move reports a position with a zero delta, so the drag applies nothing | Deltas are computed from successive `Position` values |
 
@@ -996,18 +997,18 @@ Three engine traps this cost, all worth knowing before touching the viewport:
 
 | Trap | What happens | Fix |
 | --- | --- | --- |
-| `Model:GetBoundingBox()` and scaled MeshParts | A MeshPart keeps its native `MeshSize` (640) while `Size` carries the scaled value (6.4). With any other part in the model, GetBoundingBox reports the **unscaled** extents — a 6.4-stud blade measured 320.7 | Compute the AABB from `CFrame` and `Size` (`BladeModelBuilder.bounds`) |
+| `Model:GetBoundingBox()` and scaled MeshParts | A MeshPart keeps its native `MeshSize` (640) while `Size` carries the scaled value (6.4). With any other part in the model, GetBoundingBox reports the **unscaled** extents â€” a 6.4-stud blade measured 320.7 | Compute the AABB from `CFrame` and `Size` (`BladeModelBuilder.bounds`) |
 | `Model:PivotTo` with no `PrimaryPart` | The pivot is whatever the engine last computed, so `PivotTo` translates the model by an extra 0.22 studs on the first frame after framing | An invisible `Pivot` part at the hilt base, set as `PrimaryPart` |
 | A one-shot asset callback | Measured live: 6 of 25 thumbnails upgraded, the rest kept the placeholder with no second chance | The thumbnail cache key includes "is the mesh here", so the 10 Hz refresh self-heals in one redraw |
 
 **The split blades are cut across their width, and decorations are sized against the
 blade's thickness.** Two geometry bugs, one report each. The first split build offset two
 full-width blades along X and left a slot between them, so the seam was visible straight
-through the sword and it read as hollow. `loft(gap=…)` now emits an `edge` lane and a
+through the sword and it read as hollow. `loft(gap=â€¦)` now emits an `edge` lane and a
 `spine` lane sharing the outer silhouette, with the cut closing over the last fifth so
-the tip is one point. The second was the rune and vent plates: `width × 0.30` across the
+the tip is one point. The second was the rune and vent plates: `width Ã— 0.30` across the
 face put a 0.655-stud bar through a 0.135-stud blade, which is what actually looked like
-a hole in the steel. Marks on the flat are `thickness × 1.2` in X and `width × 0.42` in
+a hole in the steel. Marks on the flat are `thickness Ã— 1.2` in X and `width Ã— 0.42` in
 Y; only the span across the face uses the width.
 
 ---
@@ -1018,7 +1019,7 @@ Y; only the span across the face uses the width.
 rojo serve                          # live sync
 rojo build -o verify.rbxlx          # one-shot build
 rojo sourcemap -o sourcemap.json    # for luau-lsp
-selene src/                         # lint — should report 0/0/0
+selene src/                         # lint â€” should report 0/0/0
 ```
 
 `selene` requires the committed `selene.toml`. Without `std = "roblox"` it parses as
@@ -1037,7 +1038,7 @@ Everything a designer would touch lives in `src/shared/`:
 | `ExpeditionConfig.luau` | Mission squads, durations, payouts |
 | `MonetizationConfig.luau` | Passes, products, grants |
 
-`game-design-math.md` §11 lists safe ranges and which numbers invalidate which
+`game-design-math.md` Â§11 lists safe ranges and which numbers invalidate which
 tables if changed.
 
 ---
@@ -1045,17 +1046,17 @@ tables if changed.
 ## Before publishing
 
 - [ ] Set `Config.Debug = false` in `src/shared/Config.luau`
-- [ ] Create the 5 passes and 4 developer products in Creator Dashboard → Monetization,
+- [ ] Create the 5 passes and 4 developer products in Creator Dashboard â†’ Monetization,
       then paste their ids into `MonetizationConfig.Passes` / `.Products` (they are the
       only thing that turns `SOON` into a price; Open Cloud cannot create them)
-- [ ] Reconcile each `price` with the price set on the Marketplace item — the pill is
+- [ ] Reconcile each `price` with the price set on the Marketplace item â€” the pill is
       display-only and Roblox quotes the real one in the prompt
 - [ ] Confirm the published account can load the 26 blade meshes (`0/26` with
       `User is not authorized to access Asset` means the assets are private to another account)
 - [ ] Run `python scripts/upload_assets.py` and rebuild the manifest
 - [ ] Run `python scripts/upload_assets.py --vfx` for the sprite sheets (`--dry-run` first)
 - [ ] Publish the place (the DataStore mock only applies in Studio without API access)
-- [ ] Verify `DataStoreService` is enabled in Game Settings → Security
+- [ ] Verify `DataStoreService` is enabled in Game Settings â†’ Security
 - [ ] Create a second place for staging and run the funnel events for one hour on a fresh save
 
 ---
@@ -1074,6 +1075,6 @@ tables if changed.
 
 ## Docs
 
-- [`code-map.md`](code-map.md) — what every module owns and where to change it
-- [`game-design-math.md`](game-design-math.md) — every formula and table
-- [`design-decisions.md`](design-decisions.md) — ADR log, including what each choice costs
+- [`code-map.md`](code-map.md) â€” what every module owns and where to change it
+- [`game-design-math.md`](game-design-math.md) â€” every formula and table
+- [`design-decisions.md`](design-decisions.md) â€” ADR log, including what each choice costs

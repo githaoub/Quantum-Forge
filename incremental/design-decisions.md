@@ -4809,8 +4809,9 @@ pass, five full-width green BOUGHT plates formed the loudest line on the page.
 - VIP is the bundle: raised fill, gold border, gold halo, `BEST VALUE` tag. Its
   fact line is computed from the live pass prices (`R$ 236 SEPARATELY`).
 - Instant Overdrive is the repeat purchase: raised fill, aether border and halo,
-  `STACKABLE` tag. Its fact line reads `LIVE xN / nM LEFT` while a charge is
-  running and falls back to `x3 PER CHARGE / 1 HOUR` when idle.
+  `STACKABLE` tag. Its copy is `Each charge adds ×3 for one hour.` and the idle
+  summary is `MULTIPLIER STACKS · CLOCK RESETS TO 1 HR`; a live charge replaces
+  the summary with `LIVE ×N · nM LEFT`.
 - Owned passes keep the kit's `equipped` plate and take a faint emerald border.
   VIP keeps its gold border, because the bundle's identity is more useful than
   its receipt. The pass shelf header prints `n / 5 OWNED`.
@@ -4820,7 +4821,7 @@ pass, five full-width green BOUGHT plates formed the loudest line on the page.
 **What it costs.** The card has a fixed 618px height, so the copy budget is part
 of the design: three 14px lines on a pass card, one 14px line on a boost card.
 `TextService:GetTextSize` measured every string at the narrowest card width
-before the build; the longest boost pitch is 275px against a 343px band, and the
+before the build; the longest boost pitch is 260px against a 343px band, and the
 longest pass title is 127px against 187px. The two shelves share no automatic
 layout, so adding a fourth boost is a geometry change, not a list append. The
 store no longer has a scroll hint because it no longer has anything below the

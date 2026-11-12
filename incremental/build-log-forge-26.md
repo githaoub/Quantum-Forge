@@ -1,4 +1,4 @@
----
+﻿---
 type: build-log
 status: shipped in Studio, not yet published
 updated: 2026-11-12
@@ -70,6 +70,19 @@ receipt. The shelf header prints `n / 5 OWNED` and turns emerald at five.
 - `ShopView.layout()` places both rows from the live content width. It does not
   use the distributor, so a resize cannot move a card into the other column.
 
+## Copy pass
+
+The first shelf copy explained the duration rule on the permanent passes and left
+the boost card vague. The final copy puts each fact where it belongs:
+
+- 2x Star-Matter and Eternal Forge: `Doubles all Star-Matter income, forever.`
+  and `+25% to all Star-Matter income, forever.` The duration caveat is gone.
+- Starter Forge Pack: `A head start for a fresh forge.` with the hard value
+  `500K AETHER · 20 MIN OF 2X STAR MATTER`.
+- Instant Overdrive: `Each charge adds ×3 for one hour.` with the summary
+  `MULTIPLIER STACKS · CLOCK RESETS TO 1 HR`. A live charge replaces the summary
+  with `LIVE ×N · nM LEFT`.
+
 ## Verification
 
 - `selene src`: 0 errors, 0 warnings, 0 parse errors.
@@ -81,8 +94,8 @@ receipt. The shelf header prints `n / 5 OWNED` and turns emerald at five.
 - Boost badge ends at y=423, description starts at y=426, so the old badge /
   description overlap is gone.
 - `TextService:GetTextSize` at the narrowest card width: longest boost pitch
-  275px against 343px, longest pass title 127px against 187px, every fact line
-  under 187px.
+  260px against 343px, longest boost fact 263px against 343px, longest pass
+  title 127px against 187px, every pass fact under 187px.
 - Switching to fleet hides the store card; switching back restores it.
 - The dev account owns all five passes, so the page paints `BOUGHT` and
   `5 / 5 OWNED` and VIP still shows `BEST VALUE`.
