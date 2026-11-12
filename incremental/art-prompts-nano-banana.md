@@ -378,3 +378,11 @@ prompt next time.
 - [ ] COMPOSITION has 47% radius, margin and a slight asymmetry
 - [ ] NEGATIVE carries universal + family + AI tells
 - [ ] Save name matches the slug the normaliser expects
+
+---
+
+## See also
+
+Badges are 40px props. Thumbnails and the game icon are 320px scenes, with their
+own five styles, prompt recipes and failure log: [[art-thumbnails]].
+

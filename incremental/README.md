@@ -50,6 +50,7 @@ with an audit and a ranked action list, and says what was actually read.
 | `build-log-forge-17.md` | shipped work | What the six-click ladder, the per-copy claim, the sprite light, the sound-kit removal, the locked browse and the crate rebalance changed, measured. |
 | `research-nintendo-suspense.md` | research | The five-beat reward grammar, layered sound, haptics, and what of it shipped in the crate ceremony. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
+| `art-thumbnails.md` | working notes | The five approved thumbnail styles, the icon, the prompt recipe behind each, and the rejected icon's failure list. |
 | `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
 | `game-design-brief.md` | founding document | The game as designed, including what the first plan got wrong. |
 | `game-design-math.md` | reference | Heat curve, blade ratios, pacing, ascension, retention. |
