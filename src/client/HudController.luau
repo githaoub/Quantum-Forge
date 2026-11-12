@@ -316,6 +316,14 @@ local function buildPill(
 	})
 	sub.Position = UDim2.fromOffset(48, 34)
 	sub.Size = UDim2.new(1, -56, 0, 16)
+	if Layout.COMPACT then
+		-- The phone row keeps the icon and the number and drops the caption.
+		-- Three 148px capsules beside ten 84px keys do not fit an 800px screen,
+		-- and the marks are distinct enough to carry the meaning on their own.
+		sub.Visible = false
+		value.Position = UDim2.fromOffset(44, 16)
+		value.Size = UDim2.new(1, -48, 0, 26)
+	end
 
 	return {
 		root = root,
@@ -350,19 +358,20 @@ local function buildAscendButton(parent: Frame): TextButton
 	-- The mark sits above the word, same grammar as the utility keys beside it, so
 	-- the whole right end of the bar reads as one row of icons rather than as two
 	-- buttons that happen to be next to a toolbar.
-	local mark = Icons.build(button, "ascend", 20, Theme.Color.gold)
-	mark.Position = UDim2.fromOffset((Layout.VERB_W - 20) / 2, 5)
+	local markSize = if Layout.COMPACT then 28 else 20
+	local mark = Icons.build(button, "ascend", markSize, Theme.Color.gold)
+	mark.Position = UDim2.fromOffset((Layout.VERB_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
 
 	local label = UiKit.label(button, {
 		text = "ASCEND",
-		size = Theme.Text.Small,
+		size = if Layout.COMPACT then Theme.Text.Micro else Theme.Text.Small,
 		font = Theme.Font.Black,
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	label.Position = UDim2.fromOffset(0, 26)
+	label.Position = UDim2.fromOffset(0, if Layout.COMPACT then 44 else 26)
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.ZIndex = 2
 
@@ -373,7 +382,7 @@ local function buildAscendButton(parent: Frame): TextButton
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	detail.Position = UDim2.fromOffset(0, 43)
+	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 43)
 	detail.Size = UDim2.new(1, 0, 0, 14)
 	detail.ZIndex = 2
 	detail.Name = "Detail"
@@ -408,19 +417,20 @@ local function buildDailyButton(parent: Frame): TextButton
 	button.LayoutOrder = 10
 	button.Name = "DailyButton"
 
-	local mark = Icons.build(button, "daily", 20, Theme.Color.emerald)
-	mark.Position = UDim2.fromOffset((Layout.DAILY_W - 20) / 2, 5)
+	local markSize = if Layout.COMPACT then 28 else 20
+	local mark = Icons.build(button, "daily", markSize, Theme.Color.emerald)
+	mark.Position = UDim2.fromOffset((Layout.DAILY_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
 
 	local label = UiKit.label(button, {
 		text = "DAILY",
-		size = Theme.Text.Small,
+		size = if Layout.COMPACT then Theme.Text.Micro else Theme.Text.Small,
 		font = Theme.Font.Black,
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	label.Position = UDim2.fromOffset(0, 26)
+	label.Position = UDim2.fromOffset(0, if Layout.COMPACT then 44 else 26)
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.ZIndex = 2
 
@@ -431,7 +441,7 @@ local function buildDailyButton(parent: Frame): TextButton
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	detail.Position = UDim2.fromOffset(0, 43)
+	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 43)
 	detail.Size = UDim2.new(1, 0, 0, 14)
 	detail.ZIndex = 2
 
@@ -467,20 +477,21 @@ local function buildKey(parent: Frame, opts: {
 	button.Size = UDim2.fromOffset(Layout.KEY_W, Layout.KEY_H)
 	button.LayoutOrder = opts.order
 
-	local icon = Icons.build(button, opts.icon, 22, opts.tint)
-	icon.Position = UDim2.fromOffset((Layout.KEY_W - 22) / 2, 7)
+	local iconSize = if Layout.COMPACT then 30 else 22
+	local icon = Icons.build(button, opts.icon, iconSize, opts.tint)
+	icon.Position = UDim2.fromOffset((Layout.KEY_W - iconSize) / 2, if Layout.COMPACT then 13 else 7)
 	icon.ZIndex = 2
 
 	local label = UiKit.label(button, {
 		text = opts.label,
-		size = Theme.Text.Tiny,
+		size = if Layout.COMPACT then Theme.Text.Micro else Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textSecondary,
 		align = Enum.TextXAlignment.Center,
 	})
 	label.Name = "Face"
-	label.Position = UDim2.fromOffset(0, 34)
-	label.Size = UDim2.new(1, 0, 0, 16)
+	label.Position = UDim2.fromOffset(0, if Layout.COMPACT then 52 else 34)
+	label.Size = UDim2.new(1, 0, 0, if Layout.COMPACT then 20 else 16)
 	label.ZIndex = 2
 
 	return button
@@ -549,6 +560,14 @@ function HudController.layout()
 end
 
 function HudController.init(canvas: Frame, railFoot: Frame?)
+	-- Compact row: the 240px profile plate is the first thing to go, because the
+	-- three currency capsules and the ten keys have to fit in one 84px-high row.
+	-- The player's name is still in VIEW, and the plate's job on the bar is
+	-- identity at a glance, which a 44px phone row cannot carry anyway.
+	PLATE_W = if Layout.COMPACT then 0 else 240
+	PILL_W = if Layout.COMPACT then 104 else 148
+	LEFT_W = PLATE_W + Theme.Space.sm + PILL_W * 3 + Theme.Space.sm * 2
+
 	local bar = UiKit.panel(canvas, {
 		tier = "shell",
 		radius = Theme.Radius.lg,
@@ -573,6 +592,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 	profileHandle = ProfilePlate.build(left)
 	local plate = profileHandle.root
 	plate.LayoutOrder = 0
+	plate.Visible = not Layout.COMPACT
 
 	pills.starMatter = buildPill(left, 1, Theme.Color.starMatter, "STAR-MATTER", NumberUtil.abbreviate, "star")
 	pills.aether = buildPill(left, 2, Theme.Color.aether, "AETHER", NumberUtil.abbreviate, "crystal")

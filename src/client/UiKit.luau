@@ -1101,29 +1101,32 @@ end
 
 --- Creates the root ScreenGui plus the design canvas it scales.
 ---
---- The canvas is **full-bleed**. Height is fixed at 720 design px; width is
---- whatever the viewport has room for at that scale, measured once at boot. On
---- a 16:9 window that lands near 1280 design px, on a 21:9 near 1680, and the
---- canvas covers the window edge to edge in both cases — no letterbox, no black
---- bars, no wooden boat floating in a void.
+--- The canvas is **full-bleed**. Height starts at 720 design px and width is
+--- whatever the viewport has room for at that scale. On a 16:9 window that
+--- lands near 1280 design px, on a 21:9 near 1680, and the canvas covers the
+--- window edge to edge in both cases, no letterbox and no black bars.
 ---
 --- `minWidth` is the floor the chrome can survive at (the nav strip needs room
---- for the tabs, the rate readout and the keys on one row). Below it the canvas
---- is letterboxed instead of crushed, and the wallpaper runs underneath, so the
---- surround is the same navy as the app rather than a black bar.
+--- for the tabs, the rate readout and the keys on one row). A viewport that is
+--- narrower than that floor used to be letterboxed: a 4:3 tablet got a 720-tall
+--- strip in the middle of a 1032px screen with 150px of wallpaper above and
+--- below. Now the width is clamped and the **height grows** to fill the screen,
+--- so the app uses the whole display and every view reads the real canvas
+--- height. On a phone the aspect is wider than the floor, so the height stays
+--- 720.
 ---
---- `onResize` fires whenever the measured design width changes — including the
+--- `onResize` fires whenever the measured design size changes, including the
 --- grow that Studio's play window does a second after boot. The caller re-primes
 --- `Layout` and repositions its roots; nothing is rebuilt, because every view
 --- below the roots is already elastic in X.
 ---
---- Returns the measured design width as the fourth value so `Layout.init` can
---- size the content rect against the real canvas.
+--- Returns the measured design width and height as the last two values so
+--- `Layout.init` can size the content rect against the real canvas.
 function UiKit.screen(
 	name: string,
 	minWidth: number?,
-	onResize: ((number) -> ())?
-): (ScreenGui, Frame, UIScale, number)
+	onResize: ((number, number, number) -> ())?
+): (ScreenGui, Frame, UIScale, number, number)
 	local gui = UiKit.create("ScreenGui", {
 		Name = name,
 		ResetOnSpawn = false,
@@ -1189,31 +1192,44 @@ function UiKit.screen(
 		return Vector2.new(math.max(viewport.X, 1), math.max(viewport.Y - inset.Y, 1))
 	end
 
-	-- Boot measurement and every later resize go through one path. The scale is
-	-- driven by height alone, which is what makes the canvas full-bleed: 720
-	-- design px always maps onto the full window height, and the width is the
-	-- leftover, converted back into design px. A wider window therefore gets more
-	-- layout, not black bars.
+	-- Boot measurement and every later resize go through one path.
+	--
+	-- The common case is height-driven: 720 design px maps onto the full window
+	-- height and the width is the leftover, converted back into design px. A
+	-- wider window therefore gets more layout, not black bars.
+	--
+	-- When the viewport is narrower than the floor's aspect, the width is the
+	-- limit and the design height grows instead. A 4:3 tablet then gets a
+	-- 975-design-tall canvas at a 1.06 fit, which is the same pixel size the old
+	-- 720-tall letterbox used but fills the screen.
 	--
 	-- `designWidth` starts at zero so the first `apply` takes the resize branch
-	-- and sizes the canvas. The callback is guarded by the caller — at that point
+	-- and sizes the canvas. The callback is guarded by the caller; at that point
 	-- no panel exists yet.
 	local designWidth = 0
+	local designHeight = Theme.DesignHeight
 
 	local function apply()
 		local space = available()
+		local minSpace = minWidth or Theme.DesignWidth
 		local heightScale = space.Y / Theme.DesignHeight
-		local width = math.floor(math.max(space.X / heightScale, minWidth or Theme.DesignWidth) + 0.5)
-		-- Fit whole. At boot this is the height fit; on a window narrower than
-		-- the floor it letterboxes rather than cropping a key off the nav strip.
+		local width = math.floor(math.max(space.X / heightScale, minSpace) + 0.5)
 		local fit = math.min(space.X / width, space.Y / Theme.DesignHeight)
+		local height = Theme.DesignHeight
+
+		if space.X / width < space.Y / Theme.DesignHeight then
+			fit = space.X / width
+			height = math.floor(space.Y / math.max(fit, 0.001) + 0.5)
+		end
+
 		scale.Scale = math.clamp(fit, 0.2, 4)
 
-		if width ~= designWidth then
+		if width ~= designWidth or height ~= designHeight then
 			designWidth = width
-			canvas.Size = UDim2.fromOffset(width, Theme.DesignHeight)
+			designHeight = height
+			canvas.Size = UDim2.fromOffset(width, height)
 			if onResize then
-				onResize(width)
+				onResize(width, height, scale.Scale)
 			end
 		end
 	end
@@ -1228,7 +1244,7 @@ function UiKit.screen(
 	-- even when the viewport has not moved.
 	UiKit.track(canvas, gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(apply))
 
-	return gui, canvas, scale, designWidth
+	return gui, canvas, scale, designWidth, designHeight
 end
 
 --- Fades an instance out and destroys it. Used by every transient popup.

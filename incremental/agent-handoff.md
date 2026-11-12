@@ -31,8 +31,14 @@ checkpoint before large structural changes.
 
 ## Current state
 
-Forge 30 (ADR-124) is the live pass: `VIEW` opens the full player card, the
-trade desk takes Aether and shows every owned copy, badge art waits behind
+Forge 31 is the live pass: `Main.client` finally calls `TradeView.step`, so a
+real two-player session leaves the idle page and paints both offers. A 4:3
+tablet now grows the canvas height instead of letterboxing, the phone top bar
+switches to 84px keys, and the drone lesson points at PURGE until the first
+drone is affordable. See `incremental/build-log-forge-31.md`.
+
+Forge 30 (ADR-124) remains the visual pass: `VIEW` opens the full player card,
+the trade desk takes Aether and shows every owned copy, badge art waits behind
 `LOADING...`, every overlay banner uses its key's mark, the forge is a 16:10
 stage with a 400px console, and the ascend and daily keys scale when they are
 actionable.
@@ -41,8 +47,8 @@ Known gaps, unchanged:
 
 - DataStore writes return 401 here; the profile runs MOCK, so nothing persists
   across sessions and the first-join cards repeat on every Studio play.
-- Only one player has ever been in the server, so roster selection, cheer and a
-  live trade have never been exercised with two real clients.
+- A two-client trade reproduced `NO TRADE OPEN` before the polling fix. The
+  fixed client has not been driven through a full offer, accept and commit.
 - The purchase prompt does not render in this Studio session.
 - Blade meshes fail asset permission and fall back to primitive recipes.
 - A failed image is indistinguishable from a slow one, so `LOADING...` can sit

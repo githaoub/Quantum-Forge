@@ -62,8 +62,8 @@ local Nudges = require(script.Parent.Nudges)
 -- panel exists, which is what the `built` guard is for.
 local built = false
 
-local function reflow(width: number)
-	Layout.init(width)
+local function reflow(width: number, height: number, fit: number)
+	Layout.init(width, height, fit < 0.6)
 	if not built then
 		return
 	end
@@ -236,8 +236,8 @@ local function boot()
 	-- The screen measures itself and hands back the design width it picked; the
 	-- layout has to be primed with that number before a single panel is built,
 	-- because every panel reads `Layout` rather than the canvas.
-	local gui, canvas, uiScale, designWidth = UiKit.screen("QuantumForge", Layout.MIN_WIDTH, reflow)
-	Layout.init(designWidth)
+	local gui, canvas, uiScale, designWidth, designHeight = UiKit.screen("QuantumForge", Layout.MIN_WIDTH, reflow)
+	Layout.init(designWidth, designHeight, uiScale.Scale < 0.6)
 
 	Vfx.init(canvas, uiScale)
 	-- Warm the sound pools before the first click. Each cue owns its own Sound
@@ -445,6 +445,10 @@ local function boot()
 		ForgeView.step(dt)
 		TutorialController.step(dt)
 		PlayersView.step(dt)
+		-- The trade desk is remote state, not a local draft: without this the
+		-- panel painted the idle page on open and never noticed the session the
+		-- server had already started. `step` polls at 0.35s and only while open.
+		TradeView.step(dt)
 
 		badgeAccumulator += dt
 		if badgeAccumulator >= 0.5 then

@@ -580,10 +580,14 @@ local function buildSteps()
 			title = "PURGE",
 			body = function(payload: Types.SyncPayload?): string
 				local heat = if payload ~= nil then payload.heat else Config.VentThreshold
-				if heat >= Config.VentThreshold - 0.5 then
-					return "Turn the heat into Aether."
+				if heat < Config.VentThreshold - 0.5 then
+					return "Tap until the bar is full."
 				end
-				return "Tap until the bar is full."
+				local price = dronePrice(payload)
+				if payload ~= nil and payload.as < price then
+					return string.format("Vent the heat. Your first drone needs %s Aether.", NumberUtil.abbreviate(price))
+				end
+				return "Turn the heat into Aether."
 			end,
 			target = function(): GuiObject?
 				return ForgeView.ventAnchor()
@@ -594,8 +598,12 @@ local function buildSteps()
 			gate = function(): boolean
 				return not sawAnyVent
 			end,
-			advance = function(): boolean
-				return sawVent
+			-- The lesson does not hand the player to FLEET until the first drone
+			-- is actually affordable. Advancing on the first vent pointed the
+			-- card and its ring at a locked BUILD key, which reads as the game
+			-- demanding a purchase the player cannot make.
+			advance = function(payload: Types.SyncPayload): boolean
+				return sawVent and payload.as >= dronePrice(payload)
 			end,
 			enter = function()
 				sawVent = false
@@ -613,7 +621,17 @@ local function buildSteps()
 				end
 				return "Press BUILD 1. It earns while you do nothing."
 			end,
+			-- While the first drone is still out of reach the card points at the
+			-- forge, not at a locked BUILD key. A ring around a key the player
+			-- cannot press reads as the game demanding money they do not have.
 			target = function(): GuiObject?
+				local payload = StateStore.current
+				if payload == nil or payload.as < dronePrice(payload) then
+					if Sections.activeTab() ~= "forge" then
+						return targetTab("forge")
+					end
+					return ForgeView.ventAnchor()
+				end
 				if Sections.activeTab() ~= "fleet" then
 					return targetTab("fleet")
 				end

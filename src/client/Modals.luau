@@ -753,7 +753,7 @@ function Modals.tradeRequest(
 	who.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local body = UiKit.label(panel, {
-		text = "wants to trade blades and Void Shards with you.",
+		text = "wants to trade blades and Aether with you.",
 		size = Theme.Text.Body,
 		color = Theme.Color.textDim,
 		align = Enum.TextXAlignment.Center,

@@ -83,6 +83,11 @@ local offerOrder: { string } = {}
 local offerAether = 0
 local pollClock = 0
 local partnerClock = 0
+-- One request per flavour in flight. The trade poll runs on RenderStepped, and a
+-- RemoteFunction invoke yields; without these guards a slow server would stall a
+-- frame every 0.35s while the desk is open.
+local pollingTrade = false
+local pollingPlayers = false
 local lastSignature = ""
 local lastTheirSignature = ""
 local lastPartnerSignature = ""
@@ -1111,7 +1116,6 @@ local function playerRow(order: number, rowData: any)
 				return
 			end
 			StateStore.send("tradeRequest", { target = id })
-			Notifications.push(string.format("Trade request sent to %s.", name), "info")
 			Sfx.ui()
 		end,
 	})
@@ -1244,27 +1248,43 @@ function TradeView.step(dt: number)
 	end
 	pollClock += dt
 	partnerClock += dt
-	if partnerClock >= PARTNER_SECONDS then
+	if partnerClock >= PARTNER_SECONDS and not pollingPlayers then
 		partnerClock = 0
-		local players = StateStore.request("players")
-		local signature = partnerSignature(players)
-		if signature ~= lastPartnerSignature then
-			lastPartnerSignature = signature
-			paintPartners(players)
-		end
+		pollingPlayers = true
+		task.spawn(function()
+			local players = StateStore.request("players")
+			pollingPlayers = false
+			if shell == nil or not shell.isOpen() then
+				return
+			end
+			local signature = partnerSignature(players)
+			if signature ~= lastPartnerSignature then
+				lastPartnerSignature = signature
+				paintPartners(players)
+			end
+		end)
+	elseif pollingPlayers then
+		partnerClock = 0
 	end
-	if pollClock < POLL_SECONDS then
+	if pollClock < POLL_SECONDS or pollingTrade then
 		return
 	end
 	pollClock = 0
+	pollingTrade = true
 
-	local state = StateStore.request("trade")
-	lastState = state
-	local signature = signatureOf(state)
-	if signature ~= lastSignature then
-		lastSignature = signature
-		TradeView.paintState(state)
-	end
+	task.spawn(function()
+		local state = StateStore.request("trade")
+		pollingTrade = false
+		if shell == nil or not shell.isOpen() then
+			return
+		end
+		lastState = state
+		local signature = signatureOf(state)
+		if signature ~= lastSignature then
+			lastSignature = signature
+			TradeView.paintState(state)
+		end
+	end)
 end
 
 --- Studio seam: paints a synthetic state from the real inventory so the desk can

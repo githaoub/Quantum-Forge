@@ -6,6 +6,7 @@
 -- produce six overlapping panels.
 
 local Theme = require(script.Parent.Theme)
+local Layout = require(script.Parent.Layout)
 local UiKit = require(script.Parent.UiKit)
 
 local Notifications = {}
@@ -44,7 +45,9 @@ local function slotX(index: number): number
 end
 
 local function slotY(): number
-	return Theme.DesignHeight - EDGE_Y - TOAST_H
+	-- The canvas can be taller than 720 on a 4:3 tablet now. Toasts belong on
+	-- the bottom edge of whatever canvas the player actually has.
+	return Layout.CANVAS_H - EDGE_Y - TOAST_H
 end
 
 local function layout()
