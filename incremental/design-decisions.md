@@ -4033,3 +4033,94 @@ while the player walked away.
 from being readable across the whole platform). Gold is already the leaderboard
 and gold-rarity colour, so the VIP ring has to stay outside the rarity ring to
 keep the two readings apart.
+
+## ADR-092 - Six clicks to a secret, one claim per sword
+
+**Context.** The crate opened on one press and the whole batch was taken by one
+`COLLECT 10`. Both compressed the two moments the ceremony exists for: the
+suspense before the answer and the afterglow after it. A single press cannot be
+suspenseful, and one key that swallows ten swords is a receipt, not a reward.
+
+**Decision.**
+
+- A single crate and a triple both cost six clicks; a ten-pull costs ten. The
+  triple divides its six clicks in two per crate, so every crate takes a light
+  hit and then a heavy one. A ten-pull keeps one click per crate because ten
+  crates are already ten objects on screen.
+- The click budget comes from the batch the server actually charged, and `open`
+  derives `perCrate = strikeTotal / batch`, so a pull trimmed to three slots by
+  vault space is a six-click triple, not a mispriced ten.
+- The result is a queue. The best copy is shown first (it is the payoff the
+  reveal just sold), then the rest in roll order. Every claim is a beat: chip
+  greys to `CLAIMED`, rarity flash, spark cone, `Sfx.claim`, 0.3s key lock while
+  the hero swaps. The last claim is the exit.
+- `Sfx.claimAll` is the downbeat for the last copy; a ten-pull that ended on the
+  same note as its tenth claim would feel like the loop never resolved.
+
+**What it costs.** A ten-pull is now ten presses to finish, and a player who
+wants to leave has to tap through the queue. The key hides for 0.3s between
+copies, which is dead input on purpose: a held mouse must not eat two swords.
+
+## ADR-093 - Light is a sprite, and the gunshot is not in the kit
+
+**Context.** The ceremony's light was painted with bare Frames: a 4px column
+with a vertical gradient and nine 2px rays. A gradient on one axis cannot make a
+soft edge, so the column read as a white bar and the fan as debug lines. The
+sound kit also carried `impact_explosion_03` and `swordslash`, which read as a
+stray gunshot and a blade whip under a wooden box.
+
+**Decision.**
+
+- The column, source halo, floor pool and result halo are `smoke_main.dds`, a
+  proven-present client texture with a real falloff. The star and the eight
+  needle shafts are `sparkles_main.dds`. `whiteCircle.png` was tested and
+  rejected: it is a hard flat disc, not a glow.
+- One `NumberValue` drives every beam layer through `paintBeam(strength)`, so
+  the wind-up cannot desynchronise into four tweens landing on different frames.
+  The column is faint at rest, grows with each strike, opens for the hold, and
+  flashes on the reveal.
+- `impact_explosion_03` and `swordslash` are removed from `Sfx`, not just from
+  the crate. The body is `hit.wav`, the crack `snap.mp3`, the ring `metal.ogg`,
+  the tick `clickfast.wav`, the air `impact_water.mp3`.
+- A heartbeat is a pitched-down thud, not an explosion; a claim is a ping pair
+  over the ring of the blade.
+
+**What it costs.** Three textures instead of zero. They ship with the client, so
+there is no upload to fail, but they are also not authored for this game: the
+smoke puff is a smoke puff, and the star is the stock four-point sparkle. The
+alternative was a flat rectangle, which is worse.
+
+## ADR-094 - A locked pool is local browse state
+
+**Context.** ADR-090 described locked pools as browsable, but the page still
+sent `crate` to the server on every pick. The server refused the locked id (it
+must not switch the profile's ramp to a pool the run has not opened), and the
+next sync followed `forgeCrate` back to the old crate. The browse lasted one
+tick, which is why it still read as "I cannot view locked crates".
+
+**Decision.** `pick` sends nothing for a pool with no quote. `CratesView` keeps
+a `browsingLocked` flag and the sync loop skips the server-follow while the
+selected pool has no quote. As soon as the pool unlocks, the flag clears and the
+server is authoritative again.
+
+**What it costs.** One more piece of client state that has to be cleared on a
+real pick. A future action that assumes `selected` is always the profile's
+`forgeCrate` would be wrong while a locked pool is being inspected; the roll
+path already reads the quote, not the selection.
+
+## ADR-095 - The top crate pays a Quantum once in fifty, not once in six
+
+**Context.** Singularity Vault had Quantum at 16% and Celestial at 8%, so the
+rarest blade was routine by the time a player could afford the top pool. Every
+pull at the top was also Astral-or-better 88% of the time, which made the
+lower rarities decorative.
+
+**Decision.** The five weight columns were rewritten so expected rarity rank
+still climbs every rung (1.63 / 2.09 / 2.45 / 2.74 / 2.99) while the top rarity
+stays rare: Quantum is 0.4 / 1.2 / 1.5 / 2 / 2 percent. Astral and Void absorb
+the difference. Pity still forces Void-or-better on schedule, drawn from the
+crate's own column, so a bad streak has a floor without making Quantum common.
+
+**What it costs.** A top-tier ten-pull now has roughly an 18% chance of one
+Quantum instead of a near-certain one. That is the point: the codex is a chase
+again, and the lower pools keep a reason to exist.

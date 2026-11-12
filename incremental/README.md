@@ -47,6 +47,7 @@ with an audit and a ranked action list, and says what was actually read.
 | `build-log-forge-14.md` | shipped work | What the staged crate reveal, the every-copy ribbon, pity progress and the band clamp changed, measured. |
 | `build-log-forge-15.md` | shipped work | What the full-screen ceremony, the 1/3/10 crate racks, the scroll-canvas fix, the store heroes and the VIP bundle changed, measured. |
 | `build-log-forge-16.md` | shipped work | What the copy rail, the sealed hold, the claim curtain, the panel click guard and the live Marketplace listings changed, measured. |
+| `build-log-forge-17.md` | shipped work | What the six-click ladder, the per-copy claim, the sprite light, the sound-kit removal, the locked browse and the crate rebalance changed, measured. |
 | `research-nintendo-suspense.md` | research | The five-beat reward grammar, layered sound, haptics, and what of it shipped in the crate ceremony. |
 | `art-prompts-nano-banana.md` | working notes | The badge prompt contract: sections, palette rules, AI tells, the generated-file map. |
 | `game-design-research.md` | GitHub research | The five fun levers, the incremental patterns worth copying, and an audit of this build with ranked actions. |
@@ -135,21 +136,29 @@ heartbeats, and clicking inside a panel no longer closes the vault. The store's
 nine listings are live, with VIP above Eternal Forge and below the sum, and VIP
 now shows a gold plate badge and an outer aura ring instead of only a toast.
 
+**17:** The crate became a lock. A single and a triple take six clicks, a
+ten-pull takes ten, and the result is claimed one sword at a time. The flat
+column and the 2px ray fan were replaced by sprite light from three
+client-shipped textures, the gunshot and sword-whip samples were removed from
+the whole sound kit, a locked pool is finally browsable, and the top crate pays
+a Quantum once in fifty rolls instead of once in six.
+
 ## Reading order for a fresh session
 
 1. `code-map.md` - what every module owns, so you can jump straight to the file.
 2. `game-design-brief.md` - what the game is.
 3. `game-design-research.md` - the five fun levers and the audit of this build.
 4. `video-06-mvp-rng-session-time.md` - why the current loop looks the way it does.
-5. `build-log-forge-16.md` - the afterglow, the claim curtain, the click guard and the live store.
-6. `build-log-forge-15.md` - the full-screen ceremony, the racks, the scroll fix and the store heroes.
-7. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
-8. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
-9. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
-10. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
-11. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
-10. `build-log-forge-09.md` - the vault split view and the one-card guide.
-11. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
-12. `build-log-forge-07.md` - what the RNG forge pass shipped.
-12. `build-log-salvage-06.md` - what the previous pass shipped.
-13. `design-decisions.md` - every ADR, newest last. Read the last one first.
+5. `build-log-forge-17.md` - the six-click ladder, the claim queue, the sprite light and the rebalance.
+6. `build-log-forge-16.md` - the afterglow, the claim curtain, the click guard and the live store.
+7. `build-log-forge-15.md` - the full-screen ceremony, the racks, the scroll fix and the store heroes.
+8. `build-log-forge-14.md` - the staged reveal, the every-copy ribbon and the band clamp.
+9. `build-log-forge-13.md` - the Foundry rebuild and the heat lean point.
+10. `build-log-forge-12.md` - crate, economy, modifiers, codex, boards, trade, currency art.
+11. `build-log-forge-11.md` - the batch mode, the stage wash and the orbit surfaces.
+12. `build-log-forge-10.md` - progress pricing, the melt count and the settings rows.
+13. `build-log-forge-09.md` - the vault split view and the one-card guide.
+14. `build-log-forge-08.md` - what the drone ladder and the strike stage shipped.
+15. `build-log-forge-07.md` - what the RNG forge pass shipped.
+16. `build-log-salvage-06.md` - what the previous pass shipped.
+17. `design-decisions.md` - every ADR, newest last. Read the last one first.
