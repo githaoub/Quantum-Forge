@@ -4002,3 +4002,34 @@ page is honest about being locked without offering a shortcut. A player who
 ascends loses access to the top pools they were browsing, which is the point of
 the run gate but will read as a demotion unless the rail's percentage makes the
 next climb obvious.
+
+## ADR-091 - VIP needs a body, not only four multipliers
+
+**Context.** VIP is the most expensive listing in the store and grants four
+passes. Every one of those passes is a number: two income multipliers, a click
+rate, an auto-vent rule. Nothing on screen changed after the purchase except the
+store row, so the bundle's only feedback was a toast. Worse, the character aura
+that was supposed to carry the flex was anchored: `AuraRing` was created
+`Anchored = true` and then welded to the root, so it stayed at the spawn point
+while the player walked away.
+
+**Decision.**
+
+- The sync payload carries one `vip` boolean. The client never receives the pass
+  map: it prints a badge, it does not decide a grant.
+- `ProfilePlate` paints a gold `VIP` chip on the handle row, and the `@handle`
+  gives up the width. The chip is 38x14 design px at the 13px floor, gold fill,
+  ink text, and hidden unless the flag is set.
+- `LobbyService` paints the aura in two layers. The inner ring and the motes keep
+  the equipped blade's rarity glow; the outer `VipRing` and the floating
+  `VipTag` are gold and only exist for VIP. Additive, because a VIP holding a
+  Quantum blade should still read as Quantum first.
+- The 1Hz repaint cache keys on blade id **and** VIP, so a purchase shows within a
+  second without a rejoin. The ring is unanchored so the weld can actually carry
+  it with the character.
+
+**What it costs.** Two extra instances per character rather than a shader, and a
+64px billboard that can add noise to a crowded bridge (`MaxDistance` 80 keeps it
+from being readable across the whole platform). Gold is already the leaderboard
+and gold-rarity colour, so the VIP ring has to stay outside the rarity ring to
+keep the two readings apart.

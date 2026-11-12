@@ -34,6 +34,7 @@ feel unreliable.
 | Locked pools | Selectable, model mounted, keys read `LOCKED` | Unchanged behaviour, now the only definition of unlocked (quote, not lifetime) |
 | Store | Placeholder ids, every row `SOON` | Real passes and products, live ids, prices |
 | VIP | R$499, below Eternal Forge | R$1699, above Eternal Forge, row prints `Buy separately: R$ 1946` |
+| VIP body | Pass flag only, no visible sign | Gold `VIP` chip in the identity plate, gold outer aura ring and a floating tag |
 | Eternal Forge | Last in the pass list | Second row, directly under VIP |
 | Starter pack | 25 Aether, 15 min | 500K Aether, 20 min |
 
@@ -103,6 +104,8 @@ product prices instead of `SOON`.
 | Static | `selene src/` 0 errors, 0 warnings, 0 parse errors; `rojo build -o verify.rbxlx` succeeds |
 | Store ids | 9 listings created; rows read `R$ ...`, no `SOON` |
 | VIP row | `R$ 1699` with `BEST VALUE` and `Buy separately: R$ 1946.` |
+| VIP badge | Chip hides without the pass; with the pass forced on, `Vip` attribute true and the chip paints at 38x14 design px beside the handle |
+| VIP aura | With the pass forced on: `VipRing` transparency 0.55, `VipTag.Enabled` true, both welded and unanchored. With it off: ring 1, tag false |
 | Pass order | VIP, Eternal Forge, Fast Forge, 2x Star-Matter, Auto-Vent |
 | Locked pools | Code-verified: the rail selects, the model mounts, the keys read `LOCKED`, `roll` returns before it sends `forge`. The test profile has every pool open, so this was not walked live |
 | Store scroll | Canvas 692 over a 373 px window; wheel moved 0 to 100 |

@@ -132,7 +132,8 @@ are measured in canvas units, and the store leads with VIP and Starter Forge.
 `COLLECT` key is locked for half a second and then closes behind a claim flash,
 the sealed beat holds for 0.62 s with a beam, a vignette, a riser and two
 heartbeats, and clicking inside a panel no longer closes the vault. The store's
-nine listings are live, with VIP above Eternal Forge and below the sum.
+nine listings are live, with VIP above Eternal Forge and below the sum, and VIP
+now shows a gold plate badge and an outer aura ring instead of only a toast.
 
 ## Reading order for a fresh session
 
