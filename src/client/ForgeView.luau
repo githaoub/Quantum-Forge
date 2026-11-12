@@ -756,6 +756,12 @@ end
 --- The viewport shake is now mirrored by a smaller whole-HUD shake. The stage is
 --- clipped, so a few pixels there read as the blade rattling inside its window;
 --- the canvas shake is what makes the hit felt across the screen.
+---
+--- The click is the most repeated motion in the game, so its amplitude is the
+--- one the player actually feels: 7px at six clicks a second read as a camera
+--- being knocked, not as an anvil being hit. The press sits at 5px, the band at
+--- 6.75 and a crit at 8; the one-off reveal and landing keep their bigger
+--- numbers because they happen once.
 function ForgeView.punch(strength: number?)
 	if Theme.reducedMotion() then
 		return
@@ -764,9 +770,9 @@ function ForgeView.punch(strength: number?)
 	if viewport then
 		-- Kept moderate on purpose: the viewport is full-bleed inside a clipped
 		-- frame, so a large offset exposes the frame edge behind the blade.
-		Vfx.shake(viewport, 6 * amount, 0.15 + 0.05 * amount)
+		Vfx.shake(viewport, 4.5 * amount, 0.15 + 0.05 * amount)
 	end
-	Vfx.shakeScreen(3.5 + 3.5 * amount, 0.16 + 0.05 * amount)
+	Vfx.shakeScreen(2.5 + 2.5 * amount, 0.16 + 0.05 * amount)
 end
 
 --- Wash over the screen. `hold` is the fade length; a strike wants a short
@@ -1285,7 +1291,7 @@ function ForgeView.render(payload: Types.SyncPayload)
 			})
 		end
 		if root then
-			Vfx.shake(root, 6, 0.28)
+			Vfx.shake(root, 5, 0.28)
 		end
 		Sfx.streakComplete()
 	end
@@ -1390,9 +1396,9 @@ function ForgeView.celebrate(bladeId: string?, variantId: string?, batch: number
 		Vfx.resultWash(viewport, tint, rank)
 	end
 	if root then
-		Vfx.shake(root, 7 + rank, 0.3 + rank * 0.02)
+		Vfx.shake(root, 6 + rank * 0.8, 0.3 + rank * 0.02)
 	end
-	Vfx.shakeScreen(5 + rank * 1.2, 0.3 + rank * 0.02)
+	Vfx.shakeScreen(4 + rank, 0.3 + rank * 0.02)
 	if viewport then
 		Vfx.sparks(viewport, tint, 18 + rank * 4, 1.6 + rank * 0.12)
 	end
@@ -1454,7 +1460,7 @@ local function revealRoll()
 		Sfx.error()
 		if viewport then
 			viewport.Visible = true
-			Vfx.shake(viewport, 6, 0.16)
+			Vfx.shake(viewport, 5, 0.16)
 		end
 		return
 	end
@@ -1487,7 +1493,7 @@ local function revealRoll()
 		Vfx.burst(viewport, tint, 1.4 + rank * 0.2)
 	end
 	screenFlash(Theme.Color.white, 0.85, 0.22)
-	Vfx.shakeScreen(7, 0.26)
+	Vfx.shakeScreen(5.5, 0.26)
 	Sfx.crateShatter()
 	Sfx.forge()
 	if token == rollToken then
@@ -1582,9 +1588,9 @@ function ForgeView.roll(count: number?)
 			-- Slam. The crate is the heaviest object in the loop, so this is the
 			-- one beat that shakes the whole HUD as well as the stage.
 			if viewport then
-				Vfx.shake(viewport, 16, 0.2)
+				Vfx.shake(viewport, 13, 0.2)
 			end
-			Vfx.shakeScreen(8, 0.26)
+			Vfx.shakeScreen(7, 0.26)
 			Sfx.crateLand()
 		end,
 		onBeat = function(beat: number)
@@ -1593,7 +1599,7 @@ function ForgeView.roll(count: number?)
 			end
 			Sfx.rollTick(1 + beat)
 			if beat % 2 == 0 and viewport then
-				Vfx.shake(viewport, 3 + beat, 0.09)
+				Vfx.shake(viewport, 2.5 + beat * 0.8, 0.09)
 			end
 		end,
 		onReady = function()
