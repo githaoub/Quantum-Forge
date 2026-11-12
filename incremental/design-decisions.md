@@ -4735,3 +4735,103 @@ with it: no `QF_Dev` seam, no state sync. The check now uses
 overflows. The rows are already sized to the taller column, so the visible cost
 is padding; the benefit is that the hint can never sit on a button. The pill is a
 `Frame`, not a button, so it never captures input.
+
+## ADR-119 - The shelf is a catalog, and the paid clock owns the countdown
+
+**Context.** The first store refresh gave every offer the same plate with a
+taller variant, floated a gold ribbon under the text, and printed an owned pass
+in the same solid emerald as a live price. Two columns of cards ended unevenly,
+the fold cut a row in half with a yellow pill sitting on its buy button, and the
+shelf read as a list of keys rather than a store. Separately, the HUD chip
+counted down to the first boost to expire, so an Instant Overdrive bought under
+the one-hour welcome boost still read the welcome clock and looked like it had
+not applied.
+
+**Decision.** The shelf is a catalog with one card system and two heights.
+
+- Passes are gold (permanent), boosts are aether (timed), and the action plate
+  is emerald on every row. Category colour is only allowed on the rail, the tag,
+  the halo and the border; it never becomes the button.
+- Group headers are lane signs: name on the left, count on the right, one
+  hairline under both. The count sits 12px in from the edge so the scrollbar
+  never crowds it.
+- A standard row is 92 tall: a 13px category eyebrow (`INCOME`, `CLICKS`,
+  `HEAT`, `EXPEDITION`), an 18px name, a two-line 14px sentence, a 60px badge
+  and a 100x38 price plate.
+- A featured row is 172 tall: a gold tag over a 26px name, a one-line store
+  voice blurb, three 13px fact chips, a 112px badge with a soft halo and a
+  124x48 plate. The tag and the chips carry the facts; the blurb carries the
+  pitch, and neither repeats the other.
+- An owned pass uses the kit's `equipped` state: a green tint and border, not a
+  solid plate. A receipt is a state, not the loudest buy button on screen.
+- The boosts column closes with a policy card, `NO SHORTCUTS`, not another
+  offer. It states what the shelf refuses to sell and gives the shorter column
+  a designed ending.
+- The scroll footer holds a quiet `MORE BELOW` lane sign and a 36px wash that
+  fades the cut row into the panel. The fade is what makes the fold read as a
+  page edge instead of a clipped card.
+
+The chip now counts down the paid clock whenever it is live. The multiplier is
+still the product of the paid track and the welcome/Starter 2x, so the number is
+honest, but the timer belongs to the boost the player buys and recharges. Taking
+the minimum of the two made a fresh hour look inert.
+
+**What it costs.** Three colours are in play (gold, aether, emerald), so the
+accent has to stay structural or the shelf turns into a paint chart. The fade
+covers the bottom 36px of the list, so a row cut there cannot be read as a whole
+card; that is the point, and the lane sign sits below it. The policy card is not
+a product and carries no price, so the group count stays at three. The ticker
+fix changes what the chip counts down, not what it multiplies: a player watching
+the clock will see the paid hour, and the multiplier still drops when the
+shorter boost expires.
+
+## ADR-120 - The store is a page with two shelves
+
+**Context.** ADR-119 gave the store a card system, but it was still eight rows
+poured into the generic two-column distributor. The distributor balanced the
+columns by height, so the second shelf started wherever the first stopped; the
+boosts sat under a 28px footer strip, and the store needed its own scroll hint
+because the offers did not fit. Every offer had the same left-to-right shape, so
+a bundle and a consumable read as the same object. On an account that owns every
+pass, five full-width green BOUGHT plates formed the loudest line on the page.
+
+**Decision.** The store is a full-bleed page like the forge and the crate vault
+(`page = true`, `ShopView.card()`), not a host section.
+
+- One 618px card, 20px inset. A masthead (44px gold mark, 30px QUANTUM STORE,
+  13px subtitle, a `NO CURRENCY PACKS` chip, one rule) sits above two shelves.
+- The permanent shelf is five 246px cards across. The boost shelf is three 188px
+  cards across. Both rows are placed by `ShopView.layout()` from the live content
+  width, so a resize moves the cards instead of re-flowing the page.
+- Every card uses the same 6px radius, 16px inset, 64px badge and full-width
+  40px emerald plate. Category colour lives on the tag, the fact line, the halo
+  and the border, never on the verb.
+- VIP is the bundle: raised fill, gold border, gold halo, `BEST VALUE` tag. Its
+  fact line is computed from the live pass prices (`R$ 236 SEPARATELY`).
+- Instant Overdrive is the repeat purchase: raised fill, aether border and halo,
+  `STACKABLE` tag. Its fact line reads `LIVE xN / nM LEFT` while a charge is
+  running and falls back to `x3 PER CHARGE / 1 HOUR` when idle.
+- Owned passes keep the kit's `equipped` plate and take a faint emerald border.
+  VIP keeps its gold border, because the bundle's identity is more useful than
+  its receipt. The pass shelf header prints `n / 5 OWNED`.
+- Nothing scrolls. The store hides the section host, so the scroll footer that
+  still serves fleet, runes, tech and stats is not part of this page.
+
+**What it costs.** The card has a fixed 618px height, so the copy budget is part
+of the design: three 14px lines on a pass card, one 14px line on a boost card.
+`TextService:GetTextSize` measured every string at the narrowest card width
+before the build; the longest boost pitch is 275px against a 343px band, and the
+longest pass title is 127px against 187px. The two shelves share no automatic
+layout, so adding a fourth boost is a geometry change, not a list append. The
+store no longer has a scroll hint because it no longer has anything below the
+fold; the hint remains for the row sections.
+
+ADR-119's row geometry and group headers are superseded. Its HUD clock rule
+stands: the rail-foot chip counts down the paid hour whenever it is live.
+
+**Verification.** Studio, Client, 1212x578 viewport: the card is 1121x446 at
+(83,66); five pass cards 210px wide at y=156; three boost cards 357px wide at
+y=365; every `TextLabel.TextFits` is true; no badge/description overlap. The
+dev account owns all five passes, so the shelf paints `BOUGHT` and `5 / 5 OWNED`.
+Switching to fleet hides the store card and switching back restores it.
+`selene src` is clean and `rojo build` succeeds.

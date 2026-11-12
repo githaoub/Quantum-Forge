@@ -41,6 +41,7 @@ local LeaderboardView = require(script.Parent.LeaderboardView)
 local TradeView = require(script.Parent.TradeView)
 local HandbookView = require(script.Parent.HandbookView)
 local CratesView = require(script.Parent.CratesView)
+local ShopView = require(script.Parent.ShopView)
 local CrateReveal = require(script.Parent.CrateReveal)
 local DailyView = require(script.Parent.DailyView)
 local OrbitalLobby = require(script.Parent.OrbitalLobby)
@@ -69,6 +70,7 @@ local function reflow(width: number)
 	Sections.layout()
 	ForgeView.layout()
 	CratesView.layout()
+	ShopView.layout()
 end
 
 
@@ -243,9 +245,10 @@ local function boot()
 
 	ForgeView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
 	CratesView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
-	-- The nav owns the section panels; the two full-bleed cards are passed in so
-	-- the host can hide them without reaching into another module's state.
-	Sections.init(canvas, ForgeView.card(), { crates = CratesView.card() })
+	ShopView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
+	-- The nav owns the section panels; the three full-bleed cards are passed in
+	-- so the host can hide them without reaching into another module's state.
+	Sections.init(canvas, ForgeView.card(), { crates = CratesView.card(), store = ShopView.card() })
 	-- After the rail exists, because the rate readout lives at its foot.
 	HudController.init(canvas, Sections.railFoot())
 	-- The vault is a canvas-level overlay, so it is built after the panels and
@@ -454,6 +457,7 @@ local function boot()
 		unsubscribeCrates()
 		HudController.destroy()
 		ForgeView.destroy()
+		ShopView.destroy()
 		SpriteFx.destroy()
 		Sections.destroy()
 		InventoryModal.destroy()

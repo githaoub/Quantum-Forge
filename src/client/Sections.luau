@@ -35,7 +35,6 @@ local TechTreeConfig = require(game:GetService("ReplicatedStorage"):WaitForChild
 local DroneView = require(script.Parent.DroneView)
 local RuneView = require(script.Parent.RuneView)
 local TechTreeView = require(script.Parent.TechTreeView)
-local ShopView = require(script.Parent.ShopView)
 
 local Sections = {}
 
@@ -108,11 +107,12 @@ local SECTIONS: { SectionDef } = {
 		key = "store",
 		label = "STORE",
 		title = "QUANTUM STORE",
-		kicker = "GAME PASSES  ·  BOOSTS AND UTILITY",
-		accent = Theme.Color.emerald,
+		kicker = "PERMANENT PASSES  ·  STACKING BOOSTS  ·  UTILITY",
+		accent = Theme.Color.gold,
 		icon = "store",
-		init = ShopView.init,
-		destroy = ShopView.destroy,
+		-- A whole card, like the forge and the crate vault. The shop is a shelf,
+		-- not a column of rows: the section host would cut the second row off.
+		page = true,
 	},
 }
 
@@ -647,33 +647,81 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	scroll.Position = UDim2.fromOffset(16, 92)
 	content = scroll
 
-	-- Scroll affordance. The two-column store is taller than the panel, and a
-	-- 6px scrollbar at the far edge is not a hint: players were stopping at the
-	-- first screen of rows and assuming that was the whole shop. A gold pill
-	-- fills the footer strip while there is somewhere left to go, and disappears
-	-- the moment the player reaches the end.
+	-- Scroll affordance for the row sections. Fleet, runes, tech and stats can
+	-- be taller than the panel, and a 6px scrollbar at the far edge is not a
+	-- hint: players stop at the first screen and assume that is everything. The
+	-- footer strip holds a quiet lane sign, and a 36px wash above it fades the
+	-- cut row into the panel so the fold reads as a page edge, not a clipped
+	-- card. The store is a page and does not use this strip.
+	local scrollFade = UiKit.create("Frame", {
+		Name = "ScrollFade",
+		BackgroundColor3 = Theme.Color.panel,
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 16, 1, -72),
+		Size = UDim2.new(1, -32, 0, 36),
+		ZIndex = 24,
+		Visible = false,
+	}) :: Frame
+	local fadeGradient = Instance.new("UIGradient")
+	fadeGradient.Rotation = 90
+	fadeGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.55, 0.6),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	fadeGradient.Parent = scrollFade
+	scrollFade.Parent = panel
+
 	local scrollHint = UiKit.create("Frame", {
 		Name = "ScrollHint",
-		BackgroundColor3 = Theme.Color.gold,
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -10),
-		Size = UDim2.fromOffset(154, 26),
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0, 16, 1, -36),
+		Size = UDim2.new(1, -32, 0, 26),
 		ZIndex = 30,
 		Visible = false,
 	}) :: Frame
-	UiKit.corner(scrollHint, 13)
-	UiKit.stroke(scrollHint, Theme.Color.outline, 2, 0.2)
 	scrollHint.Parent = panel
 
-	local scrollHintLabel = UiKit.label(scrollHint, {
-		text = "SCROLL DOWN",
+	local hintRule = UiKit.create("Frame", {
+		BackgroundColor3 = Theme.Color.strokeFaint,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 1),
+	}) :: Frame
+	hintRule.Parent = scrollHint
+
+	local hintRow = UiKit.create("Frame", {
+		Name = "HintRow",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, 1),
+		Size = UDim2.new(1, 0, 1, -1),
+	}) :: Frame
+	hintRow.Parent = scrollHint
+
+	local hintLayout = Instance.new("UIListLayout")
+	hintLayout.FillDirection = Enum.FillDirection.Horizontal
+	hintLayout.Padding = UDim.new(0, 6)
+	hintLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	hintLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	hintLayout.Parent = hintRow
+
+	local hintText = UiKit.label(hintRow, {
+		text = "MORE BELOW",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = Theme.onColor(Theme.Color.gold),
-		align = Enum.TextXAlignment.Center,
+		color = Theme.Color.textFaint,
 	})
-	scrollHintLabel.Size = UDim2.fromScale(1, 1)
+	hintText.AutomaticSize = Enum.AutomaticSize.X
+	hintText.Size = UDim2.fromOffset(0, 16)
+
+	local hintChevron = UiKit.label(hintRow, {
+		text = "↓",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.gold,
+	})
+	hintChevron.AutomaticSize = Enum.AutomaticSize.X
+	hintChevron.Size = UDim2.fromOffset(0, 16)
 
 	local function updateScrollHint()
 		if content == nil then
@@ -683,7 +731,9 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 		-- the resolved height and is the only field comparable to the frame.
 		local overflow = content.AbsoluteCanvasSize.Y - content.AbsoluteSize.Y
 		local atBottom = content.CanvasPosition.Y >= overflow - 6
-		scrollHint.Visible = overflow > 8 and not atBottom
+		local show = overflow > 8 and not atBottom
+		scrollHint.Visible = show
+		scrollFade.Visible = show
 	end
 	UiKit.track(scrollHint, content:GetPropertyChangedSignal("CanvasPosition"):Connect(updateScrollHint))
 	UiKit.track(scrollHint, content:GetPropertyChangedSignal("CanvasSize"):Connect(updateScrollHint))

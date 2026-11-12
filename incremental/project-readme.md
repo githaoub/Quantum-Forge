@@ -490,11 +490,13 @@ its vent key 40 (was 34). Secondary copy switched from warm `textFaint` to a new
 `textSecondary` (`#B8C2D6`), which holds contrast against the brown card stock
 instead of sinking into it.
 
-The store row is the exception: it is **104 tall** with a **72px badge**, not 88 with
-48. The row is the only place the panel had to grow for it — `Layout.SIDE_WIDTH` went
-432 → 468 and the forge card gave up the same 36. See "Store row geometry" below.
+The store has its own rhythm. It is a page, not a set of rows: five 246px pass
+cards across the top, three 188px boost cards under them, all inside the 618px
+content card. The older 92/172 row system was replaced by the shelf. See "Store
+shelf geometry" below.
 
-Verified live on all five tabs with `TextLabel.TextFits`: **zero clipped labels**.
+Verified live on the five row tabs and the store page with `TextLabel.TextFits`:
+**zero clipped labels**.
 
 ### Panel controls have three states, and they are visible
 
@@ -504,7 +506,7 @@ flat `#181C26` slate plate with a dim face and its cost; an owned-but-not-worn b
 shows `✓ EQUIPPED` as a low-alpha green badge. Blade and tech cards carry a 4px
 rarity bar down the left edge and a live progress bar toward the price or the next
 level. The active tab is a solid accent pill; inactive tabs are flat slate with no
-glow, so the selected tab is the only one carrying colour. A store row with no
+glow, so the selected tab is the only one carrying colour. A store card with no
 Marketplace id behind it shows `SOON` instead of a price and answers a click with a
 toast, so the storefront never quotes `R$ 149` for something that cannot be bought.
 
@@ -521,70 +523,78 @@ clock to one hour. The clock never passes that hour, so a large multiplier still
 has to be recharged; a second charge with forty minutes left trades those
 minutes for another stack. `globalMultiplier` multiplies the paid track with
 `boostX2Until` (the Starter Pack's twenty minutes) and with the 2x and Eternal
-Forge passes, and none of those add duration to anything, which is what the row
-copy now says. Instant Overdrive sits in the second 176px hero tile, tagged
-`STACKABLE`, so the repeatable offer looks repeatable.
+Forge passes, and none of those add duration to anything, which is what the card
+copy now says. Instant Overdrive is the raised card on the boost shelf, tagged
+`STACKABLE`, and its fact line reports the live paid multiplier and clock while a
+charge is running. The rail-foot chip counts down the paid clock while it is live;
+the welcome or Starter 2x clock only owns the chip when no paid boost is running,
+so a fresh hour is visible immediately.
 
-Pass rows remember ownership. The sync carries `ownedPasses`, and an owned pass
-prints `BOUGHT` on the green plate with the button inactive, so a receipt never
-looks like a price. Products under `BOOSTS & UTILITY` are consumables and never
-take that label; Starter Forge, Instant Overdrive and Express Salvage stay
-buyable after every purchase.
+Pass cards remember ownership. The sync carries `ownedPasses`, and an owned pass
+drops to the kit's `equipped` badge: a green tint and border, not a solid plate,
+with the button inactive. A receipt never looks like a price. Products under
+`BOOSTS & UTILITY` are consumables and never take that label; Starter Forge,
+Instant Overdrive and Express Salvage stay buyable after every purchase.
 
-### Store row geometry
+### Store shelf geometry
 
-The store row is the one card in the panel that had to grow, and it dragged the panel
-with it.
+The store is a `page = true` section with its own full-bleed card, not the row
+distributor. `ShopView.init(canvas, ...)` builds the card and `Main` hands it to
+`Sections.init` beside the forge and crate cards, so switching tabs shows one
+card instead of rebuilding a list. Nothing scrolls: the two shelves are measured
+from the top of the 618px card and every offer is on screen at once.
 
-| | before | now | why |
-| --- | --- | --- | --- |
-| `Layout.SIDE_WIDTH` | 432 | **468** | room for a 72px badge without stealing width from the description |
-| forge card width | 806 | 770 | the 36px the panel took |
-| store row height | 88 | **104** | holds a 72px badge beside a 22px title and a three-line 14px description |
-| hero row height | 176 | unchanged | VIP and Starter Forge already used it; Instant Overdrive joined them with a `STACKABLE` ribbon |
-| badge well | 48 | **72** | |
-| text column x | 70 | **96** | |
-| text column width | 214 | **224** | wider, not narrower |
-| price plate | 92 at `1,-104` | unchanged | still 8px clear of the text column |
+| element | current | why |
+| --- | --- | --- |
+| store page | 618 tall, full content width | one screen; no offer under a fold |
+| masthead | 86 tall | 44px mark, 30px title, 13px subtitle, `NO CURRENCY PACKS` chip, one rule |
+| pass shelf | header at 98, cards at 124 | 5 across, 14px gap, 246 tall |
+| boost shelf | header at 388, cards at 414 | 3 across, 14px gap, 188 tall |
+| badge well | **64** | 46.2 real px at 0.722; the source thumbnail is 420 |
+| pass card | **246** | 64 badge, 20px name, 14px blurb (up to three lines), fact, 40px plate |
+| boost card | **188** | 64 badge and 20px name, one-line 14px blurb, fact, 40px plate |
+| action plate | **40** at 16 inset | full card width, emerald, one shape per state |
+| VIP | raised, gold border, halo, tag | the only bundle on the shelf |
+| Instant Overdrive | raised, aether border, halo, tag | the only repeat purchase |
 
-The reason the badge grew is the lesson from the first art pass, not taste. The store
-draws the badge at 0.719 scale, so 48 design px was **34.5 real px** — which is where
-the first `fast_forge` art read as a black circle. 72 design px is **51.8 real px**,
-and the thumbnail behind it is 420, so nothing is thrown away.
+The two heights are the structure: 246 gives a permanent offer room for a badge,
+a name, a sentence and a value line; 188 gives a consumable the same badge and
+name with a single-line pitch. Every card uses the same radius, the same 16px
+inset and the same emerald key, so the shelves read as one system rather than
+eight one-offs.
 
-The forge card is the one that paid for it. It is a 3D viewport with a full-width
-heat rail, and losing 36px costs it nothing; the store column had no width left to
-give. Everything downstream reads `Layout`, so the tutorial ring and the objective
-strip followed the change without edits.
+Owned passes keep the `equipped` plate and pick up a faint emerald card border.
+VIP keeps its gold border regardless: the bundle's identity outranks its receipt.
+On a maxed account the four owned pass cards recede, while the buyable boost keys
+stay the brightest things on the screen.
 
-The section panel also reserves a 28px footer strip for a gold `SCROLL DOWN` pill
-(`Sections.SCROLL_INSET_Y`). It shows while the active list has somewhere to go,
-hides within 6px of the end, and cannot cover a buy button because it sits below
-the scroll rect rather than over it.
+The collectible scroll footer (`Sections.SCROLL_INSET_Y`, `ScrollFade`, the
+`MORE BELOW` sign) still belongs to the row sections: fleet, runes, tech and
+stats. The store page hides the host and has nothing to scroll, so a scroll hint
+there would point at no content.
 
 ### Store art
 
-All nine rows now carry a badge: five `GAME PASSES` (the header read `PERMANENT
-UPGRADES` before) and four `BOOSTS & UTILITY` products. Products were previously
-hardcoded to `icon = nil`; `ProductDef` gained `icon: string?` and the row passes
-`def.icon` through, so the same fallback applies — no key, or a key with no id pasted
-in, keeps the text pill.
+All eight offers carry a badge: five permanent passes and three boosts. Products
+were previously hardcoded to `icon = nil`; `ProductDef` gained `icon: string?` and
+the card passes `def.icon` through, so the same fallback applies: no key, or a
+key with no id pasted in, keeps the square category plate.
 
-Every id lives in `AssetManifest.GamepassIcons`, grouped into the two tiers. The four
-product ids are the same art used for the game-pass badges where the item is a pass,
-and are Developer Product icons where it is not.
+Every id lives in `AssetManifest.GamepassIcons`, grouped into the two tiers. The
+three product ids are the same art used for the game-pass badges where the item
+is a pass, and are Developer Product icons where it is not.
 
 ### Gamepass badges
 
 The STORE tab shows real art for a pass when it exists. `MonetizationConfig` carries
 `icon = "fast_forge"` next to the pass, `AssetManifest.gamepassIcon("fast_forge")`
-resolves it to an `rbxthumb://` URL, and `ShopView` draws a 72×72 circular well with a
-2px `#0F1117` ring and the badge `Fit` inside.
+resolves it to an `rbxthumb://` URL, and `ShopView` draws a 64×64 circular well with a
+2px `#05070B` ring and the badge `Fit` inside.
 
-A pass with no art is not broken — it keeps the 56×20 text pill (`FAST`, `AUTO`).
+A pass with no art is not broken: it keeps the 64×64 category plate (`FAST`, `AUTO`).
 That is the fallback for a fresh clone with zero uploads, and it is why
 `gamepassIcon` returns `""` rather than `rbxassetid://0`: the view branches on empty
-to pick the pill, and a placeholder id would branch the wrong way into an empty
+to pick the plate, and a placeholder id would branch the wrong way into an empty
 `ImageLabel`.
 
 Badge ids live in `AssetManifest.GamepassIcons`, a third table beside `Assets` and
@@ -603,7 +613,7 @@ does not serve these Open Cloud uploads here — `CreateEditableImageAsync` retu
 while `rbxthumb://type=Asset&id=<id>&w=420&h=420` returns a real 420x420 RGBA bitmap
 with transparency intact. `AssetManifest.gamepassIcon` builds that URL from the
 stored id, so the table stays readable and callers stay unchanged. 420 is a served
-size; 512 is rejected, and 420 is ~12x the 34.5px the store actually draws.
+size; 512 is rejected, and 420 is ~9x the 46.2px the shelf actually draws.
 
 **An image is on screen when `IsLoaded` is `true`.** Not when the frame has the right
 size. `ImageLabel.IsLoaded` was read as unreliable for most of this investigation
@@ -615,14 +625,14 @@ not. A failing remote image also logs `ContentId: ... failed due to: <reason>`, 
 `Asset type does not match requested type` (wrong id type) and silence (loaded) mean
 three different things.
 
-**The badge is drawn at 51.8 real px, and the field still has to be bright.** The
-row is 104 design px, the well is 72, and the canvas runs at 0.719 scale. The first
-art composition was honest work — a steel hammer on an obsidian disc — and at the
-old 34.5 real px it measured p50 = 28 luminance with 7% of pixels above 120, which
-on a store row is a black circle. The shipped composition inverts it: gold field
-(`FIELD_HOT` to `FIELD_DEEP`), ink subject, p50 = 112 and 43% of pixels above 120.
-If you add a badge, shrink it to 48px and 35px before uploading; if it stops
-reading, the field is too dark.
+**The badge is drawn at 46.2 real px, and the field still has to be bright.** The
+well is 64 design px and the canvas runs at 0.722 scale. The first art composition
+was honest work — a steel hammer on an obsidian disc — and at the old 34.5 real px
+it measured p50 = 28 luminance with 7% of pixels above 120, which on a store card
+is a black circle. The shipped composition inverts it: gold field (`FIELD_HOT` to
+`FIELD_DEEP`), ink subject, p50 = 112 and 43% of pixels above 120. If you add a
+badge, shrink it to its 46px draw size before uploading; if it stops reading, the
+field is too dark.
 
 Add the next badge with:
 
@@ -1054,7 +1064,7 @@ tables if changed.
 
 | Thing | State | Effect |
 | --- | --- | --- |
-| Monetization IDs | All `0` | Store rows read `SOON`, a click answers with a toast, and the server refuses to prompt. |
+| Monetization IDs | All `0` | Store cards read `SOON`, a click answers with a toast, and the server refuses to prompt. |
 | Icons | `rbxassetid://0` | UI falls back to vector glyphs. |
 | VFX sheets | `rbxassetid://0` | 22 sheets are generated and margin-checked; effects fall back to the procedural burst in `Vfx.luau`. |
 | Leaderboards | Absent | `lifetimeStarMatter` is already tracked, ready to sync. |
