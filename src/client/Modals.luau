@@ -11,7 +11,6 @@
 -- red X in the corner. A modal you can mistake for a toast is not a modal.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
@@ -25,13 +24,22 @@ local Modals = {}
 
 local canvasRoot: Frame? = nil
 local activeModal: Frame? = nil
+--- Runs when a blocking card leaves for any reason: its own key, the X, the
+--- Studio seam, or another card replacing it. The guide prompt uses it so an X
+--- means the same thing as "I'LL PLAY" instead of leaving the run waiting.
+local dismissHook: (() -> ())? = nil
 
 local function close()
 	if activeModal then
 		local frame = activeModal
+		local hook = dismissHook
 		activeModal = nil
+		dismissHook = nil
 		Sfx.close()
 		UiKit.dissolve(frame, Theme.Duration.fast)
+		if hook then
+			task.defer(hook)
+		end
 	end
 end
 
@@ -53,8 +61,14 @@ local function shell(
 	subtitle: string?,
 	accent: Color3,
 	height: number?,
-	locked: boolean?
+	locked: boolean?,
+	onDismiss: (() -> ())?
 ): (Frame, Frame)
+	-- Replacing one card with another is not a dismissal. Without this, a
+	-- welcome card that lands a beat late would close the tour prompt and the
+	-- prompt's dismiss hook would record "I'll play" for a player who never
+	-- answered.
+	dismissHook = nil
 	close()
 	Sfx.modal()
 
@@ -124,11 +138,15 @@ local function shell(
 	-- player can dismiss without reading it is a card they will dismiss.
 	if not locked then
 		local closeButton = UiKit.closeButton(panel, close)
-		closeButton.Position = UDim2.new(1, -30, 0, -12)
+		-- The key hangs on the banner's corner but stays inside the card. At
+		-- `-30` the 38px key ended 8px past the right edge, so it read as a red
+		-- square floating beside the panel instead of a corner tab.
+		closeButton.Position = UDim2.new(1, -44, 0, -12)
 		closeButton.ZIndex = 63
 	end
 
 	activeModal = root
+	dismissHook = onDismiss
 
 	-- The panel animates in from invisible to its own fill, so a future change to
 	-- the elevation ladder moves the endpoint with it.
@@ -193,21 +211,29 @@ end
 --- they cannot see is a stat that never happened. So the first load stops, shows
 --- the multiplier, the duration and the clock, and waits for one press.
 function Modals.starter(seconds: number)
-	local panel = shell("WELCOME TO THE FORGE", "ONE HOUR OF DOUBLE STAR-MATTER", Theme.Color.gold, 396, true)
+	local minutes = math.max(1, math.floor(seconds / 60))
+	local panel = shell(
+		"2X STAR-MATTER",
+		string.format("FOR YOUR FIRST %d MINUTES", minutes),
+		Theme.Color.gold,
+		396,
+		true
+	)
 
-	-- Boost plate. The art is the same `x2_star_matter` badge the game-pass shelf
-	-- uses, so the icon means one thing everywhere. The drawn bolt underneath is
-	-- the fallback while the CDN answers, and it stays if the image never loads.
+	-- The boost plate. The crystal is the Star-Matter icon the owner picked, so
+	-- the card shows the currency being doubled rather than the pass art. The
+	-- old x2 badge is the fallback, and the drawn bolt is the fallback under
+	-- that, so a cold cache still shows a card instead of an empty ring.
 	local plate = UiKit.create("Frame", {
 		Name = "BoostPlate",
 		BackgroundColor3 = Theme.Color.panelSunken,
 		BorderSizePixel = 0,
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 62),
-		Size = UDim2.fromOffset(96, 96),
+		Position = UDim2.new(0.5, 0, 0, 60),
+		Size = UDim2.fromOffset(104, 104),
 		ZIndex = 62,
 	}) :: Frame
-	UiKit.corner(plate, 48)
+	UiKit.corner(plate, 52)
 	UiKit.stroke(plate, Theme.Color.gold, Theme.Stroke.bold, 0)
 	plate.Parent = panel
 
@@ -233,8 +259,15 @@ function Modals.starter(seconds: number)
 	notch.Rotation = -14
 	notch.Parent = bolt
 
-	local art = AssetManifest.UiArt.x2_star_matter
+	local art = AssetManifest.uiArt("star_matter_crystal")
+	if art == "" then
+		art = AssetManifest.UiArt.x2_star_matter
+	end
 	if art and art ~= "" then
+		-- The image has to be opaque enough to load. A Roblox ImageLabel at
+		-- `ImageTransparency = 1` stays unloaded, which is why the first version
+		-- kept the bolt forever. It sits under the bolt instead: when the bitmap
+		-- arrives it draws, and the fallback fades away on top of it.
 		local image = UiKit.create("ImageLabel", {
 			Name = "Art",
 			BackgroundTransparency = 1,
@@ -242,20 +275,21 @@ function Modals.starter(seconds: number)
 			Size = UDim2.fromScale(1, 1),
 			Image = art,
 			ScaleType = Enum.ScaleType.Fit,
-			ImageTransparency = 1,
-			ZIndex = 65,
+			ImageTransparency = 0,
+			ZIndex = 62,
 		}) :: ImageLabel
-		UiKit.corner(image, 48)
+		UiKit.corner(image, 52)
 		image.Parent = plate
-		-- Only fade the fallback out once the bitmap is actually resident: a
-		-- failed fetch leaves the drawn bolt rather than an empty ring.
 		task.spawn(function()
-			local ok = pcall(function()
-				ContentProvider:PreloadAsync({ image })
-			end)
-			if ok and image.IsLoaded then
+			for _ = 1, 80 do
+				if image.IsLoaded or not image.Parent then
+					break
+				end
+				task.wait(0.1)
+			end
+			if image.IsLoaded then
 				UiKit.tween(bolt, Theme.Duration.normal, { BackgroundTransparency = 1 })
-				UiKit.tween(image, Theme.Duration.normal, { ImageTransparency = 0 })
+				UiKit.tween(notch, Theme.Duration.normal, { BackgroundTransparency = 1 })
 			end
 		end)
 	end
@@ -269,29 +303,18 @@ function Modals.starter(seconds: number)
 		stroke = true,
 	})
 	multiplier.Name = "Multiplier"
-	multiplier.Position = UDim2.fromOffset(0, 168)
+	multiplier.Position = UDim2.fromOffset(0, 176)
 	multiplier.Size = UDim2.new(1, 0, 0, 62)
 
-	local duration = UiKit.label(panel, {
-		text = string.format("%d MINUTES", math.floor(seconds / 60)),
-		size = Theme.Text.Subheading,
-		font = Theme.Font.Heading,
-		color = Theme.Color.text,
-		align = Enum.TextXAlignment.Center,
-	})
-	duration.Position = UDim2.fromOffset(0, 228)
-	duration.Size = UDim2.new(1, 0, 0, 24)
-	duration.Name = "Duration"
-
 	local note = UiKit.label(panel, {
-		text = "Every strike, every drone, every expedition. The clock starts now and runs down whether you are swinging or not.",
+		text = "Strikes and drones pay double. The clock is already running.",
 		size = Theme.Text.Small,
 		font = Theme.Font.Body,
 		color = Theme.Color.textSecondary,
 		align = Enum.TextXAlignment.Center,
 	})
-	note.Position = UDim2.fromOffset(28, 258)
-	note.Size = UDim2.new(1, -56, 0, 44)
+	note.Position = UDim2.fromOffset(28, 250)
+	note.Size = UDim2.new(1, -56, 0, 40)
 	note.TextWrapped = true
 	note.TextYAlignment = Enum.TextYAlignment.Top
 
@@ -305,6 +328,79 @@ function Modals.starter(seconds: number)
 	})
 	claim.button.Position = UDim2.new(0, 36, 1, -78)
 	claim.button.Size = UDim2.new(1, -72, 0, 56)
+end
+
+--- Asked once, after the welcome card, never at the same time as it. The two
+--- loading cards used to land together and the player had to dismiss a wall of
+--- text before the anvil existed. This one is a yes/no, not a lesson: the guide
+--- itself is the next thing, and the quiet key is a real answer.
+function Modals.guidePrompt(onYes: () -> (), onNo: () -> ())
+	local answered = false
+	local function finish(yes: boolean)
+		if answered then
+			return
+		end
+		answered = true
+		close()
+		if yes then
+			onYes()
+		else
+			onNo()
+		end
+	end
+
+	local panel = shell("WANT A QUICK TOUR?", "NO READING · ABOUT THIRTY SECONDS", Theme.Color.cyan, 294, false, function()
+		finish(false)
+	end)
+
+	local pitch = UiKit.label(panel, {
+		text = "I point. You tap. That's it.",
+		size = Theme.Text.Body,
+		font = Theme.Font.Body,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Center,
+	})
+	pitch.Position = UDim2.fromOffset(28, 62)
+	pitch.Size = UDim2.new(1, -56, 0, 24)
+
+	local show = UiKit.actionButton(panel, {
+		label = "SHOW ME",
+		accent = Theme.Color.cyan,
+		height = 56,
+		radius = Theme.Radius.card,
+		size = Theme.Text.Heading,
+		handler = function()
+			finish(true)
+		end,
+	})
+	show.button.Position = UDim2.fromOffset(36, 112)
+	show.button.Size = UDim2.new(1, -72, 0, 56)
+
+	local play = UiKit.button(panel, {
+		text = "I'LL PLAY",
+		height = 46,
+		radius = Theme.Radius.card,
+		size = Theme.Text.Small,
+		font = Theme.Font.Black,
+		textColor = Theme.Color.textDim,
+		fill = Theme.Color.slate,
+		stroke = Theme.Color.stroke,
+		handler = function()
+			finish(false)
+		end,
+	})
+	play.Position = UDim2.fromOffset(36, 178)
+	play.Size = UDim2.new(1, -72, 0, 46)
+
+	local hint = UiKit.label(panel, {
+		text = "You can replay it any time from GUIDE.",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Label,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
+	})
+	hint.Position = UDim2.fromOffset(28, 236)
+	hint.Size = UDim2.new(1, -56, 0, 18)
 end
 
 --- Generic confirm. `onConfirm` fires only on the affirmative path. When

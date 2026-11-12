@@ -36,6 +36,7 @@ HudController.guideHandler = nil :: (() -> ())?
 HudController.vaultHandler = nil :: (() -> ())?
 HudController.codexHandler = nil :: (() -> ())?
 HudController.boardsHandler = nil :: (() -> ())?
+HudController.playersHandler = nil :: (() -> ())?
 HudController.tradeHandler = nil :: (() -> ())?
 HudController.feedbackHandler = nil :: (() -> ())?
 HudController.settingsHandler = nil :: (() -> ())?
@@ -341,7 +342,7 @@ local function buildAscendButton(parent: Frame): TextButton
 		end,
 	})
 	button.Size = UDim2.fromOffset(Layout.VERB_W, Layout.KEY_H)
-	button.LayoutOrder = 7
+	button.LayoutOrder = 9
 	button.Name = "AscendButton"
 
 	-- The mark sits above the word, same grammar as the utility keys beside it, so
@@ -400,7 +401,7 @@ local function buildDailyButton(parent: Frame): TextButton
 		end,
 	})
 	button.Size = UDim2.fromOffset(Layout.DAILY_W, Layout.KEY_H)
-	button.LayoutOrder = 8
+	button.LayoutOrder = 10
 	button.Name = "DailyButton"
 
 	local mark = Icons.build(button, "daily", 20, Theme.Color.emerald)
@@ -488,7 +489,7 @@ local function buildGuideButton(parent: Frame): TextButton
 		icon = "guide",
 		label = "GUIDE",
 		tint = Theme.Color.gold,
-		order = 6,
+		order = 7,
 		handler = function()
 			if HudController.guideHandler then
 				HudController.guideHandler()
@@ -572,7 +573,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 	pills.quantum = buildPill(left, 3, Theme.Color.quantum, "CORES", NumberUtil.abbreviate, "core")
 
 	-- Right group: the utility bank, then the two verbs. Every control on this
-	-- end is the same 62px key with a mark over a word, which is what makes seven
+	-- end is the same 62px key with a mark over a word, which is what makes eight
 	-- utilities and two verbs read as one toolbar instead of as a pile.
 	local right = UiKit.create("Frame", {
 		Name = "Actions",
@@ -615,7 +616,9 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 	buildKey(right, {
 		name = "BoardsButton",
 		icon = "boards",
-		label = "BOARDS",
+		-- RANKS, not BOARDS: six capitals are 52px at this weight, and the key
+		-- is 46. The longer word clipped on the first verification pass.
+		label = "RANKS",
 		tint = Theme.Color.emerald,
 		order = 3,
 		handler = function()
@@ -626,11 +629,25 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 	})
 
 	buildKey(right, {
+		name = "PlayersButton",
+		icon = "players",
+		-- CREW is 36px wide. PEOPLE measured 47 and lost its L on a 46px key.
+		label = "CREW",
+		tint = Theme.Color.cyan,
+		order = 4,
+		handler = function()
+			if HudController.playersHandler then
+				HudController.playersHandler()
+			end
+		end,
+	})
+
+	buildKey(right, {
 		name = "TradeButton",
 		icon = "trade",
 		label = "TRADE",
 		tint = Theme.Color.cyan,
-		order = 4,
+		order = 5,
 		handler = function()
 			if HudController.tradeHandler then
 				HudController.tradeHandler()
@@ -643,7 +660,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		icon = "feedback",
 		label = "NOTES",
 		tint = Theme.Color.magenta,
-		order = 5,
+		order = 6,
 		handler = function()
 			if HudController.feedbackHandler then
 				HudController.feedbackHandler()
@@ -658,7 +675,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		icon = "settings",
 		label = "SETUP",
 		tint = Theme.Color.textFaint,
-		order = 7,
+		order = 8,
 		handler = function()
 			if HudController.settingsHandler then
 				HudController.settingsHandler()

@@ -324,6 +324,26 @@ local function storeMark(root: Frame, color: Color3)
 	end
 end
 
+--- Players. Two heads and two shoulders: the silhouette a player already reads
+--- as "people", cut down to four shapes so it survives 22px.
+local function players(root: Frame, color: Color3)
+	local backHead = plate(root, 13, 3, 7, 7, color)
+	round(backHead, 4)
+	outline(backHead, Theme.Color.outline, 1.5)
+
+	local backBody = plate(root, 11, 11, 11, 8, color)
+	round(backBody, 3)
+	outline(backBody, Theme.Color.outline, 1.5)
+
+	local frontHead = plate(root, 3, 5, 9, 9, color)
+	round(frontHead, 5)
+	outline(frontHead, Theme.Color.outline, 2)
+
+	local frontBody = plate(root, 1, 15, 15, 7, color)
+	round(frontBody, 3)
+	outline(frontBody, Theme.Color.outline, 2)
+end
+
 --- Builds one icon onto `parent` and returns the scaled canvas. Caller positions
 --- it; the canvas is 24x24 in its own space and `size` after the UIScale.
 function Icons.build(parent: GuiObject, kind: string, size: number, color: Color3): Frame
@@ -336,6 +356,8 @@ function Icons.build(parent: GuiObject, kind: string, size: number, color: Color
 		codex(root, color)
 	elseif kind == "boards" then
 		boards(root, color)
+	elseif kind == "players" then
+		players(root, color)
 	elseif kind == "vault" then
 		vault(root, color)
 	elseif kind == "settings" then

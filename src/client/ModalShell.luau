@@ -49,6 +49,15 @@ export type Handle = {
 
 local BASE_Z = 44
 
+--- How many collection panels are on screen right now. The guide reads it to
+--- stand down while one is open: its card belongs to the forge, not to a panel
+--- it is floating over.
+local openPanels = 0
+
+function ModalShell.openCount(): number
+	return openPanels
+end
+
 --- Builds one overlay. Every shell gets a distinct ZIndex band so two panels can
 --- never interleave their children if a player finds a way to open both.
 function ModalShell.build(canvas: Frame, spec: Spec, zIndex: number?): Handle
@@ -156,6 +165,7 @@ function ModalShell.build(canvas: Frame, spec: Spec, zIndex: number?): Handle
 			return
 		end
 		open = next
+		openPanels += if next then 1 else -1
 		if next then
 			layer.Visible = true
 			layer.BackgroundTransparency = 1

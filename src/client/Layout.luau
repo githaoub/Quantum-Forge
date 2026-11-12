@@ -27,11 +27,11 @@ Layout.GAP = 10
 --- The narrowest canvas the chrome fits on without overlapping. Below this the
 --- canvas letterboxes instead of crushing the strip.
 ---
---- Raised from 1200 when the utility bank moved into the bar: seven 50px keys, a
---- 88px ASCEND and a 78px DAILY is 556px pinned to the right, and the identity
---- plate plus three currency capsules is 702px pinned to the left. At 1320 that
---- leaves 14px of air between them; at 1200 it was an overlap.
-Layout.MIN_WIDTH = 1320
+--- Eight 46px utility keys, an 88px ASCEND and a 78px DAILY is 570px pinned to
+--- the right, and the identity plate plus three currency capsules is 702px
+--- pinned to the left. At 1300 that leaves 28px of air between them, which is
+--- wider than the old seven-key bar had.
+Layout.MIN_WIDTH = 1300
 
 --- Top bar: the identity plate and three currency capsules on the left, the
 --- utility bank and the two verbs on the right.
@@ -65,18 +65,19 @@ Layout.RAIL_FOOT_H = 128
 Layout.CONTENT_Y = Layout.RAIL_Y
 Layout.CONTENT_X = Layout.RAIL_X + Layout.RAIL_W + Layout.RAIL_GAP
 
---- Chrome keys: the top-bar utility bank. 50 wide, 62 tall, icon over label.
-Layout.KEY_W = 50
-Layout.KEY_GAP = 5
+--- Chrome keys: the top-bar utility bank. 46 wide so eight of them still fit
+--- beside the identity block at the 1300 canvas floor.
+Layout.KEY_W = 46
+Layout.KEY_GAP = 4
 Layout.KEY_H = 62
 Layout.VERB_W = 88
 Layout.DAILY_W = 78
-Layout.ACTION_GAP = 5
+Layout.ACTION_GAP = 4
 
---- Everything the top bar needs on the right: seven utility keys, ASCEND and
+--- Everything the top bar needs on the right: eight utility keys, ASCEND and
 --- DAILY. The bar is pinned at both ends, so this number is the floor a canvas
 --- width has to clear before anything overlaps.
-Layout.UTIL_COUNT = 7
+Layout.UTIL_COUNT = 8
 Layout.RIGHT_CLUSTER = Layout.UTIL_COUNT * Layout.KEY_W
 	+ (Layout.UTIL_COUNT - 1) * Layout.KEY_GAP
 	+ Layout.ACTION_GAP

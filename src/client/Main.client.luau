@@ -38,6 +38,7 @@ local Sections = require(script.Parent.Sections)
 local InventoryModal = require(script.Parent.InventoryModal)
 local CodexView = require(script.Parent.CodexView)
 local LeaderboardView = require(script.Parent.LeaderboardView)
+local PlayersView = require(script.Parent.PlayersView)
 local TradeView = require(script.Parent.TradeView)
 local HandbookView = require(script.Parent.HandbookView)
 local CratesView = require(script.Parent.CratesView)
@@ -183,6 +184,12 @@ local function onFeedEvent(event: Types.FeedEvent)
 		-- stutter, so this branch is text only.
 		Notifications.push(event.text or "Purchased", "info")
 		return
+	elseif event.kind == "cheer" then
+		-- A cheer is the one social event with no reward attached. It gets the
+		-- coin because the point is that someone noticed you, not what they paid.
+		Notifications.push(event.text or "Someone cheered your forge", "good")
+		Sfx.coin()
+		return
 	elseif event.kind == "tradeInvite" then
 		-- A request is not a session. The popup is the whole consent gate; the
 		-- server opens the desk only after ACCEPT comes back.
@@ -257,6 +264,7 @@ local function boot()
 	InventoryModal.init(canvas)
 	CodexView.init(canvas)
 	LeaderboardView.init(canvas)
+	PlayersView.init(canvas)
 	TradeView.init(canvas)
 	HandbookView.init(canvas)
 	DailyView.init(canvas)
@@ -295,6 +303,10 @@ local function boot()
 
 	HudController.boardsHandler = function()
 		LeaderboardView.open()
+	end
+
+	HudController.playersHandler = function()
+		PlayersView.open()
 	end
 
 	HudController.tradeHandler = function()
@@ -432,6 +444,7 @@ local function boot()
 		HudController.step(dt)
 		ForgeView.step(dt)
 		TutorialController.step(dt)
+		PlayersView.step(dt)
 
 		badgeAccumulator += dt
 		if badgeAccumulator >= 0.5 then
@@ -463,6 +476,7 @@ local function boot()
 		InventoryModal.destroy()
 		CodexView.destroy()
 		LeaderboardView.destroy()
+		PlayersView.destroy()
 		TradeView.destroy()
 		HandbookView.destroy()
 		OrbitalLobby.destroy()
@@ -685,6 +699,16 @@ local function boot()
 				return LeaderboardView.setBoard(argument)
 			elseif command == "boardsPreview" then
 				return LeaderboardView.isPreview()
+			elseif command == "openPlayers" then
+				PlayersView.open()
+				return true
+			elseif command == "closePlayers" then
+				PlayersView.close()
+				return true
+			elseif command == "playersOpen" then
+				return PlayersView.isOpen()
+			elseif command == "playersSelect" and type(argument) == "number" then
+				return PlayersView.select(argument)
 			elseif command == "openTrade" then
 				TradeView.open()
 				return true
@@ -759,6 +783,14 @@ local function boot()
 			elseif command == "starterPreview" then
 				Modals.starter(Config.StarterBoostSeconds)
 				return true
+			elseif command == "guidePrompt" then
+				-- The consent card alone, without wiping a profile. Wired the same
+				-- way as the first join so a copy change can be proofed on an
+				-- account that already answered the question.
+				Modals.guidePrompt(function()
+					TutorialController.replay()
+				end, function() end)
+				return true
 			elseif command == "closeModal" then
 				-- The welcome card has no close key by design, and the guide waits
 				-- for the screen to clear. This is the Studio stand-in for the
@@ -772,6 +804,7 @@ local function boot()
 				return {
 					codex = HudController.codexHandler ~= nil,
 					boards = HudController.boardsHandler ~= nil,
+					players = HudController.playersHandler ~= nil,
 					feedback = HudController.feedbackHandler ~= nil,
 					guide = HudController.guideHandler ~= nil,
 					trade = HudController.tradeHandler ~= nil,

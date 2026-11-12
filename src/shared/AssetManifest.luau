@@ -242,6 +242,11 @@ end
 --- fails silently as an empty frame, which is indistinguishable from missing
 --- art at runtime.
 AssetManifest.UiArt = {
+	-- The crystal on the welcome card. It is the Star-Matter icon the owner
+	-- picked for the currency itself, not the x2 pass badge, so the card shows
+	-- the thing being doubled.
+	star_matter_crystal = "rbxassetid://130744451781228",
+
 	-- Fleet expeditions
 	fleet_sweep = "rbxassetid://105687087017931",
 	fleet_deep  = "rbxassetid://116882873240105",

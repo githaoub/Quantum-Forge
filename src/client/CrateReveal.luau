@@ -574,13 +574,17 @@ local function buildStage(canvas: Frame)
 
 	local top = UiKit.label(frame, {
 		text = "POOL 01 / 05",
-		size = Theme.Text.Tiny,
+		size = Theme.Text.Micro,
 		font = Theme.Font.Black,
-		color = Theme.Color.textFaint,
+		color = Theme.Color.textSecondary,
 		align = Enum.TextXAlignment.Center,
 	})
-	top.Position = UDim2.fromOffset(0, 0)
-	top.Size = UDim2.new(1, 0, 0, 16)
+	-- The kicker used to sit on the stage's top edge, which is close to the
+	-- middle of a 720px screen. Lifting it above the stage puts it under the
+	-- native top bar where a status line belongs, and the brighter ink keeps it
+	-- legible against the black wash.
+	top.Position = UDim2.fromOffset(0, -44)
+	top.Size = UDim2.new(1, 0, 0, 18)
 	top.ZIndex = 3
 	topLabel = top
 

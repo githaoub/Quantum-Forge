@@ -62,7 +62,7 @@ Open the `.rbxlx` directly in Studio to test without the plugin, or to publish.
 | **Spacebar** | Same as clicking the anvil |
 | PURGE key (bottom-right of the stage) | Dump all heat for Aether Shards (legal at â‰¥85 heat) |
 | Left rail | **FORGE** Â· **CRATES** Â· **FLEET** Â· **RUNES** Â· **TECH** Â· **STORE** |
-| Top-bar utility keys | **VAULT** Â· **CODEX** Â· **BOARDS** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
+| Top-bar utility keys | **VAULT** Â· **CODEX** Â· **RANKS** Â· **CREW** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
 | The whole blade stage | Strike the forge; the strike, heat and purge controls float on top of it |
 | Ascend | In the **TECH** section, behind a confirmation modal |
 
@@ -411,18 +411,25 @@ the server's rules instead of guessing at them.
 
 ### Onboarding
 
-First join runs nineteen coach notes, not a popup. A 360x212 work-order card
-sits beside the control the player needs next, and a gold marker names that
-control: a rounded ring on a button or rail tab, four corner brackets on the
-forge stage, which already has a gold border of its own. Nothing dims, nothing
-blocks input, and every note carries its own `SKIP` key. The sequence is strike
-to the vent line, purge, earn the first drone's Aether, open FLEET, build a
-drone, claim the first cache, open CRATES, roll a blade, keep it at the
-ceremony, open VAULT, press `EQUIP BEST`, close the vault, open RUNES and read
-how mastery and sockets work, open TECH and read what survives an ascent, see
-the top-bar utility bank, see the STORE, and hand the game back. Reading cards
-carry a `NEXT` key; every other note waits for a real action or a real tab
-change.
+First join is a sequence of two cards, never a stack. The welcome card owns the
+screen first: the Star-Matter crystal in a gold ring, `x2`, the hour, and one
+sentence. `START FORGING` closes it. Only then does a small consent card ask
+`WANT A QUICK TOUR?` with `SHOW ME` and `I'LL PLAY`; the X counts as `I'LL PLAY`
+and writes `guideSeen`, so a decline is remembered and the card never nags
+again. The guide waits one beat for the starter fade before it asks, so the two
+cannot share a frame.
+
+`SHOW ME` runs four coach notes, not nineteen. A 344x172 work-order card sits
+beside the control the player needs next, and a gold marker names that control:
+a rounded ring on a button or rail tab, four corner brackets on the forge stage,
+which already has a gold border of its own. Nothing dims, nothing blocks input,
+and every note carries `SKIP` with the same name on every step. The sequence is
+strike to the vent line, purge, build the first drone, and a closing card that
+reads `Tap. Purge. Build. Roll. Repeat.` with one `DONE` key. The drone note
+opens FLEET itself 0.9 s after the price is affordable, because a note that says
+"navigate to a tab" is a reading test. Rolling is named on the last card and
+taught properly in the handbook: a standard roll is 2 700 SM on a fresh account,
+so a roll step would stall the first minute or lie about the price.
 
 Step 2 is the only one the server has to help with. Without a hold the gauge
 cools while the player reads the note that says "press purge". The client arms
@@ -431,23 +438,42 @@ decay once the gauge is there, and suppresses auto-vent for that window. The hol
 releases on vent, on skip, on leave, or after two minutes. Strikes while it is
 armed pay no sweet-spot multiplier, so a client cannot park the band for free.
 
-The cache note has a second server rule. A cache's rarity is rolled at drop, and
-a Prime takes 2:45 to crack, which would park the guide behind a countdown.
-While `guideSeen` is false, `addSalvageMeter` forces the instant Scrap Cache.
-Once the guide is finished or skipped, the normal table returns.
+The first cache still rolls a common while `guideSeen` is false, so the first
+claim is a tap instead of a countdown.
 
 The top bar's GUIDE key becomes SKIP during a run and opens the handbook after
-it. The handbook rail's bottom slot used to carry the `SKY + METAL: LIHFOLK`
-credit; it now carries `REPLAY VISUAL GUIDE`, which closes the book and restarts
-the notes. It reads GUIDE RUNNING and refuses a press while a run is live.
+it. The handbook rail's bottom slot carries `REPLAY VISUAL GUIDE`, which closes
+the book and restarts the notes. It reads GUIDE RUNNING and refuses a press while
+a run is live.
 
-`guideSeen` and `tutorialCompleted` still latch the first run and its one-time
-reward; a replay pays neither again. The spotlight chain and its objective strip
-are gone with [ADR-047](design-decisions.md). The card, the ring and the brackets
-live in `TutorialController`; the layer is at `ZIndex 80`, above the vault sheet
-at 31 and the blocking cards at 60-65, with the card's own parts at 21-23. Targets
-are positioned from live `AbsolutePosition` every 100ms, so a resize or a reflow
-moves the marker with the control.
+`guideSeen` and `tutorialCompleted` latch the first run and its one-time reward;
+a replay pays neither again. The card, the ring and the brackets live in
+`TutorialController`; the layer is at `ZIndex 40`, below the collection panels,
+and the guide's tick hides the card, ring and badge whenever
+`ModalShell.openCount()` is above zero. Targets are positioned from live
+`AbsolutePosition` every 100ms, so a resize or a reflow moves the marker with the
+control.
+
+### The server roster
+
+`CREW` sits in the top-bar utility bank between RANKS and TRADE. It opens a
+980x640 panel with two columns: every player in this server, ranked by lifetime
+Star-Matter, and a card for the selected one. A row carries a head shot (with a
+coloured initial as the fallback), the display name, the lifetime figure and a
+`YOU` tag. The card mounts the player's best blade in the same preview the forge
+and the vault use, then lists Star-Matter, lifetime Star-Matter, Aether, drones,
+ascensions and copies, plus the three strongest blades with their multiplier and
+variant. `CHEER` sends a one-off toast and carries no currency.
+
+The server builds the answer. `roster` reads each live profile from
+`DataManager` and returns only the public slice: names, ids, the six figures
+above, playtime, copy count and the top three blades by combined power.
+Settings, purchases, favourites and trade state never leave the server, and a
+client cannot send a stat because the request has no stat in it. Requests are
+budgeted at one per player per second; the panel asks on open and every ten
+seconds, and repaints only when the signature changes. `cheer` is validated
+against a real player in this server, refuses a self-cheer, and rate-limits the
+sender to one per eight seconds.
 
 After the guide, `Nudges.luau` watches the payload for five open decisions: an
 affordable ascent, a ready daily, a claimable cache, a rune with a free socket,

@@ -5011,3 +5011,130 @@ true` with the new figures and the compact strings (`+10K`, `+2.5M`, `+25M SM`);
 the Fleet rows read `+15K AETHER`, `+200K AETHER` and `+4M AETHER`, and the buy
 keys read `BUILD 1 · 7 AETHER` and `BUILD 10 · 177 AETHER`, all fitting. `selene
 src` is clean and `rojo build` succeeds.
+
+## ADR-123 - The first minute is four taps, and the room has names
+
+**Context.** The first join still opened the welcome card on top of a nineteen
+note guide, so the player had to dismiss a wall of text before the anvil had
+been touched. The notes taught the vault, the runes, the tech tree, the utility
+bank and the store in the same breath as the loop, which is a reference manual
+delivered to someone who has not yet earned a second blade. Nothing in the game
+showed the other players in the server, so the only flex was a global board that
+a new account cannot reach. And the crate ceremony printed its kicker on the
+stage's top edge, where the black wash ate it.
+
+**Decision.**
+
+1. The first join is a sequence, never a stack. The 2x card lands first and owns
+   the screen. Only after it closes does the consent card appear, and that card
+   is a question rather than a lesson: `SHOW ME` starts the guide, `I'LL PLAY`
+   (or the X) writes `guideSeen` and the game stops asking. The two cards cannot
+   share a frame; the offer also waits one beat for the starter fade.
+
+2. The guide is four cards: strike, purge, drone, done. One action per card,
+   about five words per line, the number in the copy read from `Config` so the
+   text cannot drift from the sim:
+
+   | Card | Title | Body |
+   | --- | --- | --- |
+   | 1 | TAP THE BLADE | Fill the heat bar. |
+   | 2 | PURGE | Turn the heat into Aether. |
+   | 3 | BUILD A DRONE | Purge until you have 7 Aether. / Press BUILD 1. It earns while you do nothing. |
+   | 4 | THAT IS THE LOOP | Tap. Purge. Build. Roll. Repeat. |
+
+   The drone card opens FLEET itself 0.9 s after the price turns affordable,
+   because a note that says "navigate to a tab" is a reading test. The closing
+   card carries one big `DONE`, and `SKIP` keeps its name on every card so the
+   escape hatch never has to be decoded.
+
+3. Rolling is the next session's reveal, not the first minute's. A standard roll
+   costs 2 700 SM on a fresh account, which is well over a minute of tapping, so
+   a roll step would either stall the guide or lie about the price. The done card
+   names it, the CRATES tab badges when it is affordable, and the handbook holds
+   the caches, vault, runes, tech, top bar, store and crate lessons with
+   `REPLAY VISUAL GUIDE` at the bottom.
+
+4. The guide layer moved to `ZIndex 40` and stands down whenever a collection
+   panel is up. `ModalShell.openCount()` counts open shells; the guide's 10 Hz
+   tick hides the card, ring and badge while the count is above zero and paints
+   them again on the next tick after the close. A note floating over the roster
+   it is covering is worse than no note.
+
+5. The welcome card shows the Star-Matter crystal, not the x2 pass badge: the
+   card is about the currency being doubled. The asset is the owner-supplied PNG
+   uploaded to the creator account as `130744451781228`. The drawn bolt stays as
+   the fallback, and it only fades once `IsLoaded` is true. The duplicate
+   `60 MINUTES` line under the big `x2` is gone, and the note is one sentence.
+   An `ImageTransparency = 1` label never loads, which is why the first build sat
+   on the bolt forever; the art now starts opaque under the fallback.
+
+6. The server grows a face. `roster` returns a public slice of every live profile
+   in this server: display name, handle, user id, Star-Matter, lifetime
+   Star-Matter, Aether, cores, drones, ascensions, playtime, copy count and the
+   three strongest blades by combined power. Settings, purchases, favourites and
+   trade state never leave the server, and the client cannot send a stat because
+   the roster is built from `DataManager`, not from the request. One request per
+   player per second is the budget; the panel refreshes every ten seconds and
+   repaints only when a signature changes. `cheer` is validated against a real
+   player in this server, refuses self-cheers, and rate-limits the sender to one
+   per eight seconds. It carries no currency.
+
+7. The crate kicker moved above the stage (`y = -44`) and up one type step to
+   `Theme.Text.Tiny` in `textSecondary`. It now sits on the dark band above the
+   crate instead of on the stage's lit top edge, so `COPY 1 OF 6` reads at a
+   glance.
+
+8. The top bar is eight 46px keys. `BOARDS` measured 52px and `PEOPLE` 47px at
+   13px GothamBold against a 46px key, so the two became `RANKS` (41px) and
+   `CREW` (36px). Every face reports `TextFits = true`. `Layout.MIN_WIDTH` is
+   1300 with the narrower keys, which is 20px lower than the seven-key bar it
+   replaced.
+
+**What it costs.** A player who declines the tour gets no coaching at all; that
+is the point of consent, and GUIDE still opens the book. The guide no longer
+teaches the vault, runes, tech, the store or rolling, so those surfaces now lean
+on their own labels, the tab badges and the handbook. The roster publishes
+currency totals to everyone in the server, which is the feature, but it is worth
+knowing that a whale is visible before they say anything. The 46px keys are 4px
+narrower than the old ones; the labels fit, the marks did not change.
+
+**Verification.** Studio, Client, one continuous session.
+
+- Fresh join: only the welcome card was up, the guide card was `Visible = false`,
+  and the card read `2X STAR-MATTER`, `FOR YOUR FIRST 60 MINUTES`, `x2`,
+  `Strikes and drones pay double. The clock is already running.`,
+  `START FORGING`. `Art.IsLoaded = true`, `ImageTransparency = 0`, the drawn bolt
+  and notch were at transparency 1.
+- Pressing `START FORGING` produced the consent card only:
+  `WANT A QUICK TOUR?`, `NO READING · ABOUT THIRTY SECONDS`,
+  `I point. You tap. That's it.`, `SHOW ME`, `I'LL PLAY`. The guide was still
+  hidden at that moment.
+- `SHOW ME` started `STEP 1 OF 4`, `TAP THE BLADE`, `Fill the heat bar.`, with
+  the ring on the forge stage (1479 x 473 at 0.72 scale).
+- Fifty strikes reached heat 85 and moved to `STEP 2 OF 4`, `PURGE`,
+  `Turn the heat into Aether.`. A purge paid 6 Aether and moved to
+  `STEP 3 OF 4`, `BUILD A DRONE`, `Purge until you have 7 Aether.`. The passive
+  vent took the balance to 12, the tick selected FLEET, and the card switched to
+  `Press BUILD 1. It earns while you do nothing.` with the ring on the 137 x 41
+  buy key.
+- A real click on `BUILD 1` built the drone and moved to `STEP 4 OF 4`,
+  `THAT IS THE LOOP`, with `DONE` visible. A real click on `DONE` cleared the
+  card, returned the top-bar key to `GUIDE`, and the server reported
+  `tutorialCompleted = true`, `guideSeen = true`.
+- A real click on `CREW` opened the roster, and the guide card and ring were both
+  `Visible = false` while it was up. The X put them back on the next tick.
+- The consent card's own X wrote `guideSeen = true`, so the quiet answer is
+  recorded like the button. Replacing the prompt with the welcome card instead
+  (`starterPreview` after `guidePrompt`) left `guideSeen = false`, which proves a
+  replacement is not read as a decline.
+- Roster: one row for the local player with the YOU tag. The detail column
+  mounted `RUSTED CLEAVER` in the shared preview and read Star-Matter 0,
+  lifetime 0, Aether 0, drones 0, ascensions 0, copies 1, `PLAYED 4m 6s`, with
+  one top-blade card (`x1.00`, `STANDARD`).
+- Top bar: all eight faces `TextFits = true` (`VAULT`, `CODEX`, `RANKS`, `CREW`,
+  `TRADE`, `NOTES`, `GUIDE`, `SETUP`).
+- Crate: the kicker sat at screen `y = 34`, 780 wide, `TextSize = 14`,
+  `TextFits = true`, reading `POOL 01 / 05 · STANDARD FORGE CRATE`; the click
+  ladder reuses the same label for `COPY n OF m`.
+- `selene src` reports 0 errors, 0 warnings, 0 parse errors; `rojo build` writes
+  the place file.

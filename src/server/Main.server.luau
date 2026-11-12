@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Types = require(Shared:WaitForChild("Types"))
+local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 
 local Net = require(script.Parent.Net)
 
@@ -45,6 +46,8 @@ local bootClock = os.clock()
 local heartbeatConnection: RBXScriptConnection? = nil
 local autosaveConnection: RBXScriptConnection? = nil
 local shuttingDown = false
+local rosterAt: { [Player]: number } = {}
+local cheerAt: { [Player]: number } = {}
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -62,6 +65,66 @@ local function reject(player: Player, reason: string?)
 	if reason then
 		Net.sendEvent(player, { kind = "toast", text = reason })
 	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Server roster
+-- ---------------------------------------------------------------------------
+--
+-- The players panel is a social surface, not a save editor. It exposes the
+-- handful of numbers a player would put on a profile card and nothing else:
+-- currencies, fleet size, ascensions, playtime, and the three strongest blades.
+-- Settings, purchases, favourites and trade state stay on the server.
+
+local function fleetTotal(state: Types.ProfileState): number
+	local total = 0
+	for _, owned in state.fleet do
+		total += owned
+	end
+	return total
+end
+
+local function topBlades(state: Types.ProfileState, limit: number): { any }
+	local ranked = {}
+	for _, instance in state.blades do
+		table.insert(ranked, {
+			id = instance.id,
+			variant = instance.variant,
+			power = ForgeConfig.powerCopy(instance),
+		})
+	end
+	table.sort(ranked, function(a, b)
+		return a.power > b.power
+	end)
+	while #ranked > limit do
+		table.remove(ranked)
+	end
+	return ranked
+end
+
+local function rosterEntry(other: Player): any?
+	local state = DataManager.get(other)
+	if state == nil then
+		return nil
+	end
+	local copies = 0
+	for _ in state.blades do
+		copies += 1
+	end
+	return {
+		userId = other.UserId,
+		name = other.DisplayName,
+		handle = other.Name,
+		sm = state.starMatter,
+		lifetimeSm = state.lifetimeStarMatter,
+		aether = state.aether,
+		cores = state.quantumCores,
+		drones = fleetTotal(state),
+		ascensions = state.ascensions,
+		playtime = state.totalPlaytime,
+		invCount = copies,
+		top = topBlades(state, 3),
+	}
 end
 
 -- ---------------------------------------------------------------------------
@@ -306,6 +369,30 @@ local function registerActions()
 			reject(player, reason)
 		end
 		return ok
+	end)
+
+	--- A cheer is a toast with a name on it. It carries no currency and changes
+	--- no state, so the only validation that matters is "is this a real player
+	--- in this server, and are you spamming". Eight seconds per sender.
+	Net.onAction("cheer", function(player: Player, payload: unknown): boolean
+		local targetId = tonumber(payload)
+		if targetId == nil then
+			return false
+		end
+		local target = Players:GetPlayerByUserId(targetId)
+		if target == nil or target == player then
+			return false
+		end
+		local now = os.clock()
+		if now - (cheerAt[player] or 0) < 8 then
+			return false
+		end
+		cheerAt[player] = now
+		Net.sendEvent(target, {
+			kind = "cheer",
+			text = string.format("%s cheered your forge", player.DisplayName),
+		})
+		return true
 	end)
 
 	-- Studio-only replay of the first join. Refuses in a live server so the
@@ -627,6 +714,33 @@ local function boot()
 			return LeaderboardService.fetch(boardId, player)
 		end)
 
+		Net.onRequest("roster", function(player: Player)
+			-- A roster is cheap but not free: every entry reads another profile.
+			-- One request per player per second is plenty for a panel that
+			-- refreshes every ten seconds, and it keeps a modified client from
+			-- turning this into a profile crawler.
+			local now = os.clock()
+			if now - (rosterAt[player] or 0) < 1 then
+				return nil
+			end
+			rosterAt[player] = now
+
+			local list = {}
+			for _, other in Players:GetPlayers() do
+				local entry = rosterEntry(other)
+				if entry ~= nil then
+					table.insert(list, entry)
+				end
+			end
+			table.sort(list, function(a, b)
+				if a.lifetimeSm == b.lifetimeSm then
+					return a.name < b.name
+				end
+				return a.lifetimeSm > b.lifetimeSm
+			end)
+			return { players = list, you = player.UserId }
+		end)
+
 		Net.onRequest("players", function(player: Player)
 			return TradeService.playersFor(player)
 		end)
@@ -711,6 +825,8 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	ForgeService.forget(player)
 	Funnel.forget(player)
 	Net.forget(player)
+	rosterAt[player] = nil
+	cheerAt[player] = nil
 end)
 
 game:BindToClose(function()

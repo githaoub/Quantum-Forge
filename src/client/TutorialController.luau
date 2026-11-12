@@ -38,8 +38,7 @@ local StateStore = require(script.Parent.StateStore)
 local Sections = require(script.Parent.Sections)
 local ForgeView = require(script.Parent.ForgeView)
 local Modals = require(script.Parent.Modals)
-local InventoryModal = require(script.Parent.InventoryModal)
-local CrateReveal = require(script.Parent.CrateReveal)
+local ModalShell = require(script.Parent.ModalShell)
 
 local TutorialController = {}
 
@@ -73,11 +72,15 @@ type Step = {
 	--- key. Skipping still ends the whole guide.
 	next: boolean?,
 	enter: (() -> ())?,
+	--- Runs on the 10Hz poll while the step is active. Used by the one step that
+	--- changes pages on the player's behalf instead of asking them to read a
+	--- navigation instruction.
+	tick: ((Types.SyncPayload) -> ())?,
 	finish: boolean?,
 }
 
-local CARD_W = 360
-local CARD_H = 212
+local CARD_W = 344
+local CARD_H = 172
 local RING_Z = 21
 local CARD_Z = 22
 local BADGE_Z = 23
@@ -110,12 +113,15 @@ local sawVent = false
 --- bar for the same key.
 local sawAnyVent = false
 local dronesAtStart = 0
-local invAtStart = 0
-local cacheCountAtStep = 0
-local equipPressed = false
+--- The drone step waits one beat after the price is affordable before it takes
+--- the player to FLEET. A page that snaps the frame the number turns green
+--- reads as a hijack; a 0.9 s beat reads as a hand on the shoulder.
+local droneReadyAt = 0
+local droneOpened = false
 local pollAccum = 0
 local lastCardX = -1
 local lastCardY = -1
+local pulseClock = 0
 local unsubscribeSync: (() -> ())? = nil
 local unsubscribeEvent: (() -> ())? = nil
 
@@ -134,43 +140,6 @@ local function dronePrice(payload: Types.SyncPayload?): number
 		return first.cost
 	end
 	return math.max(1, payload.droneCost)
-end
-
-local function rollPrice(payload: Types.SyncPayload?): number
-	if payload == nil then
-		return 50
-	end
-	local quote = payload.forgeCosts[payload.forgeCrate]
-	if quote ~= nil then
-		return quote.one
-	end
-	return math.max(1, payload.forgeCost)
-end
-
-local function canAffordRoll(payload: Types.SyncPayload?): boolean
-	if payload == nil then
-		return false
-	end
-	return payload.sm >= rollPrice(payload)
-end
-
---- The rack state the cache lesson is looking at. "ready" outranks "cracking"
---- outranks "empty", so one claimable slot makes the whole lesson about the
---- claim even when an earlier slot is still cooking.
-local function cacheState(payload: Types.SyncPayload?): "ready" | "cracking" | "empty"
-	if payload == nil then
-		return "empty"
-	end
-	local cracking = false
-	for _, cache in payload.caches do
-		if cache.readyAt > 0 and cache.secondsLeft <= 0 then
-			return "ready"
-		end
-		if cache.readyAt > 0 then
-			cracking = true
-		end
-	end
-	return if cracking then "cracking" else "empty"
 end
 
 -- ---------------------------------------------------------------------------
@@ -217,28 +186,6 @@ local function targetTab(key: string): GuiObject?
 		return button
 	end
 	return nil
-end
-
---- The first cache on the rack, preferring one that is ready to claim. Every
---- slot is visible even when empty, so naming slot 1 would point the ring at a
---- bare plate whenever the drop landed in slot 2 or 3.
-local function cacheAnchor(): GuiObject?
-	local payload = StateStore.current
-	local fallback: GuiObject? = nil
-	if payload == nil then
-		return findVisible("CacheSlot1")
-	end
-	for slot, cache in payload.caches do
-		if cache.readyAt > 0 and cache.secondsLeft <= 0 then
-			local ready = findVisible(string.format("CacheSlot%d", slot))
-			if ready ~= nil then
-				return ready
-			end
-		elseif fallback == nil then
-			fallback = findVisible(string.format("CacheSlot%d", slot))
-		end
-	end
-	return fallback
 end
 
 -- ---------------------------------------------------------------------------
@@ -410,7 +357,7 @@ local function renderStep(enter: boolean)
 		return
 	end
 	if stepLabel then
-		stepLabel.Text = string.format("GUIDE %02d / %02d", index, #steps)
+		stepLabel.Text = string.format("STEP %d OF %d", index, #steps)
 	end
 	if titleLabel then
 		titleLabel.Text = step.title
@@ -421,9 +368,17 @@ local function renderStep(enter: boolean)
 	if progressFill then
 		progressFill.Size = UDim2.fromScale(index / math.max(1, #steps), 1)
 	end
-	setSkipFace(step.finish == true)
+	-- SKIP stays SKIP on every step. The closing card carries a big DONE key
+	-- instead of renaming the escape hatch, so a kid never has to work out
+	-- whether the small top-right word is the ending or the way out.
+	setSkipFace(false)
 	if nextButton then
-		nextButton.Visible = step.next == true
+		local showNext = step.next == true or step.finish == true
+		nextButton.Visible = showNext
+		local face = nextButton:FindFirstChild("Face")
+		if face and face:IsA("TextLabel") then
+			face.Text = if step.finish == true then "DONE" else "NEXT"
+		end
 	end
 	-- The gauge is frozen for the two lessons about heat. Every other step
 	-- hands the bar back.
@@ -490,6 +445,17 @@ local function finish()
 	publishRun()
 end
 
+--- The "I'LL PLAY" answer. It marks the guide as seen so the next session does
+--- not ask again; the GUIDE key stays available for a player who changes their
+--- mind.
+local function decline()
+	local payload = StateStore.current
+	if payload ~= nil and not payload.guideSeen then
+		StateStore.send("guideSeen")
+	end
+	publishRun()
+end
+
 local function start()
 	if running then
 		return
@@ -501,12 +467,11 @@ local function start()
 	index = 1
 	sawVent = false
 	sawAnyVent = false
-	equipPressed = false
-	cacheCountAtStep = 0
+	droneReadyAt = 0
+	droneOpened = false
 	lastCardX = -1
 	lastCardY = -1
 	dronesAtStart = if payload ~= nil then payload.drones else 0
-	invAtStart = if payload ~= nil then payload.invCount else 0
 	running = true
 	layer.Visible = true
 	card.Visible = true
@@ -520,6 +485,30 @@ local function start()
 	Sections.select("forge")
 	renderStep(true)
 	publishRun()
+end
+
+--- The one consent card. It waits for the starter card to leave first, because
+--- two full-screen cards back to back is the exact wall this pass removes. The
+--- quiet gap also covers the starter event arriving a beat after the payload.
+local function offer()
+	task.spawn(function()
+		task.wait(1.2)
+		while canvas ~= nil and not running and Modals.isOpen() do
+			task.wait(0.2)
+		end
+		if canvas == nil or running then
+			return
+		end
+		-- The starter card fades out for `fast`; `isOpen` flips before the frame
+		-- finishes dissolving. The extra beat keeps the two cards from sharing a
+		-- frame, which is exactly the pile-up this pass removes.
+		task.wait(0.35)
+		Modals.guidePrompt(function()
+			start()
+		end, function()
+			decline()
+		end)
+	end)
 end
 
 local function eligible(step: Step?, payload: Types.SyncPayload?): boolean
@@ -570,12 +559,9 @@ local function buildSteps()
 	steps = {
 		{
 			key = "strike",
-			title = "STRIKE THE BLADE",
+			title = "TAP THE BLADE",
 			body = function(): string
-				return string.format(
-					"Click the blade. Keep striking until core heat reaches %d%%.",
-					Config.VentThreshold
-				)
+				return "Fill the heat bar."
 			end,
 			target = function(): GuiObject?
 				return ForgeView.strikeAnchor()
@@ -591,19 +577,13 @@ local function buildSteps()
 		},
 		{
 			key = "purge",
-			title = "PURGE THE CORE",
+			title = "PURGE",
 			body = function(payload: Types.SyncPayload?): string
 				local heat = if payload ~= nil then payload.heat else Config.VentThreshold
 				if heat >= Config.VentThreshold - 0.5 then
-					return string.format(
-						"The gauge is holding at %d%%. Press PURGE to turn that heat into Aether.",
-						Config.VentThreshold
-					)
+					return "Turn the heat into Aether."
 				end
-				return string.format(
-					"Strike a few more times to bring the core back to %d%%, then press PURGE.",
-					Config.VentThreshold
-				)
+				return "Tap until the bar is full."
 			end,
 			target = function(): GuiObject?
 				return ForgeView.ventAnchor()
@@ -624,259 +604,61 @@ local function buildSteps()
 			end,
 		},
 		{
-			key = "aether",
-			title = "SAVE FOR A DRONE",
-			body = function(payload: Types.SyncPayload?): string
-				return string.format(
-					"A drone costs %s Aether. Strike, then purge at %d. Repeat until you can afford one.",
-					NumberUtil.abbreviate(dronePrice(payload)),
-					Config.VentThreshold
-				)
-			end,
-			target = function(): GuiObject?
-				return ForgeView.heatAnchor()
-			end,
-			place = "left",
-			advance = function(payload: Types.SyncPayload): boolean
-				return payload.as >= dronePrice(payload)
-			end,
-		},
-		{
-			key = "fleet",
-			title = "OPEN THE FLEET",
-			body = function(): string
-				return "You can afford a drone. Open FLEET from the rail."
-			end,
-			target = function(): GuiObject?
-				return targetTab("fleet")
-			end,
-			place = "right",
-			advance = function(): boolean
-				return Sections.activeTab() == "fleet"
-			end,
-		},
-		{
 			key = "drone",
 			title = "BUILD A DRONE",
-			body = function(): string
-				return "Press BUILD 1. Drones earn Star-Matter while you do nothing."
+			body = function(payload: Types.SyncPayload?): string
+				local price = dronePrice(payload)
+				if payload == nil or payload.as < price then
+					return string.format("Purge until you have %s Aether.", NumberUtil.abbreviate(price))
+				end
+				return "Press BUILD 1. It earns while you do nothing."
 			end,
 			target = function(): GuiObject?
+				if Sections.activeTab() ~= "fleet" then
+					return targetTab("fleet")
+				end
 				return findVisible("BuyDrone")
 			end,
-			place = "left",
+			place = "right",
 			advance = function(payload: Types.SyncPayload): boolean
 				return payload.drones > dronesAtStart
 			end,
-		},
-		{
-			key = "cache",
-			title = "CLAIM THE CACHE",
-			body = function(payload: Types.SyncPayload?): string
-				local state = cacheState(payload)
-				if state == "ready" then
-					return "The cache is ready. Tap the lit slot on the salvage rack to claim the reward."
-				end
-				if state == "cracking" then
-					return "The cache is cracking. Tap it when the timer runs out to claim the reward."
-				end
-				return "A cache dropped on the salvage rack. Tap it to crack it, then tap it again to claim the reward."
-			end,
-			target = cacheAnchor,
-			place = "above",
-			gate = function(payload: Types.SyncPayload): boolean
-				return #payload.caches > 0
-			end,
-			advance = function(payload: Types.SyncPayload): boolean
-				return #payload.caches < cacheCountAtStep
-			end,
 			enter = function()
 				local payload = StateStore.current
-				cacheCountAtStep = if payload ~= nil then #payload.caches else 0
-			end,
-		},
-		{
-			key = "crates",
-			title = "OPEN THE CRATES",
-			body = function(payload: Types.SyncPayload?): string
-				return string.format(
-					"A single roll costs %s SM. Open CRATES when you can afford it.",
-					NumberUtil.abbreviate(rollPrice(payload))
-				)
-			end,
-			target = function(): GuiObject?
-				return targetTab("crates")
-			end,
-			place = "right",
-			advance = function(): boolean
-				return Sections.activeTab() == "crates"
-			end,
-		},
-		{
-			key = "roll",
-			title = "ROLL A BLADE",
-			body = function(payload: Types.SyncPayload?): string
-				if canAffordRoll(payload) then
-					return "Press ROLL. Every blade you forge multiplies every strike after it."
+				droneReadyAt = 0
+				droneOpened = Sections.activeTab() == "fleet"
+				if payload ~= nil and payload.as >= dronePrice(payload) then
+					droneReadyAt = os.clock()
 				end
-				return string.format(
-					"This roll costs %s SM. Strike until you can afford it.",
-					NumberUtil.abbreviate(rollPrice(payload))
-				)
 			end,
-			target = function(): GuiObject?
-				return findVisible("RollOne")
+			tick = function(payload: Types.SyncPayload)
+				if droneOpened then
+					return
+				end
+				if payload.as < dronePrice(payload) then
+					droneReadyAt = 0
+					return
+				end
+				if droneReadyAt == 0 then
+					droneReadyAt = os.clock()
+					return
+				end
+				if os.clock() - droneReadyAt < 0.9 then
+					return
+				end
+				droneOpened = true
+				Sections.select("fleet")
+				Sfx.tab()
 			end,
-			place = "above",
-			advance = function(payload: Types.SyncPayload): boolean
-				return payload.invCount > invAtStart
-			end,
-		},
-		{
-			key = "collect",
-			title = "KEEP THE BLADE",
-			body = function(): string
-				return "Tap the crate to break its seal, then COLLECT to keep the blade."
-			end,
-			target = function(): GuiObject?
-				return findVisible("Collect")
-			end,
-			place = "above",
-			advance = function(): boolean
-				return not CrateReveal.isOpen()
-			end,
-		},
-		{
-			key = "vault",
-			title = "OPEN THE VAULT",
-			body = function(): string
-				return "Your forged blades live in the vault. Open VAULT in the top bar."
-			end,
-			target = function(): GuiObject?
-				return findVisible("VaultButton")
-			end,
-			place = "below",
-			advance = function(): boolean
-				return InventoryModal.isOpen()
-			end,
-		},
-		{
-			key = "equip",
-			title = "EQUIP THE BEST",
-			body = function(): string
-				return "Press EQUIP BEST. The vault picks your strongest copy and puts it in your hand."
-			end,
-			target = function(): GuiObject?
-				return findVisible("VaultEquipBest")
-			end,
-			place = "above",
-			advance = function(): boolean
-				return equipPressed
-			end,
-			enter = function()
-				equipPressed = false
-			end,
-		},
-		{
-			key = "closeVault",
-			title = "BACK TO THE FORGE",
-			body = function(): string
-				return "Close the vault with the X. The forge keeps running behind it."
-			end,
-			target = function(): GuiObject?
-				return findVisible("VaultClose")
-			end,
-			place = "left",
-			advance = function(): boolean
-				return not InventoryModal.isOpen()
-			end,
-		},
-		{
-			key = "runes",
-			title = "OPEN THE RUNES",
-			body = function(): string
-				return "Mastery opens sockets. Open RUNES from the rail."
-			end,
-			target = function(): GuiObject?
-				return targetTab("runes")
-			end,
-			place = "right",
-			advance = function(): boolean
-				return Sections.activeTab() == "runes"
-			end,
-		},
-		{
-			key = "runesInfo",
-			title = "HOW RUNES WORK",
-			body = function(): string
-				return "Every strike raises the equipped blade's mastery. Mastery unlocks sockets, and a socketed rune adds a strike, cooling, crit or vent bonus. Runes stay with the blade they were socketed into."
-			end,
-			target = function(): GuiObject?
-				return findVisible("MasteryCard")
-			end,
-			place = "right",
-			next = true,
-		},
-		{
-			key = "tech",
-			title = "OPEN THE TECH TREE",
-			body = function(): string
-				return "Cores buy permanent upgrades. Open TECH from the rail."
-			end,
-			target = function(): GuiObject?
-				return targetTab("tech")
-			end,
-			place = "right",
-			advance = function(): boolean
-				return Sections.activeTab() == "tech"
-			end,
-		},
-		{
-			key = "techInfo",
-			title = "WHAT TECH IS FOR",
-			body = function(): string
-				return "Tech nodes survive every ascent. That is where Quantum Cores go when the run resets."
-			end,
-			target = function(): GuiObject?
-				return findVisible("TechHeader")
-			end,
-			place = "right",
-			next = true,
-		},
-		{
-			key = "topBar",
-			title = "THE TOP BAR",
-			body = function(): string
-				return "These are self-explanatory: VAULT, CODEX, BOARDS, TRADE, NOTES, GUIDE and SETUP. Each label says what it opens, and none of them touch your run."
-			end,
-			target = function(): GuiObject?
-				return findVisible("Actions")
-			end,
-			place = "below",
-			grow = 0,
-			brackets = true,
-			next = true,
-		},
-		{
-			key = "store",
-			title = "THE STORE",
-			body = function(): string
-				return "STORE holds passes and boosts. Passes are permanent, boosts are temporary, and nothing there is needed to keep playing."
-			end,
-			target = function(): GuiObject?
-				return targetTab("store")
-			end,
-			place = "right",
-			next = true,
 		},
 		{
 			key = "done",
-			title = "THE LOOP IS YOURS",
+			title = "THAT IS THE LOOP",
 			body = function(): string
-				return "Strike, purge, build drones, roll better blades. Runes and tech deepen the same loop. The handbook has the rest."
+				return "Tap. Purge. Build. Roll. Repeat."
 			end,
 			target = nil,
-			place = "stay",
+			place = "bottomCenter",
 			finish = true,
 		},
 	}
@@ -887,15 +669,16 @@ end
 -- ---------------------------------------------------------------------------
 
 local function buildUi(host: Frame)
-	-- Above the modals on purpose. The vault is a step in the guide, and the
-	-- layer is grouped under one ZIndex, so at 20 the card would sit behind the
-	-- vault dim exactly when it is telling the player to press EQUIP BEST.
+	-- Below the modal stack on purpose. The short guide never asks the player to
+	-- act inside a panel, so an open vault or roster simply covers the card and
+	-- gives it back on close. At 80 the card painted on top of the players list
+	-- and hid the row it was sitting over.
 	local frame = UiKit.create("Frame", {
 		Name = "GuideLayer",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
-		ZIndex = 80,
+		ZIndex = 40,
 		Active = false,
 	}) :: Frame
 	frame.Parent = host
@@ -930,7 +713,7 @@ local function buildUi(host: Frame)
 	stripe.Parent = panel
 
 	stepLabel = UiKit.label(panel, {
-		text = "GUIDE 01 / 08",
+		text = "STEP 1 OF 5",
 		size = Theme.Text.Micro,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.gold,
@@ -999,7 +782,7 @@ local function buildUi(host: Frame)
 	})
 	bodyLabel.Name = "GuideBody"
 	bodyLabel.Position = UDim2.fromOffset(20, 64)
-	bodyLabel.Size = UDim2.new(1, -40, 0, 90)
+	bodyLabel.Size = UDim2.new(1, -40, 0, 48)
 	bodyLabel.ZIndex = CARD_Z + 1
 
 	-- Informational steps have nothing to watch, so they carry a NEXT key. It
@@ -1011,7 +794,7 @@ local function buildUi(host: Frame)
 		AutoButtonColor = false,
 		Text = "",
 		Visible = false,
-		Position = UDim2.fromOffset(CARD_W - 20 - 112, 158),
+		Position = UDim2.fromOffset(CARD_W - 20 - 112, CARD_H - 54),
 		Size = UDim2.fromOffset(112, 34),
 		ZIndex = CARD_Z + 2,
 	}) :: TextButton
@@ -1052,7 +835,7 @@ local function buildUi(host: Frame)
 		Name = "Fill",
 		BackgroundColor3 = Theme.Color.gold,
 		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1 / 8, 1),
+		Size = UDim2.fromScale(1 / 5, 1),
 		ZIndex = CARD_Z + 2,
 	}) :: Frame
 	UiKit.corner(progressFill, 2)
@@ -1136,19 +919,10 @@ function TutorialController.init(target: Frame, scale: UIScale?)
 				publishRun()
 				return
 			end
-			-- The starter boost is a blocking card on the first payload. Wait for
-			-- it to be dismissed rather than drawing the first note behind it.
-			task.spawn(function()
-				-- Two seconds covers the starter event arriving just after the
-				-- first payload on a cold join.
-				task.wait(2)
-				while canvas ~= nil and not running and Modals.isOpen() do
-					task.wait(0.2)
-				end
-				if canvas ~= nil and not running then
-					start()
-				end
-			end)
+			-- The starter boost is a blocking card on the first payload. The
+			-- offer waits for it to close instead of drawing a second card on
+			-- top of it, which is what the old chain did.
+			offer()
 		end
 		if running then
 			pump(payload)
@@ -1170,19 +944,6 @@ function TutorialController.init(target: Frame, scale: UIScale?)
 			end
 		end
 	end)
-
-	-- EQUIP BEST is sent to the server but does not always change the equipped
-	-- copy: the copy the player already holds can be the strongest one. The
-	-- press itself is the proof the lesson landed.
-	InventoryModal.onEquipBest = function()
-		if not running then
-			return
-		end
-		local step = steps[index]
-		if step ~= nil and step.key == "equip" then
-			equipPressed = true
-		end
-	end
 end
 
 --- Kept for the boot contract: `Main` calls it once the strike chain exists.
@@ -1238,6 +999,39 @@ function TutorialController.step(dt: number)
 	if step ~= nil then
 		refreshCopy(payload)
 		updateTarget()
+		if payload ~= nil and step.tick ~= nil then
+			step.tick(payload)
+		end
+	end
+
+	-- An open panel owns the screen, and the card belongs to the forge. Hide it
+	-- under a vault or a roster instead of stacking a note over the list; the
+	-- next tick after the close paints it again.
+	local blocked = ModalShell.openCount() > 0
+	if card then
+		card.Visible = not blocked
+	end
+	if blocked then
+		if ring then
+			ring.Visible = false
+		end
+		if badge then
+			badge.Visible = false
+		end
+	end
+
+	-- A still ring is a border; a breathing one is a finger. The pulse is only
+	-- on the stroke, never on layout, so it cannot move the target it is
+	-- pointing at. Bracket steps pulse their corner arms instead.
+	pulseClock += POLL
+	local wave = 0.5 + 0.5 * math.sin(pulseClock * 4.2)
+	if ringStroke then
+		ringStroke.Transparency = 0.12 + 0.35 * wave
+	end
+	for _, part in brackets do
+		if part.Visible then
+			part.BackgroundTransparency = 0.1 + 0.3 * wave
+		end
 	end
 end
 
@@ -1274,9 +1068,6 @@ function TutorialController.destroy()
 	running = false
 	decided = false
 	pollAccum = 0
-	equipPressed = false
-	cacheCountAtStep = 0
-	InventoryModal.onEquipBest = nil
 end
 
 return TutorialController
