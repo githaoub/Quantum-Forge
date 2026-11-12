@@ -252,7 +252,7 @@ procedural lightning and a shallow flash. Forging adds a variant-ranked celebrat
 the new blade for 2.6s even when it is not the one that got equipped. The stage
 carries a pool of twelve ambient embers, recycled rather than spawned per frame.
 
-The sound kit is 24 pooled slots over five proven `rbxasset://` samples, with a
+The sound kit is 24 pooled slots over three proven `rbxasset://` samples, with a
 looped 144-second Creator Store track (`Dark Pulsing Synth`) at 0.16 underneath.
 Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
 the strike chime climbs with the streak so the ear tracks the rail before the eye

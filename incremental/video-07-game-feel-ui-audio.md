@@ -86,27 +86,26 @@ The video's reference layout, redrawn for this game:
 video's argument is that a single clip repeated is mechanical because the ear
 finds the identical waveform; the fix is not more clips but more layers.
 
-**Status: applied where it works, reverted where it did not (ADR-066).** The
-layer stack was tried on the strike first, because that is the action the player
-repeats ten thousand times. It was played once and rejected: `hit.wav` is a body
-blow, so the click lost its metal edge and gained a wooden thump, and the
-sustained tail of `impact_explosion_03` smeared the transient that gives the
-strike its snap. The strike is back to the two clips players already know, and
-so are the roll and the fanfare.
+**Status: partly applied, then narrowed (ADR-066, ADR-113).** The layer stack was
+tried on the strike first, because that is the action the player repeats ten
+thousand times. It was played once and rejected: `hit.wav` is a body blow, so the
+click lost its metal edge and gained a wooden thump, and the sustained tail of
+`impact_explosion_03` smeared the transient that gives the strike its snap. The
+strike went back to two clips, and a later pass restored the original ping plus
+`impact_explosion_03` mix after `snap.mp3` was rejected by ear.
 
-The layers stuck where the event had no sound to lose:
+The kit now ships three samples only. `hit.wav`, `snap.mp3`, `metal.ogg` and
+`impact_water.mp3` were removed entirely in ADR-113:
 
 | Layer | Asset | Where |
 | --- | --- | --- |
-| transient | `sounds/hit.wav` | `crit`, `crateLand`, `streakComplete` |
-| body | `sounds/impact_explosion_03.mp3` at 2.1x | `crit`, `crateLand` |
-| tail | `sounds/metal.ogg` | `crit`, `crateLand`, `crateShatter` |
-| air | `sounds/swordslash.wav` | vent |
-| shatter | `sounds/snap.mp3` | the crate splitting |
-| click | `sounds/clickfast.wav` | UI tick, hover, tab, roll tick |
+| metal tick | `sounds/electronicpingshort.wav` | body, chimes, ladders |
+| click | `sounds/clickfast.wav` | UI tick, hover, tab, transient |
+| body | `sounds/impact_explosion_03.mp3` | strike, crit, crates, ascent |
 
 `rollTick` climbs a major pentatonic ladder in semitones instead of the old
 `1.15 + 0.09 * n` ramp, so the wind-up and the band climb share a key.
+
 
 **The rule that came out of it.** Layering is for events the player has not
 heard before. A sound with an established identity is a remix target, and a

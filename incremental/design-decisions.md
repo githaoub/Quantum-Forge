@@ -4554,3 +4554,27 @@ because it is a payout, not a standing state.
 and closes before its turn is lost. That is the intended trade: a receipt is
 always more important than a reminder. The nudge layer also depends on the toast
 module exposing a count, which is now part of that module's small public surface.
+
+## ADR-113 - Four samples leave the kit, and the strike goes back
+
+**Context.** The strike was rebuilt in `df0474b` from `impact_explosion_03` to
+`snap.mp3`, and the rest of the kit leaned on `snap`, `hit`, `metal` and
+`impact_water` for every body, ring and air layer. A play pass rejected all four
+by ear: the dry block, the body blow, the steel ring and the splash. The strike
+that shipped before that commit was the one the player remembered as right.
+
+**Decision.** `Sfx.luau` now uses three samples: `electronicpingshort`,
+`clickfast` and `impact_explosion_03`. The four rejected ids are gone from the
+source, not muted behind a flag. `Sfx.strike` is restored to the pre-`df0474b`
+mix: the ping body plus `impact` at 2.55x, with the sweet-spot pings unchanged.
+Every other cue was re-voiced on the three remaining samples, using the impact
+as the low body, the click as the transient and the ping as the metal. Vent,
+overheat and burnout lost their water layer and now read through the ping and
+the click; melt keeps a falling tick over a low impact.
+
+**What it costs.** The kit has less timbral range. There is no air layer left,
+so a vent is a falling ping rather than steam, and a crate break is a click over
+a body instead of a wooden crack. The upside is a coherent palette a player can
+learn, and the strike is the exact sound that was approved. The old ids remain
+in the historical ADRs and build logs because those entries record what was
+tried, not what ships.
