@@ -4886,7 +4886,7 @@ the one the player pays for.
    | Beat | Forge | Crate before | Crate now |
    | --- | --- | --- | --- |
    | Landing | 16 viewport, 8 screen | none | 16 viewport, 8 screen, plus a ring and sparks |
-   | Click | 6 * amount viewport, 3.5 + 3.5 * amount screen | 1.3 to 4.5 stage | 1.6 + 0.55 * beat stage, 2.4 + 0.6 * beat (+1.2 open) screen |
+   | Click | 6 * amount viewport, 3.5 + 3.5 * amount screen | 1.3 to 4.5 stage | 4.2 + 0.34 * step stage, 5.2 + 0.34 * step (+0.8 open) screen |
    | Seal | n/a | 4.5 stage | 7 stage, 8 screen |
    | Reveal | 7 + rank card, 5 + rank * 1.2 screen | 6 + rank * 1.2 stage | 7 + rank stage, 5 + rank * 1.2 screen |
    | Claim | n/a | 1.5 stage | 3.2 stage, 2.6 screen |

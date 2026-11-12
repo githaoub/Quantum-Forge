@@ -88,7 +88,7 @@ presses in two seconds.
 | Beat | Forge | Crate before | Crate now |
 | --- | --- | --- | --- |
 | Landing | 16 viewport, 8 screen | none | 16 viewport, 8 screen |
-| Press | 6 * amount viewport, 3.5 + 3.5 * amount screen | 1.3 to 4.5 stage | 1.6 + 0.55 * beat stage, 2.4 + 0.6 * beat (+1.2 open) screen |
+| Press | 6 * amount viewport, 3.5 + 3.5 * amount screen | 1.3 to 4.5 stage | 4.2 + 0.34 * step stage, 5.2 + 0.34 * step (+0.8 open) screen |
 | Seal | n/a | 4.5 stage | 7 stage, 8 screen |
 | Reveal | 7 + rank card, 5 + rank * 1.2 screen | 6 + rank * 1.2 stage | 7 + rank stage, 5 + rank * 1.2 screen |
 | Claim | n/a | 1.5 stage | 3.2 stage, 2.6 screen |
@@ -122,7 +122,9 @@ that was already dismissed stays dismissed.
   `CRATE_SEAL` at 0.32, `CRATE_RISE` at 0.24, `CRATE_SHATTER` at 0.62, the low
   `ANVIL` at 0.27, then the forge chord. Volumes include the 0.8 SFX setting.
 - The canvas moved on the landing (`max 4` at 15fps), on every press and on the
-  reveal (`max 6` at 15fps). A `shakeTest 30` reached 26px on the canvas and a
+  reveal (`max 6` at 15fps). The six-press ladder sampled at 15fps rose from
+  `2` on the first press to `6` on the seal. A 0.15 to 0.21s shake only gets two
+  or three frames at that rate, so these are samples, not amplitudes. A `shakeTest 30` reached 26px on the canvas and a
   `shakeTest` with a 1s duration ran for 14 frames. The Studio session renders
   at 15fps, so a 0.26s shake only gets four samples; the property values are
   correct and the frame count matches the duration.

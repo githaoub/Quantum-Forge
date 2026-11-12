@@ -1535,16 +1535,17 @@ local function strike()
 	if stage then
 		Vfx.shake(
 			stage,
-			if final then 7 else (1.6 + normalized * 0.55) * (if opensCrate then 1.18 else 1),
-			0.16 + normalized * 0.008
+			if final then 7 else (4.2 + normalized * 0.34) * (if opensCrate then 1.12 else 1),
+			0.15 + normalized * 0.01
 		)
 	end
-	-- Screen shake climbs with the rattle and lands on the forge's 8px slam at
-	-- the seal. The crate had no screen shake at all before this pass, so even
-	-- its 4.5px stage shake was a quarter of what an anvil click does.
+	-- Screen shake climbs the same ladder as the stage and starts where the
+	-- anvil starts. The forge asks for 7px on every click; the crate used to ask
+	-- for 3.0 on the first press, which is why a pull read as lighter than five
+	-- seconds at the anvil even after the landing was fixed.
 	Vfx.shakeScreen(
-		if final then 8 else 2.4 + normalized * 0.6 + (if opensCrate then 1.2 else 0),
-		if final then 0.3 else 0.14 + normalized * 0.012
+		if final then 8 else 5.2 + normalized * 0.34 + (if opensCrate then 0.8 else 0),
+		if final then 0.3 else 0.15 + normalized * 0.011
 	)
 	Sfx.crateTick(strikes, strikeTotal)
 

@@ -270,7 +270,7 @@ Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has 
 the forge click is one bright metal ping, the green bar replaces it with a
 fifth-stacked chord, and the crit answers an octave above. A strike also shakes the
 whole HUD: 7 design pixels on a normal click, 9 in the band, 11 on a crit, 15 on a
-forge result. The crate uses the forge's numbers: 8 on the landing, 2.4 to 7.2
+forge result. The crate uses the forge's numbers: 8 on the landing, 5.5 to 8.0
 across the press ladder, 8 on the seal, 6.2 to 11 on the reveal and 7 on the exit,
 with a 28px scrim bleed so the canvas shake cannot expose the page. The
 side-panel header holds a backpack and a gear; sound effects, music,
