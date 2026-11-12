@@ -180,7 +180,7 @@ function TechTreeConfig.compute(levels: { [string]: number }): Stats
 		offlineMult = 1,
 		ventMult = 1,
 		autoClicksPerSec = 0,
-		critChance = 0,
+		critChance = Config.BaseCritChance,
 		critMult = CRIT_MULTIPLIER,
 		startBlades = 0,
 	}

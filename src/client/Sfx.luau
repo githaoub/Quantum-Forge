@@ -217,30 +217,21 @@ end
 
 --- One anvil strike.
 ---
---- The strike is the most repeated sound in the game and it is deliberately the
---- thinnest thing in the kit. A three-layer stack was tried here and it made the
---- click *worse* on the first listen: a body blow under a bright metal tick
---- turns the hammer into a wooden thump.
----
---- Two layers, both short. `electronicpingshort` is the metal; `impact` pitched
---- two and a half octaves up and cut off by its own pitch is the hammer face.
---- That is the strike this game shipped with, and it is the one that stays.
+--- The click is one sample. `impact` pitched two and a half octaves up is the
+--- hammer face; the band answer is the same sample higher still, so the strike
+--- never mixes a second texture into the hit.
 ---
 --- `sweet` is the band state at the moment of the click; `streak` is the live
---- in-band counter. The chime climbs a semitone-ish per point of streak, so the
---- tenth strike of a run is audibly a different note from the first: the ear
---- tracks the rail before the eye does.
+--- in-band counter. The pitch climbs with the streak, so the tenth strike of a
+--- run is audibly a different note from the first: the ear tracks the rail
+--- before the eye does.
 function Sfx.strike(sweet: boolean, streak: number?)
 	local climb = if streak then math.min(streak, 10) else 0
-	local body = jitter(1.0, 0.065)
-	play(PING, body, BASE_VOLUME)
-	-- High, quiet, fast: the metal in the hammer. This is the layer that makes
-	-- the click feel like it has mass behind it.
 	play(IMPACT, jitter(2.55, 0.05), 0.10)
 
 	if sweet then
-		play(PING, 1.5 * (1 + climb * 0.045), BASE_VOLUME + 0.05)
-		play(PING, 2.25 * (1 + climb * 0.045), 0.10, 0.045)
+		play(IMPACT, 3.2 * (1 + climb * 0.045), 0.08)
+		play(IMPACT, 4.3 * (1 + climb * 0.045), 0.05, 0.045)
 	end
 end
 

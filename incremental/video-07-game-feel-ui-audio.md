@@ -91,15 +91,15 @@ tried on the strike first, because that is the action the player repeats ten
 thousand times. It was played once and rejected: `hit.wav` is a body blow, so the
 click lost its metal edge and gained a wooden thump, and the sustained tail of
 `impact_explosion_03` smeared the transient that gives the strike its snap. The
-strike went back to two clips, and a later pass restored the original ping plus
-`impact_explosion_03` mix after `snap.mp3` was rejected by ear.
+strike went back to two clips, then to one: the click is a single pitched
+`impact_explosion_03`, and the band answer is the same sample higher still.
 
 The kit now ships three samples only. `hit.wav`, `snap.mp3`, `metal.ogg` and
 `impact_water.mp3` were removed entirely in ADR-113:
 
 | Layer | Asset | Where |
 | --- | --- | --- |
-| metal tick | `sounds/electronicpingshort.wav` | body, chimes, ladders |
+| metal tick | `sounds/electronicpingshort.wav` | chimes, ladders, UI |
 | click | `sounds/clickfast.wav` | UI tick, hover, tab, transient |
 | body | `sounds/impact_explosion_03.mp3` | strike, crit, crates, ascent |
 

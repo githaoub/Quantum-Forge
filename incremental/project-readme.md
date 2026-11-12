@@ -246,17 +246,21 @@ a stack of red toasts.
 Every accepted strike fires, in one frame: a floating `+yield` (with a second `x2.5`
 marker in the band), a rarity-coloured slash flipbook, a ballistic spark burst, a
 scale-punch on the blade container, a white/gold wash over the stage, a 3D slam from
-the blade itself, a shaker on the button, and a pitched click. Crits add a bolt of
-procedural lightning and a shallow flash. Forging adds a variant-ranked celebration
-(punch, coloured bloom, panel shake, result stinger scored by variant) and showcases
-the new blade for 2.6s even when it is not the one that got equipped. The stage
-carries a pool of twelve ambient embers, recycled rather than spawned per frame.
+the blade itself, a shaker on the button, and a pitched impact click. Crits are a
+5% base chance and add a gold ring that expands to roughly three times the anvil,
+a bolt of procedural lightning, and a yellow wash across the whole screen. The
+forge, the crate claim and the ascent put their wash on the same screen layer, so
+a flash reaches the letterbox instead of stopping at the canvas edge. Forging adds
+a variant-ranked celebration (punch, coloured bloom, panel shake, result stinger
+scored by variant) and showcases the new blade for 2.6s even when it is not the one
+that got equipped. The stage carries a pool of twelve ambient embers, recycled
+rather than spawned per frame.
 
 The sound kit is 24 pooled slots over three proven `rbxasset://` samples, with a
 looped 144-second Creator Store track (`Dark Pulsing Synth`) at 0.16 underneath.
 Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
-the strike chime climbs with the streak so the ear tracks the rail before the eye
-does. The side-panel header holds a backpack and a gear; sound effects, music,
+the forge click is a single pitched impact, and its band answer is the same sample
+higher still, so no second texture enters the hit. The side-panel header holds a backpack and a gear; sound effects, music,
 screen effects, shake and trade requests are five rows in the settings sheet,
 persisted to the profile. Sound effects and music are 0..100 sliders: the row
 shows the percentage, the whole 26px strip is draggable, and 0 is the mute. The

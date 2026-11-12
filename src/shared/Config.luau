@@ -55,6 +55,14 @@ Config.OverdriveSeconds = 15
 Config.OverdriveMultiplier = 2
 
 -- ---------------------------------------------------------------------------
+-- Critical strikes
+-- ---------------------------------------------------------------------------
+-- Every blade can crit without a tech node. The base chance sits in line with
+-- the anomaly rate: rare enough to stay a surprise, common enough that the gold
+-- ring reads as part of the loop instead of a once-a-session event.
+Config.BaseCritChance = 0.05
+
+-- ---------------------------------------------------------------------------
 -- Anomalies
 -- ---------------------------------------------------------------------------
 -- Void Shards are the only currency earned from risk. They only drop when the

@@ -4578,3 +4578,30 @@ a body instead of a wooden crack. The upside is a coherent palette a player can
 learn, and the strike is the exact sound that was approved. The old ids remain
 in the historical ADRs and build logs because those entries record what was
 tried, not what ships.
+
+## ADR-114 - A crit is a base chance, and a flash is the whole screen
+
+**Context.** The crit ring only fired when a blade rolled a crit variant or a
+rune, salvage set or tech node supplied crit chance. A fresh account starts at
+zero, so the gold circle the crit is built around was effectively a late-game
+effect. Separately, `Vfx.flash` painted inside the game canvas. The canvas is
+measured to the game area, so the wash stopped at the letterbox on a narrow
+window, sat under the crate ceremony, and never reached the top bar. Both the
+crit yellow and the forge white read as partial rectangles rather than screen
+events.
+
+**Decision.** `Config.BaseCritChance` is `0.05`, and `TechTreeConfig.compute`
+seeds `critChance` with it. The tech node, runes, salvage sets and variants add
+on top of the same total. The `Vfx.flash` wash is no longer a child of the
+canvas: `Vfx.init` builds a `VfxFlash` frame on the ScreenGui at `ZIndex 100`,
+and every crit, forge, ascension and overheat wash is parented there. The
+function also takes an optional `duration`, so a caller can match a short stage
+beat without stacking half-second washes. The procedural crit ring starts at
+180px and expands to roughly 3.2x, because the 420px sprite sheet is still
+unuploaded and the old fallback was a 32px ripple.
+
+**What it costs.** A 5% base crit is about +20% expected click yield at 5x, so
+the curve is slightly richer than the design math in `game-design-math.md`. The
+number is one constant in `Config` if that trade needs revisiting. The flash
+layer is now above every panel by design, so a future full-screen overlay has to
+accept a wash on top of it; that is the intended ordering for a flash.

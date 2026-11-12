@@ -19,6 +19,10 @@ local UiKit = require(script.Parent.UiKit)
 local Vfx = {}
 
 local layer: Frame? = nil
+--- The flash lives on the ScreenGui, not the canvas. The canvas is measured to
+--- the game area, so a wash inside it stops at the letterbox on a narrow window
+--- and sits under the crate ceremony. The ScreenGui is the real screen.
+local flashLayer: Frame? = nil
 local scaleFactor = 1
 
 -- Player preferences. Effects are the first thing a low-end device turns off,
@@ -91,6 +95,21 @@ function Vfx.init(canvas: Frame, uiScale: UIScale)
 	}) :: Frame
 	layer.Parent = canvas
 	scaleFactor = uiScale.Scale
+
+	-- The wash layer. A child of the ScreenGui at a higher ZIndex than the
+	-- canvas, so it covers the whole game area and lands above every panel and
+	-- the crate ceremony. `Vfx.flash` is the only writer.
+	local gui = canvas.Parent
+	if gui and gui:IsA("ScreenGui") then
+		flashLayer = UiKit.create("Frame", {
+			Name = "VfxFlash",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 100,
+		}) :: Frame
+		flashLayer.Parent = gui
+	end
 
 	-- The canvas scale changes when the window resizes; keep the conversion
 	-- honest rather than baking a stale value.
@@ -573,6 +592,16 @@ function Vfx.strikeBurst(anchor: GuiObject, color: Color3, power: number?, crit:
 	if crit then
 		Vfx.lightning(anchor, color, 1.1)
 		Vfx.flash(color, 0.07)
+		-- The crit ring is the shape the player learns to look for. The 32px
+		-- ripple above is too close to the hit to read as a signature, and the
+		-- sprite sheet that used to carry the 420px disc is still unuploaded, so
+		-- the procedural fallback has to own the scale.
+		Vfx.shockwave(anchor, color, {
+			size = 180,
+			spread = 3.2,
+			duration = 0.55,
+			thickness = 6,
+		})
 	end
 end
 
@@ -727,27 +756,33 @@ end
 -- Screen flash
 -- ---------------------------------------------------------------------------
 
---- Full-screen colour wash that fades immediately. Used for ascension and
--- overheat. Deliberately subtle by default — a flash that lingers is a headache.
-function Vfx.flash(color: Color3, peak: number?)
-	if layer == nil or not enabled then
+--- Full-screen colour wash that fades immediately. Used for ascension, crits,
+--- overheat and the crate's white pop. Deliberately subtle by default, because a
+--- flash that lingers is a headache.
+---
+--- `duration` overrides the fade when the caller needs the wash to match a
+--- shorter stage beat. The frame is parented to `flashLayer` on the ScreenGui so
+--- the wash reaches the letterbox and the top bar, not just the canvas.
+function Vfx.flash(color: Color3, peak: number?, duration: number?)
+	if flashLayer == nil or not enabled then
 		return
 	end
 
+	local fade = duration or 0.5
 	local wash = UiKit.create("Frame", {
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1 - (peak or 0.35),
-		ZIndex = 45,
+		ZIndex = 100,
 	}) :: Frame
-	wash.Parent = layer
+	wash.Parent = flashLayer
 
 	-- A wash is a colour change, not travel, so it survives reduce motion; it is
 	-- just shortened.
-	UiKit.tween(wash, if Theme.reducedMotion() then 0.12 else 0.5, { BackgroundTransparency = 1 })
+	UiKit.tween(wash, if Theme.reducedMotion() then math.min(0.12, fade) else fade, { BackgroundTransparency = 1 })
 
-	task.delay(0.55, function()
+	task.delay(fade + 0.05, function()
 		if wash.Parent then
 			wash:Destroy()
 		end
