@@ -15,12 +15,12 @@ will fail on upload even though it previews fine locally.
 
 | file | style | subject | ratio and size | status |
 | --- | --- | --- | --- | --- |
-| `thumb-01.png` | Window Light | smith drawing a blade from the forge with tongs | 16:9, 1376x768 | approved |
+| `thumb-01.png` | Window Light | smith drawing a blade from the forge with tongs | 16:9, 1920x1080 | approved |
 | `thumb-02.png` | Cinematic Leap | smith airborne over rubble with a hammer | 16:9, 1920x1080 | approved |
-| `thumb-03.png` | Flat Poster | smith and a blown-open furnace door | 16:9, 1408x768 | approved |
+| `thumb-03.png` | Flat Poster | smith and a blown-open furnace door | 16:9, 1920x1080 | approved |
 | `thumb-04.png` | Cinematic Leap | smith striking a glowing blade on an anvil | 16:9, 1920x1080 | approved, same family as 02 |
 | `thumb-05.png` | Paper Storybook | smith driving a blade into an anvil, brick forge | 16:9, 1920x1080 | approved |
-| `game-icon-01.png` | Cel Icon | bust with a raised sword, forge behind | 1:1, 1024x1024 | approved, current icon |
+| `game-icon-01.png` | Cel Icon | bust with a raised sword, forge behind | 1:1, 512x512 | approved, current icon |
 
 Rejected: `scrapped-gameicon.png`. Kept in the folder as a reference for what not
 to prompt. Reasons are in the last section.
@@ -288,7 +288,7 @@ No text, no logos, no watermark, no extra fingers, no realistic human faces, no 
 
 Run this before uploading.
 
-1. **Format.** 16:9 for thumbnails, 1024 square for the icon. PNG, not JPEG. 1920x1080 is the target; 01 and 03 ship at their native 1376 and 1408 wide and look fine, so a smaller honest crop beats an upscale with nothing in it.
+1. **Format.** 1920x1080 for every thumbnail, 512x512 for the icon. PNG, not JPEG, and under 3 MB. Roblox downsamples anything larger and the store card starts to look soft, which is what happened with the first 1024 icon and the 1376-wide thumbnails.
 2. **Top edge.** No pale band, no white bar, no hard horizontal seam. The model sometimes lays a title plate over the top; crop it off rather than painting over it.
 3. **Paper margin.** Style 04 ships with one on purpose. Any other style with a cream border is an accident, crop it.
 4. **Crop math.** Cutting a band off the top changes the ratio. Re-crop the sides to hold 16:9, anchored on the character, then upscale to 1920x1080.
@@ -314,3 +314,5 @@ Everything here cost a generation to learn.
 | white bar across the top | the model inserted a title plate | crop the band, then re-crop sides to 16:9 |
 | cream frame around the art | the model rendered a paper plate | crop to the art, or keep it only in style 04 |
 | jpg previews fine but Roblox rejects it | extension renamed, bytes unchanged | re-encode to real PNG |
+| the art looks soft on the store card | uploaded below the display size | ship 1920x1080 thumbs and a 512 icon, Lanczos up plus a light unsharp |
+| upload rejected for size | full-res PNG over the cap | re-save with optimize, target under 3 MB |
