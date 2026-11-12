@@ -146,6 +146,12 @@ function Notifications.push(text: string, kind: string?)
 	end)
 end
 
+--- Visible toasts. The nudge layer waits for an empty stack, so a contextual
+--- hint can never push a receipt that just landed off the two-slot rail.
+function Notifications.count(): number
+	return #toasts
+end
+
 --- Builds the stack container. Called once by Main after the canvas exists.
 function Notifications.init(canvas: Frame)
 	if container and container.Parent then

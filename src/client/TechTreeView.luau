@@ -303,6 +303,7 @@ function TechTreeView.init(parent: Instance)
 	})
 	header.Size = UDim2.new(1, -4, 0, 64)
 	header.LayoutOrder = 0
+	header.Name = "TechHeader"
 
 	local caption = UiKit.label(header, {
 		text = "QUANTUM CORES",

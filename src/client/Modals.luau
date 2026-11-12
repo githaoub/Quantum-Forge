@@ -41,6 +41,13 @@ function Modals.isOpen(): boolean
 	return activeModal ~= nil
 end
 
+--- Dismisses whatever blocking card is up. The welcome card has no close key by
+--- design, so the Studio seam needs a way to stand in for its START FORGING
+--- press without reaching into the module's private close.
+function Modals.dismiss()
+	close()
+end
+
 local function shell(
 	title: string,
 	subtitle: string?,
@@ -300,8 +307,18 @@ function Modals.starter(seconds: number)
 	claim.button.Size = UDim2.new(1, -72, 0, 56)
 end
 
---- Generic confirm. `onConfirm` fires only on the affirmative path.
-function Modals.confirm(title: string, body: string, confirmText: string, accent: Color3, onConfirm: () -> ())
+--- Generic confirm. `onConfirm` fires only on the affirmative path. When
+--- `lockedReason` is set the affirmative key is painted as a locked plate and
+--- the handler never runs; the caller still gets the same panel so a player can
+--- read what the action would need.
+function Modals.confirm(
+	title: string,
+	body: string,
+	confirmText: string,
+	accent: Color3,
+	onConfirm: () -> (),
+	lockedReason: string?
+)
 	local panel = shell(title, nil, accent)
 
 	local text = UiKit.label(panel, {
@@ -333,11 +350,16 @@ function Modals.confirm(title: string, body: string, confirmText: string, accent
 		height = 50,
 		radius = Theme.Radius.card,
 		size = Theme.Text.Body,
-		handler = function()
-			close()
-			onConfirm()
-		end,
+		handler = if lockedReason == nil
+			then function()
+				close()
+				onConfirm()
+			end
+			else nil,
 	})
+	if lockedReason ~= nil then
+		confirm.set("locked", lockedReason)
+	end
 	confirm.button.Position = UDim2.new(0.5, 8, 1, -82)
 	confirm.button.Size = UDim2.new(0.5, -42, 0, 50)
 end

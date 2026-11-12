@@ -3,6 +3,7 @@
 *.rbxlx
 *.rbxm
 *.rbxmx
+*.rbxlx.lock
 sourcemap.json
 /build/
 

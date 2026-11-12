@@ -45,6 +45,7 @@ local CrateReveal = require(script.Parent.CrateReveal)
 local DailyView = require(script.Parent.DailyView)
 local OrbitalLobby = require(script.Parent.OrbitalLobby)
 local TutorialController = require(script.Parent.TutorialController)
+local Nudges = require(script.Parent.Nudges)
 
 -- ---------------------------------------------------------------------------
 -- Reflow
@@ -164,6 +165,12 @@ local function onFeedEvent(event: Types.FeedEvent)
 		-- stinger in the kit, so it plays here and nowhere else.
 		Sfx.ascend()
 		return
+	elseif event.kind == "expedition" then
+		-- The squad came back. This is the one payout the player had to leave
+		-- the tab to earn, so the receipt says what landed and points at FLEET.
+		Notifications.push(event.text or "Expedition complete. Open FLEET.", "good")
+		Sfx.coin()
+		return
 	elseif event.kind == "purchase" then
 		-- Drones and tech nodes are the only senders, and both voice the press
 		-- themselves. A sound here would land 60ms after that one and read as a
@@ -252,8 +259,10 @@ local function boot()
 	TutorialController.onRunChanged = function(running: boolean)
 		HudController.setGuideLabel(if running then "SKIP" else "GUIDE", running)
 		HandbookView.setGuideRunning(running)
+		Nudges.setPaused(running)
 	end
 	TutorialController.init(canvas, uiScale)
+	Nudges.init()
 	HandbookView.onReplayGuide = function()
 		-- Close first: the notes point at live controls, and a full-screen book
 		-- would sit on top of every one of them.
@@ -329,29 +338,42 @@ local function boot()
 		HandbookView.open()
 	end
 
-	-- Ascension is destructive: confirm before firing.
+	-- Ascension is destructive: confirm before firing. The sheet opens even when
+	-- the balance is short, because a player deciding whether to save for the
+	-- reset needs to see the number it takes. Only the confirm key locks.
 	HudController.ascendHandler = function()
 		local state = StateStore.current
 		if state == nil then
 			return
 		end
-		if state.sm < Config.AscendThreshold then
-			Notifications.push("Not enough Star-Matter to ascend", "warn")
-			return
+		local threshold = if state.ascendAt > 0 then state.ascendAt else Config.AscendThreshold
+		local ready = state.sm >= threshold
+		local cores = math.floor((state.sm / threshold) ^ Config.AscendExponent)
+		local body: string
+		local locked: string? = nil
+		if ready then
+			body = string.format(
+				"You will gain %s Quantum Cores. Star-Matter, Aether, drones and forged blades reset. Tech nodes and Forge Feats are permanent.",
+				NumberUtil.abbreviate(cores)
+			)
+		else
+			body = string.format(
+				"The forge needs %s Star-Matter before it will take the run. You have %s. Tech nodes and Forge Feats survive every ascent.",
+				NumberUtil.abbreviate(threshold),
+				NumberUtil.abbreviate(state.sm)
+			)
+			locked = string.format("NEED %s SM", NumberUtil.abbreviate(threshold))
 		end
 
-		local cores = math.floor((state.sm / Config.AscendThreshold) ^ Config.AscendExponent)
 		Modals.confirm(
-			"ASCEND?",
-			string.format(
-				"You will gain %s Quantum Cores and lose all Star-Matter, Aether, drones and forged blades.\n\nTech tree nodes are permanent.",
-				NumberUtil.abbreviate(cores)
-			),
+			"THE ASCENT",
+			body,
 			"ASCEND",
 			Theme.Color.quantum,
 			function()
 				StateStore.send("ascend")
-			end
+			end,
+			locked
 		)
 	end
 
@@ -433,6 +455,7 @@ local function boot()
 		HandbookView.destroy()
 		OrbitalLobby.destroy()
 		TutorialController.destroy()
+		Nudges.destroy()
 	end)
 
 	if Config.Debug then
@@ -478,6 +501,7 @@ local function boot()
 					yield = state.clickYield,
 					sm = state.sm,
 					as = state.as,
+					ascendAt = state.ascendAt,
 					drones = state.drones,
 					invCount = state.invCount,
 					tutorialCompleted = state.tutorialCompleted,
@@ -557,6 +581,9 @@ local function boot()
 				return true
 			elseif command == "skipGuide" then
 				TutorialController.skip()
+				return true
+			elseif command == "nextGuide" then
+				TutorialController.next()
 				return true
 			elseif command == "replayGuide" then
 				HandbookView.close()
@@ -713,6 +740,12 @@ local function boot()
 				return DailyView.isOpen()
 			elseif command == "starterPreview" then
 				Modals.starter(Config.StarterBoostSeconds)
+				return true
+			elseif command == "closeModal" then
+				-- The welcome card has no close key by design, and the guide waits
+				-- for the screen to clear. This is the Studio stand-in for the
+				-- START FORGING press a player makes.
+				Modals.dismiss()
 				return true
 			elseif command == "wired" then
 				-- The overlay keys are wired by `Main`, not by the module that

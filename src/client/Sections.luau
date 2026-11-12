@@ -824,10 +824,19 @@ function Sections.refreshTabBadges()
 		return
 	end
 
-	-- Fleet tab glows when the next drone on the best unlocked rung is affordable.
+	-- Fleet glows when the next drone on the best unlocked rung is affordable,
+	-- or when a cache on the rack is claimable. Two reasons, one face: the tab
+	-- is the only way to both, so a second glow style would not add information.
 	if active ~= "fleet" then
+		local claimable = false
+		for _, cache in state.caches do
+			if cache.readyAt > 0 and cache.secondsLeft <= 0 then
+				claimable = true
+				break
+			end
+		end
 		local canBuy = state.as >= state.droneCost
-		tintFace("fleet", if canBuy then Theme.Color.cyan else nil)
+		tintFace("fleet", if canBuy or claimable then Theme.Color.cyan else nil)
 	end
 
 	-- Tech tab glows when any node is affordable.
@@ -841,6 +850,26 @@ function Sections.refreshTabBadges()
 			end
 		end
 		tintFace("tech", if anyAffordable then Theme.Color.quantum else nil)
+	end
+
+	-- Runes tab glows while a rune is owned and a socket is open. The shelf is
+	-- the only place the player can spend that rune, so the nav is the reminder.
+	if active ~= "runes" then
+		local ownsRune = false
+		for _, count in state.runes do
+			if count > 0 then
+				ownsRune = true
+				break
+			end
+		end
+		local free = false
+		for index = 1, state.socketSlots do
+			if (state.equippedSockets[index] or "") == "" then
+				free = true
+				break
+			end
+		end
+		tintFace("runes", if ownsRune and free then Theme.Color.quantum else nil)
 	end
 end
 

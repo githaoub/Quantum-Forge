@@ -342,6 +342,7 @@ local function buildAscendButton(parent: Frame): TextButton
 	})
 	button.Size = UDim2.fromOffset(Layout.VERB_W, Layout.KEY_H)
 	button.LayoutOrder = 7
+	button.Name = "AscendButton"
 
 	-- The mark sits above the word, same grammar as the utility keys beside it, so
 	-- the whole right end of the bar reads as one row of icons rather than as two
@@ -400,6 +401,7 @@ local function buildDailyButton(parent: Frame): TextButton
 	})
 	button.Size = UDim2.fromOffset(Layout.DAILY_W, Layout.KEY_H)
 	button.LayoutOrder = 8
+	button.Name = "DailyButton"
 
 	local mark = Icons.build(button, "daily", 20, Theme.Color.emerald)
 	mark.Position = UDim2.fromOffset((Layout.DAILY_W - 20) / 2, 5)

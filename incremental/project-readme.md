@@ -390,13 +390,18 @@ the server's rules instead of guessing at them.
 
 ### Onboarding
 
-First join runs eight coach notes, not a popup. A 360x176 work-order card sits
-beside the control the player needs next, and a gold marker names that control:
-a rounded ring on a button or rail tab, four corner brackets on the forge stage,
-which already has a gold border of its own. Nothing dims, nothing blocks input,
-and every note carries its own `SKIP` key. The sequence is strike to the vent
-line, purge, earn the first drone's Aether, open FLEET, build a drone, open
-CRATES, roll a blade, hand the game back.
+First join runs nineteen coach notes, not a popup. A 360x212 work-order card
+sits beside the control the player needs next, and a gold marker names that
+control: a rounded ring on a button or rail tab, four corner brackets on the
+forge stage, which already has a gold border of its own. Nothing dims, nothing
+blocks input, and every note carries its own `SKIP` key. The sequence is strike
+to the vent line, purge, earn the first drone's Aether, open FLEET, build a
+drone, claim the first cache, open CRATES, roll a blade, keep it at the
+ceremony, open VAULT, press `EQUIP BEST`, close the vault, open RUNES and read
+how mastery and sockets work, open TECH and read what survives an ascent, see
+the top-bar utility bank, see the STORE, and hand the game back. Reading cards
+carry a `NEXT` key; every other note waits for a real action or a real tab
+change.
 
 Step 2 is the only one the server has to help with. Without a hold the gauge
 cools while the player reads the note that says "press purge". The client arms
@@ -404,6 +409,11 @@ cools while the player reads the note that says "press purge". The client arms
 decay once the gauge is there, and suppresses auto-vent for that window. The hold
 releases on vent, on skip, on leave, or after two minutes. Strikes while it is
 armed pay no sweet-spot multiplier, so a client cannot park the band for free.
+
+The cache note has a second server rule. A cache's rarity is rolled at drop, and
+a Prime takes 2:45 to crack, which would park the guide behind a countdown.
+While `guideSeen` is false, `addSalvageMeter` forces the instant Scrap Cache.
+Once the guide is finished or skipped, the normal table returns.
 
 The top bar's GUIDE key becomes SKIP during a run and opens the handbook after
 it. The handbook rail's bottom slot used to carry the `SKY + METAL: LIHFOLK`
@@ -413,12 +423,30 @@ the notes. It reads GUIDE RUNNING and refuses a press while a run is live.
 `guideSeen` and `tutorialCompleted` still latch the first run and its one-time
 reward; a replay pays neither again. The spotlight chain and its objective strip
 are gone with [ADR-047](design-decisions.md). The card, the ring and the brackets
-live in `TutorialController` at `ZIndex` 21-23, above the normal UI and below
-every modal, and are positioned from live `AbsolutePosition` every 100ms, so a
-resize or a reflow moves the marker with the control.
+live in `TutorialController`; the layer is at `ZIndex 80`, above the vault sheet
+at 31 and the blocking cards at 60-65, with the card's own parts at 21-23. Targets
+are positioned from live `AbsolutePosition` every 100ms, so a resize or a reflow
+moves the marker with the control.
+
+After the guide, `Nudges.luau` watches the payload for five open decisions: an
+affordable ascent, a ready daily, a claimable cache, a rune with a free socket,
+and an unowned drone rung that has become affordable. The layer starts muted
+while the guide owns the screen, speaks one line at a time, and only onto an
+empty toast rail, so a hint can never push a completion receipt off the two-slot
+stack. The rail tabs carry the standing state: fleet glows for a drone or a
+cache, tech for an affordable node, runes for a socketable rune. The ascend and
+daily buttons breathe while their action is available, and an expedition that
+returns gets a receipt toast.
+
+`ASCEND` opens its sheet before the balance is there. The body prints the
+threshold and the current total, the confirm key reads `NEED 1.00B SM` and has
+no handler, and the server still refuses a direct ascend. A player can see what
+the reset costs without crossing it first.
 
 See [ADR-017](design-decisions.md), [ADR-028](design-decisions.md),
-[ADR-047](design-decisions.md) and [ADR-108](design-decisions.md).
+[ADR-047](design-decisions.md), [ADR-108](design-decisions.md),
+[ADR-109](design-decisions.md), [ADR-110](design-decisions.md),
+[ADR-111](design-decisions.md) and [ADR-112](design-decisions.md).
 
 ### Type scale: nothing interactive sits under 13px
 

@@ -1182,7 +1182,11 @@ function ProgressionService.addSalvageMeter(state: Types.ProfileState): SalvageC
 		return nil
 	end
 	state.cacheMeter = 0
-	local rarity = SalvageConfig.rollRarity()
+	-- The first-run guide teaches the tap on a cache it can finish in one
+	-- sitting. A random Prime would park that lesson behind a 2:45 countdown, so
+	-- an account that has not finished or skipped the guide always drops the
+	-- instant Scrap Cache. Once the guide is answered, the normal table returns.
+	local rarity = if state.guideSeen then SalvageConfig.rollRarity() else SalvageConfig.Rarities.common
 	table.insert(state.caches, {
 		rarity = rarity.id,
 		readyAt = 0,

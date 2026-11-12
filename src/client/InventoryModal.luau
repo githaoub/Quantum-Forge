@@ -126,6 +126,11 @@ local refreshCounts: () -> () = function() end
 --- pointing at a card that is about to be covered by the overlay.
 InventoryModal.onOpenChange = nil :: ((open: boolean) -> ())?
 
+--- Fired after EQUIP BEST is pressed. The vault is otherwise closed to the
+--- client, and the coach notes need to know the press landed even when the
+--- copy it picked was already the strongest one.
+InventoryModal.onEquipBest = nil :: (() -> ())?
+
 -- ---------------------------------------------------------------------------
 -- Payload helpers
 -- ---------------------------------------------------------------------------
@@ -937,6 +942,9 @@ end
 function InventoryModal.equipBest()
 	Sfx.equip()
 	StateStore.send("equipBest")
+	if InventoryModal.onEquipBest then
+		InventoryModal.onEquipBest()
+	end
 end
 
 --- Sends the melt. Public because the accept button on the confirm dialog and

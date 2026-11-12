@@ -4460,3 +4460,97 @@ server-side special case in the strike path. Its blast radius is bounded: two
 minutes, one account, no multiplier, no auto-vent, and the reward path is
 unchanged. The guide also cannot force the player to stay on the step's section,
 which is deliberate: a marker that follows the player is better than a lock.
+
+## ADR-109 - The guide runs to the store, in actions
+
+**Context.** The eight-note guide ended on the first blade roll. The vault,
+runes, tech and store were never pointed at, so a new player learned the strike
+loop and then had to discover the four systems that give the loop its next goal
+without any help. The requirement was to extend the same text box through the
+vault and equip-best flow, the cache, the rune shelf, the tech tree, the top-bar
+utilities and the store, with every step optional and no forced purchase.
+
+**Decision.** `TutorialController` now carries nineteen notes. After the first
+roll it adds `KEEP THE BLADE` for the ceremony, then vault, equip-best and close,
+then runes and a reading card about mastery and sockets, then tech and a reading
+card about permanence, then the utility bank and the store. Reading cards carry
+a `NEXT` key because there is no player action to watch; every other step
+advances on a real event or a real tab change. The vault notes work because the
+guide layer moved to `ZIndex 80`, above the vault overlay at 31 and the blocking
+cards at 60-65, while the card itself keeps its own 22. The store note only
+highlights the rail tab; it does not ask for a press and cannot charge anything.
+
+Two steps exist because the loop has a beat the old list skipped. The first
+cache is claimed after the first drone, and the crate ceremony must be dismissed
+before the vault can be reached, so `COLLECT` is its own note and the cache note
+targets the first occupied slot rather than slot 1.
+
+**What it costs.** The first run is longer, about four extra minutes of reading
+and taps. The guide now depends on more instance names across five views, and a
+rename breaks the marker silently because the target resolves by name. The
+nineteen-step table also makes a replay longer, which is why `SKIP` stays on
+every card and the handbook replay is still one press.
+
+## ADR-110 - The first onboarding cache is always the Scrap Cache
+
+**Context.** The cache lesson asks the player to crack a cache and claim it. A
+cache's rarity is rolled at drop, and a Prime carries a 2:45 crack timer. In
+Studio the tutorial landed on a Prime and parked the next step behind a
+countdown that no copy could shorten. A lesson about the tap should not be a
+lesson about waiting.
+
+**Decision.** `ProgressionService.addSalvageMeter` checks `guideSeen`. While it
+is false, every drop is `SalvageConfig.Rarities.common`, the instant Scrap
+Cache. Once the guide is finished or skipped, the normal weighted table returns.
+The flag already existed for the guide latch and the one-time reward, so no new
+profile field or migration was needed.
+
+**What it costs.** A new player sees commons during the guide instead of a lucky
+early Prime. A player who reads slowly can receive more than one forced common.
+The rule is tied to a tutorial flag, so a replay on a finished account does not
+get it, which is correct: a replay is not a first run.
+
+## ADR-111 - An ascent can be inspected before it is affordable
+
+**Context.** The top-bar ASCEND key used to refuse below the threshold with a
+toast. A player deciding whether to save for the reset could not see the target
+or the payout without crossing it first, and the refusal read as a broken key
+rather than a locked door.
+
+**Decision.** `HudController.ascendHandler` always opens the confirmation sheet.
+When the balance is short, the body prints the threshold and the current total,
+and the affirmative key is painted through `Modals.confirm(..., lockedReason)`:
+a slate plate, a locked label, no handler. When the balance is there, the body
+prints the cores and the key is live. The server still checks
+`pendingCores(state)`, so a modified client cannot ascend for free.
+
+**What it costs.** The sheet now has a state that cannot act, which is one more
+thing to keep honest as the ascend economy changes. The locked face carries the
+threshold rather than the shortfall, because a one-billion target read as
+"NEED 1000.00M" when subtracted from a small balance. The shortfall lives in the
+body, where there is room for it.
+
+## ADR-112 - A hint waits for an empty toast rail
+
+**Context.** Five contextual decisions can open at once: an ascent, a daily, a
+claimable cache, an empty rune socket and a new drone rung. On the first pass
+they were pushed from the same payload as the guide's completion reward. The
+rail holds two toasts, so the third push evicted the first, and the daily hint
+was the one that vanished. A hint that removes a receipt is worse than no hint.
+
+**Decision.** `Nudges.luau` owns the contextual layer. It starts muted, because
+the guide is already pointing at the same controls. An edge is only consumed
+when the line can actually be shown: not paused, at least three seconds since
+the last nudge, and `Notifications.count() == 0`. Gates keep their latch open
+while they wait, so a daily that was ready during the guide still speaks after
+it. The drone line names the best rung in reach and marks the lower rungs as
+covered; the line does not repeat when Aether is spent and earned again. Tab
+glows stay in `Sections.refreshTabBadges` because they re-evaluate with the
+layout, and the ascent and daily buttons keep their breathing strokes in
+`HudController.step`. Expedition completion gets a receipt in `Main.onFeedEvent`
+because it is a payout, not a standing state.
+
+**What it costs.** A hint can be delayed by a busy feed, and a state that opens
+and closes before its turn is lost. That is the intended trade: a receipt is
+always more important than a reminder. The nudge layer also depends on the toast
+module exposing a count, which is now part of that module's small public surface.
