@@ -90,7 +90,7 @@ export type MeshEntry = {
 --- `rbxassetid://0` until a real upload runs, and `AssetManifest.mesh()` returns
 --- nil for those, which is what keeps the primitive-built blade in the viewport.
 AssetManifest.Meshes = {
-	rusted_cleaver     = { id = "rbxassetid://118709753932971", height = 4.03, tris = 678 },
+	rusted_cleaver     = { id = "rbxassetid://72976186176915", height = 4.03, tris = 678 },
 	scrap_fang         = { id = "rbxassetid://82599365311214", height = 4.16, tris = 600 },
 	rivet_edge         = { id = "rbxassetid://105438201171675", height = 4.02, tris = 586 },
 	coil_shard         = { id = "rbxassetid://92566208471876", height = 4.16, tris = 738 },
