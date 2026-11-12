@@ -64,7 +64,7 @@ Open the `.rbxlx` directly in Studio to test without the plugin, or to publish.
 | Left rail | **FORGE** Â· **CRATES** Â· **FLEET** Â· **RUNES** Â· **TECH** Â· **STORE** |
 | Top-bar utility keys | **VAULT** Â· **CODEX** Â· **RANKS** Â· **CREW** Â· **TRADE** Â· **NOTES** Â· **GUIDE** Â· **SETUP** |
 | The whole blade stage | Strike the forge; the strike, heat and purge controls float on top of it |
-| Ascend | In the **TECH** section, behind a confirmation modal |
+| Ascend | The **ASCEND** key in the top bar, behind a confirmation modal |
 
 Keep the heat gauge inside the highlighted band (65â€“85 by default) and every strike
 pays **2.5x**. Past 90 the core runs lean and every strike pays half until you purge;
