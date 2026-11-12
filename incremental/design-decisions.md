@@ -4605,3 +4605,40 @@ the curve is slightly richer than the design math in `game-design-math.md`. The
 number is one constant in `Config` if that trade needs revisiting. The flash
 layer is now above every panel by design, so a future full-screen overlay has to
 accept a wash on top of it; that is the intended ordering for a flash.
+
+## ADR-115 - The strike is a ping, and the flash gets its own screen
+
+**Context.** The strike had been narrowed to one pitched
+`impact_explosion_03` sample, and on listen the click was still a thud with a
+blast tail. The ping that made the original strike readable had been buried under
+it. Separately, `Vfx.flash` moved to a frame on the game ScreenGui, but the game
+ScreenGui is measured to the game area: it sets `IgnoreGuiInset = false`, so on a
+1280x720 window the screen is 1212x520 inside a 1212x578 viewport. Every wash
+therefore left a 58px strip of untouched screen at the top, which is exactly what
+"the flash does not cover the whole screen" looks like. The forge's white pop was
+worse: it was still `flashViewport`, a frame clipped to the 3D stage.
+
+**Decision.** `impact_explosion_03` is gone from the game. The strike is now one
+purpose-built metal ping, rendered from six inharmonic plate modes plus a 10ms
+hammer transient, with the band answer the same instrument a fourth up and the
+crit an octave above it. Four samples were rendered and uploaded to the account
+that owns the place: `STRIKE`, `BAND`, `CRIT`, `ANVIL`. `PING` and `CLICK` stay as
+the client assets that carry melody and interface, so the kit is two families
+instead of one palette stretched over every verb.
+
+The wash lives on `VfxScreen`: a dedicated `ScreenGui` at `DisplayOrder 500` with
+`IgnoreGuiInset = true`, holding one `VfxFlash` frame. That covers the raw
+viewport including the top bar and lands above every panel and the crate ceremony.
+`Vfx.flash` recycles three wash frames round-robin instead of creating a frame per
+call, and it rebuilds the layer lazily if `init` ran before the PlayerGui existed.
+`Vfx.init` adopts an existing layer instead of creating a second one.
+
+`ForgeView` no longer owns a stage-local wash. `flashViewport` became
+`screenFlash`, which forwards to `Vfx.flash`, so the strike pulse, the overdrive
+open, the forge result and the crate reveal all paint on the same screen layer.
+
+**What it costs.** Four uploaded audio assets are now part of the build, so a
+fresh place needs them published with the account. Per-click washes are full
+screen, so their peaks were lowered (0.15 white, 0.22 gold) to keep a ten-click
+streak from strobing. A wash above every panel is deliberate, and any future
+full-screen overlay has to accept being washed over.

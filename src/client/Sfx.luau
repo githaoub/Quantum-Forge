@@ -22,20 +22,27 @@ local SoundService = game:GetService("SoundService")
 
 local Sfx = {}
 
--- Proven-present client assets.
+-- The kit, in two families.
 --
--- Every id below was checked with `ContentProvider:PreloadAsync` in Edit mode
--- before it was allowed in. Two well-known names failed that check and are not
--- here: `sounds/swoosh.wav` and `sounds/bell.wav` both report
--- `Enum.AssetFetchStatus.Failure`, and a guessed id is worse than no sound.
+-- `PING` and `CLICK` are client assets, so they resolve offline in Studio and in
+-- a published place with no upload step. They carry melody and interface.
 --
--- The kit is three samples: the metal tick, the mechanical tick and the low
--- body. `snap`, `hit`, `metal` and `impact_water` are gone for good. They read
--- as a dry block, a body blow, a steel ring and a splash, and none of them
--- belongs under a hammer.
+-- `STRIKE`, `BAND`, `CRIT` and `ANVIL` are purpose-built metal pings, uploaded
+-- to the account that owns the place: inharmonic plate modes with a 10ms hammer
+-- transient, tuned so the click reads as struck steel instead of a body blow.
+-- The strike is a fourth below the band answer and the crit is an octave above,
+-- so the three are one instrument played at three pitches.
+--
+-- `impact_explosion_03`, `snap`, `hit`, `metal` and `impact_water` are gone for
+-- good. The explosion was the last one standing and it was the wrong texture
+-- under a hammer: a broadband blast over a click reads as a thud, and it buried
+-- the ping the click is supposed to be.
 local PING = "rbxasset://sounds/electronicpingshort.wav"
 local CLICK = "rbxasset://sounds/clickfast.wav"
-local IMPACT = "rbxasset://sounds/impact_explosion_03.mp3"
+local STRIKE = "rbxassetid://71886932584271"
+local BAND = "rbxassetid://139799433605109"
+local CRIT = "rbxassetid://121142281920008"
+local ANVIL = "rbxassetid://95191181057410"
 
 -- 24 slots: a burst of eight clicks can each want four layers, a forge result
 -- can want eight, and reusing a slot mid-playback truncates the previous hit,
@@ -188,7 +195,7 @@ end
 
 --- A modal opening. Body first, chime after: the card arrives, then settles.
 function Sfx.modal()
-	play(IMPACT, jitter(0.9, 0.05), 0.09)
+	play(ANVIL, jitter(0.9, 0.05), 0.09)
 	play(PING, jitter(1.5, 0.04), 0.06, 0.04)
 end
 
@@ -201,7 +208,7 @@ end
 
 --- Rejected action. Low, short, and not harsh: the player already knows.
 function Sfx.error()
-	play(IMPACT, jitter(0.62, 0.05), 0.12)
+	play(ANVIL, jitter(0.62, 0.05), 0.12)
 	play(PING, jitter(0.8, 0.03), 0.07, 0.02)
 end
 
@@ -217,32 +224,30 @@ end
 
 --- One anvil strike.
 ---
---- The click is one sample. `impact` pitched two and a half octaves up is the
---- hammer face; the band answer is the same sample higher still, so the strike
---- never mixes a second texture into the hit.
+--- The click is one purpose-built sample: a 10ms hammer transient into an
+--- inharmonic steel ring. Nothing else is layered under it, because the whole
+--- point of the pass that produced it was to hear the ping and not a thud.
 ---
---- `sweet` is the band state at the moment of the click; `streak` is the live
---- in-band counter. The pitch climbs with the streak, so the tenth strike of a
---- run is audibly a different note from the first: the ear tracks the rail
---- before the eye does.
+--- `sweet` is the band state at the moment of the click; the band answer is the
+--- same instrument a fourth up. `streak` walks that answer up a little further,
+--- so the tenth strike of a run is audibly a different note from the first: the
+--- ear tracks the rail before the eye does.
 function Sfx.strike(sweet: boolean, streak: number?)
 	local climb = if streak then math.min(streak, 10) else 0
-	play(IMPACT, jitter(2.55, 0.05), 0.10)
+	play(STRIKE, jitter(1.0, 0.05), 0.15)
 
 	if sweet then
-		play(IMPACT, 3.2 * (1 + climb * 0.045), 0.08)
-		play(IMPACT, 4.3 * (1 + climb * 0.045), 0.05, 0.045)
+		play(BAND, jitter(1 + climb * 0.025, 0.02), 0.12)
 	end
 end
 
 --- A critical strike, fired from the server event so it lands on the frame the
---- real number arrives. Bright, short, and one octave above the band: the ear
---- should be able to tell a crit from a sweet spot with the screen covered.
+--- real number arrives. The longest ring in the kit, an octave above the strike,
+--- with one low body under it: the ear should be able to tell a crit from a sweet
+--- spot with the screen covered.
 function Sfx.crit()
-	play(IMPACT, jitter(1.55, 0.03), 0.19)
-	play(PING, jitter(1.85, 0.01), 0.13, 0.02)
-	play(PING, jitter(3.1, 0.02), 0.1, 0.03)
-	play(IMPACT, jitter(0.9, 0.03), 0.12, 0.01)
+	play(CRIT, jitter(1.0, 0.02), 0.3)
+	play(ANVIL, jitter(0.5, 0.02), 0.12, 0.01)
 end
 
 --- Tenth in-band strike: the window opens. A low body hit plus a rising triad,
@@ -250,11 +255,11 @@ end
 --- layers for the same reason as the strike: this is a signature moment, and a
 --- signature only changes on a listen.
 function Sfx.streakComplete()
-	play(IMPACT, 0.5, 0.3)
+	play(ANVIL, 0.5, 0.3)
 	play(PING, 1.32, 0.22)
 	play(PING, 1.78, 0.2, 0.075)
 	play(PING, 2.38, 0.2, 0.15)
-	play(IMPACT, 1.9, 0.08, 0.16)
+	play(ANVIL, 1.9, 0.08, 0.16)
 end
 
 -- ---------------------------------------------------------------------------
@@ -267,20 +272,20 @@ function Sfx.vent()
 	play(PING, jitter(1.45, 0.08), BASE_VOLUME + 0.14)
 	play(PING, jitter(0.72, 0.06), 0.1, 0.01)
 	play(CLICK, jitter(1.6, 0.05), 0.12, 0.02)
-	play(IMPACT, 1.1, 0.06, 0.10)
+	play(ANVIL, 1.1, 0.06, 0.10)
 end
 
 --- Crossing into the lock band. A low alarm body; no rising note, because
 --- nothing good is happening.
 function Sfx.overheat()
-	play(IMPACT, jitter(0.42, 0.04), 0.24)
+	play(ANVIL, jitter(0.5, 0.04), 0.24)
 	play(CLICK, jitter(0.8, 0.05), 0.11)
 	play(PING, jitter(0.55, 0.02), 0.09, 0.08)
 end
 
 --- The lock actually biting. One flat thud, no pitch movement.
 function Sfx.burnout()
-	play(IMPACT, jitter(0.35, 0.03), 0.3)
+	play(ANVIL, jitter(0.5, 0.03), 0.28)
 	play(CLICK, jitter(1.15, 0.05), 0.1, 0.05)
 end
 
@@ -288,7 +293,7 @@ end
 --- only: the crate landing half a second later owns the weight, and stacking a
 --- third knock here made the wind-up sound like the landing had already happened.
 function Sfx.roll()
-	play(IMPACT, jitter(0.58, 0.04), 0.22)
+	play(ANVIL, jitter(0.58, 0.04), 0.22)
 	play(PING, jitter(1.0, 0.04), 0.09, 0.04)
 end
 
@@ -301,10 +306,10 @@ function Sfx.crateLand(gain: number?)
 	-- Four layers, not three. The second low body at 0.30 is the chest hitting
 	-- the bench; without it the crate sounds like a box of cutlery being set
 	-- down.
-	play(IMPACT, jitter(0.44, 0.03), 0.42 * g)
+	play(ANVIL, jitter(0.44, 0.03), 0.42 * g)
 	play(CLICK, jitter(0.72, 0.04), 0.18 * g, 0.005)
 	play(PING, jitter(0.66, 0.02), 0.13 * g, 0.03)
-	play(IMPACT, jitter(0.30, 0.02), 0.12 * g, 0.012)
+	play(ANVIL, jitter(0.30, 0.02), 0.12 * g, 0.012)
 end
 
 --- One crate taking the hit. This is the per-click payoff, not the reveal: a
@@ -312,9 +317,9 @@ end
 --- actually opens.
 function Sfx.crateBreak(final: boolean?)
 	play(CLICK, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.42 else 0.26)
-	play(IMPACT, jitter(0.82, 0.05), if final then 0.30 else 0.19, 0.005)
+	play(ANVIL, jitter(0.82, 0.05), if final then 0.30 else 0.19, 0.005)
 	if final then
-		play(IMPACT, jitter(0.55, 0.03), 0.22, 0.03)
+		play(ANVIL, jitter(0.55, 0.03), 0.22, 0.03)
 		play(PING, jitter(0.92, 0.02), 0.22, 0.05)
 	end
 end
@@ -327,9 +332,9 @@ function Sfx.crateShatter(gain: number?)
 	-- The reveal downbeat. The low body is what makes the tick read as wood
 	-- giving way instead of a firecracker in a cupboard.
 	play(CLICK, jitter(0.95, 0.03), 0.34 * g)
-	play(IMPACT, jitter(0.6, 0.03), 0.28 * g, 0.02)
+	play(ANVIL, jitter(0.6, 0.03), 0.28 * g, 0.02)
 	play(PING, jitter(1.2, 0.02), 0.18 * g, 0.04)
-	play(IMPACT, jitter(0.40, 0.02), 0.12 * g, 0.01)
+	play(ANVIL, jitter(0.40, 0.02), 0.12 * g, 0.01)
 end
 
 --- One tick of the roll cadence, climbing the same ladder as the strike band so
@@ -342,7 +347,7 @@ function Sfx.rollTick(index: number)
 	-- The last two beats get a low body. Without it the rattle climbs in pitch
 	-- but not in mass, and the crate reads as a timer rather than as pressure.
 	if index >= 5 then
-		play(IMPACT, jitter(0.6 + step * 0.03, 0.03), 0.13, 0)
+		play(ANVIL, jitter(0.6 + step * 0.03, 0.03), 0.13, 0)
 	end
 end
 
@@ -373,14 +378,14 @@ function Sfx.crateTick(index: number, total: number)
 		play(PING, 0.5, 0.18, 0.01)
 	end
 	if index >= 5 then
-		play(IMPACT, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.20, 0)
+		play(ANVIL, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.20, 0)
 	end
 end
 
 --- A single heartbeat under the sealed hold. Low, soft and deliberately not a
 --- tick: the rattle is over, and what is left is the player waiting.
 function Sfx.heartbeat()
-	play(IMPACT, jitter(0.42, 0.03), 0.38)
+	play(ANVIL, jitter(0.5, 0.03), 0.22)
 	play(PING, jitter(0.55, 0.02), 0.12, 0.03)
 end
 
@@ -395,7 +400,7 @@ function Sfx.riser(steps: number?)
 	for index = first, last do
 		play(PING, jitter(degree(index), 0.005), 0.12 + (index - first) * 0.012, (index - first) * 0.06)
 	end
-	play(IMPACT, jitter(0.5, 0.03), 0.2, count * 0.06)
+	play(ANVIL, jitter(0.5, 0.03), 0.2, count * 0.06)
 end
 
 --- One copy leaving the ceremony. Deliberately smaller than the reveal: a claim
@@ -412,7 +417,7 @@ end
 --- downbeat instead of stopping on the same note as every individual claim.
 function Sfx.claimAll()
 	Sfx.claim()
-	play(IMPACT, 0.5, 0.22, 0.02)
+	play(ANVIL, 0.5, 0.22, 0.02)
 	play(PING, 0.5, 0.14, 0.08)
 	play(PING, 1.0, 0.13, 0.14)
 end
@@ -421,7 +426,7 @@ end
 --- C-major arpeggio (do sol do mi sol do), so it resolves the do-re-mi ladder
 --- the crate clicks climbed instead of landing on an arbitrary pitch.
 function Sfx.forge()
-	play(IMPACT, 0.5, 0.34)
+	play(ANVIL, 0.5, 0.34)
 	play(PING, 0.5, 0.2, 0.03)
 	play(PING, 0.749, 0.18, 0.09)
 	play(PING, 1.0, 0.18, 0.15)
@@ -446,7 +451,7 @@ function Sfx.result(variantIndex: number)
 		play(CLICK, jitter(1.7, 0.03), 0.08, 0.4)
 	end
 	if rank >= 4 then
-		play(IMPACT, jitter(0.42, 0.02), 0.22, 0.38)
+		play(ANVIL, jitter(0.42, 0.02), 0.22, 0.38)
 		play(PING, jitter(4.0, 0.005), 0.1, 0.48)
 	end
 	if rank >= 5 then
@@ -465,7 +470,7 @@ end
 --- A copy melted into scrap. A falling tick over a short metal knock.
 function Sfx.melt()
 	play(CLICK, jitter(1.7, 0.06), 0.14)
-	play(IMPACT, jitter(1.35, 0.04), 0.09, 0.03)
+	play(ANVIL, jitter(1.35, 0.04), 0.09, 0.03)
 end
 
 --- Variant reroll: three rising ticks, then a small resolve.
@@ -493,7 +498,7 @@ end
 function Sfx.tech()
 	play(PING, 1.18, 0.2)
 	play(PING, 1.76, 0.15, 0.07)
-	play(IMPACT, 1.4, 0.08, 0.02)
+	play(ANVIL, 1.4, 0.08, 0.02)
 end
 
 --- A cache crack starting. Two hard taps: the lid, then the seal.
@@ -524,12 +529,12 @@ end
 
 --- Ascension. The biggest stinger in the kit: low body, long rise, final chord.
 function Sfx.ascend()
-	play(IMPACT, 0.38, 0.36)
+	play(ANVIL, 0.38, 0.36)
 	play(PING, 0.72, 0.24, 0.06)
 	play(PING, 1.08, 0.22, 0.16)
 	play(PING, 1.62, 0.2, 0.26)
 	play(PING, 2.16, 0.16, 0.36)
-	play(IMPACT, 1.9, 0.12, 0.3)
+	play(ANVIL, 1.9, 0.12, 0.3)
 end
 
 --- A purchase confirmed.

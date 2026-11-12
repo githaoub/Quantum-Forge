@@ -120,11 +120,10 @@ local ventReady = false
 local ventLabelText: string? = nil
 local ventDetailText: string? = nil
 
--- Stage: the viewport itself is scale-punched on a hit, and a full-bleed frame
--- on top of it flashes. Both are children of the clipped stage frame, so neither
--- can bleed onto the control deck.
+-- Stage: the viewport itself is scale-punched on a hit. The colour wash that
+-- used to live on top of it is now a screen event in `Vfx`, so this frame only
+-- owns the punch and the clip.
 local viewportScale: UIScale? = nil
-local viewportFlash: Frame? = nil
 
 -- The strike caption on the deck. The whole stage is the hit target; this only
 -- names the verb and the payout, so removing it never removes the click.
@@ -362,18 +361,10 @@ local function buildViewport(parent: Frame)
 	punch.Parent = viewport
 	viewportScale = punch
 
-	-- Full-bleed wash over the blade. A ViewportFrame cannot hold a GUI stroke or
-	-- gradient inside its own render, so the flash is drawn on top of it here.
-	viewportFlash = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.white,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		-- Full bleed. The stage is the 3D view; a wash that stops 22px short
-		-- leaves a lit strip along the bottom edge and reads as a bug.
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 4,
-	}) :: Frame
-	viewportFlash.Parent = frame
+	-- No stage-local wash. Every beat that used to draw here now calls
+	-- `Vfx.flash`, which paints on its own full-screen layer. A wash clipped to
+	-- the viewport was the reason the forge white and the crit gold stopped at
+	-- the canvas edge instead of reading as a screen event.
 
 	bladeFlavor = UiKit.label(frame, {
 		text = "",
@@ -771,15 +762,12 @@ function ForgeView.punch(strength: number?)
 	end
 end
 
---- Wash over the stage. `hold` is the flash length before it fades; a strike
---- wants ~0.06s of white, a forge wants a longer gold bloom.
-local function flashViewport(color: Color3, peak: number, hold: number)
-	if viewportFlash == nil then
-		return
-	end
-	viewportFlash.BackgroundColor3 = color
-	viewportFlash.BackgroundTransparency = 1 - peak
-	UiKit.tween(viewportFlash, hold, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+--- Wash over the screen. `hold` is the fade length; a strike wants a short
+--- pulse, a forge wants a longer bloom. This is `Vfx.flash`, not a frame on the
+--- stage: the stage is clipped to the viewport, so a wash there stops at the
+--- canvas edge and reads as a rectangle instead of a flash.
+local function screenFlash(color: Color3, peak: number, hold: number)
+	Vfx.flash(color, peak, hold)
 end
 
 --- Records a strike for the cadence readout and drops the stale end of the
@@ -863,10 +851,13 @@ function ForgeView.strike()
 	recordStrike()
 	BladePreview.react(if current.inSweetSpot then 5.2 else 3.4)
 	punchViewport(if current.inSweetSpot then 1.3 else 1)
-	flashViewport(
+	screenFlash(
 		if current.inSweetSpot then Theme.Color.starMatter else Theme.Color.white,
-		if current.inSweetSpot then 0.42 else 0.28,
-		0.08
+		-- Every click washes the whole screen now, so the peak is lower than
+		-- the stage-local version was. At ten clicks a second a 0.28 white is a
+		-- strobe; 0.15 is a pulse you can still see the HUD through.
+		if current.inSweetSpot then 0.22 else 0.15,
+		0.1
 	)
 	if viewport then
 		Vfx.sparks(
@@ -1277,7 +1268,7 @@ function ForgeView.render(payload: Types.SyncPayload)
 	-- Overdrive opened. Fired on the transition, never on every sync inside the
 	-- window, or a 15-second buff would flash fifteen times.
 	if overdrive > 0 and lastOverdrive <= 0 then
-		flashViewport(Theme.Color.gold, 0.72, 0.5)
+		screenFlash(Theme.Color.gold, 0.45, 0.5)
 		if viewport then
 			Vfx.shockwave(viewport, Theme.Color.starMatter, {
 				size = 220,
@@ -1387,7 +1378,7 @@ function ForgeView.celebrate(bladeId: string?, variantId: string?, batch: number
 	-- Five beats: punch, variant wash, shake, sparks, and the stinger (played
 	-- by the caller at the same moment so audio and image are one event).
 	punchViewport(1.6)
-	flashViewport(tint, 0.9, 0.45)
+	screenFlash(tint, 0.5, 0.45)
 	if viewport then
 		Vfx.resultWash(viewport, tint, rank)
 	end
@@ -1487,7 +1478,7 @@ local function revealRoll()
 		Vfx.shockwave(viewport, tint, { size = 70, spread = 4.2 + rank * 0.4, thickness = 5 })
 		Vfx.burst(viewport, tint, 1.4 + rank * 0.2)
 	end
-	flashViewport(Theme.Color.white, 1, 0.18)
+	screenFlash(Theme.Color.white, 0.85, 0.22)
 	Sfx.crateShatter()
 	Sfx.forge()
 	if token == rollToken then
@@ -1879,7 +1870,6 @@ function ForgeView.destroy()
 	lastOverdrive = 0
 	comboChip = nil
 	viewportScale = nil
-	viewportFlash = nil
 	ventPillStroke = nil
 	ventPill = nil
 	ventPillFill = nil

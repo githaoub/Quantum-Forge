@@ -97,7 +97,11 @@ local function onFeedEvent(event: Types.FeedEvent)
 	elseif event.kind == "crit" then
 		-- The local prediction already floated a normal number; this adds the
 		-- crit flourish on top of it, anchored on the anvil.
-		Vfx.flash(Theme.Color.starMatter, 0.14)
+		-- The wash is the whole screen now: `Vfx.flash` paints on a layer above
+		-- every panel, including the top bar inset. The peak is deliberately
+		-- higher than the old 0.14, because that value was tuned for a wash that
+		-- only covered the canvas and still read as a local tint.
+		Vfx.flash(Theme.Color.starMatter, 0.34, 0.22)
 		Sfx.crit()
 		local anchor = ForgeView.strikeAnchor()
 		if anchor then

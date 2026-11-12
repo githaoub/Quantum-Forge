@@ -86,22 +86,30 @@ The video's reference layout, redrawn for this game:
 video's argument is that a single clip repeated is mechanical because the ear
 finds the identical waveform; the fix is not more clips but more layers.
 
-**Status: partly applied, then narrowed (ADR-066, ADR-113).** The layer stack was
-tried on the strike first, because that is the action the player repeats ten
-thousand times. It was played once and rejected: `hit.wav` is a body blow, so the
-click lost its metal edge and gained a wooden thump, and the sustained tail of
+**Status: partly applied, then narrowed (ADR-066, ADR-113, ADR-115).** The layer
+stack was tried on the strike first, because that is the action the player repeats
+ten thousand times. It was played once and rejected: `hit.wav` is a body blow, so
+the click lost its metal edge and gained a wooden thump, and the sustained tail of
 `impact_explosion_03` smeared the transient that gives the strike its snap. The
-strike went back to two clips, then to one: the click is a single pitched
-`impact_explosion_03`, and the band answer is the same sample higher still.
+strike went back to two clips, then to one blast, and finally off the blast
+entirely: the click is now one purpose-built metal ping.
 
-The kit now ships three samples only. `hit.wav`, `snap.mp3`, `metal.ogg` and
-`impact_water.mp3` were removed entirely in ADR-113:
+The kit ships two families. `hit.wav`, `snap.mp3`, `metal.ogg`,
+`impact_water.mp3` and `impact_explosion_03.mp3` were removed entirely (ADR-113,
+ADR-115):
 
 | Layer | Asset | Where |
 | --- | --- | --- |
 | metal tick | `sounds/electronicpingshort.wav` | chimes, ladders, UI |
 | click | `sounds/clickfast.wav` | UI tick, hover, tab, transient |
-| body | `sounds/impact_explosion_03.mp3` | strike, crit, crates, ascent |
+| strike | uploaded metal ping `71886932584271` | forge click |
+| band | uploaded metal ping `139799433605109` | sweet spot answer |
+| crit | uploaded metal ping `121142281920008` | crit |
+| body | uploaded metal ping `95191181057410` | crates, forge, ascent |
+
+The four uploaded samples are rendered from inharmonic plate modes and a 10ms
+hammer transient, so the strike is a ping with a metal edge rather than a
+broadband boom.
 
 `rollTick` climbs a major pentatonic ladder in semitones instead of the old
 `1.15 + 0.09 * n` ramp, so the wind-up and the band climb share a key.

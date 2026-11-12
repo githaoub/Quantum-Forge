@@ -1,9 +1,9 @@
 --!strict
 -- Feedback layer: floating numbers, impact bursts, panel shake, screen flash.
 --
--- Everything here is transient and self-destroying. The layer is a single
--- un-clipped frame above the HUD; nothing in it persists past ~1.2 seconds, so
--- it can never accumulate.
+-- Everything here is transient and self-recycling. The effect layer is a single
+-- un-clipped frame above the HUD; the screen wash lives on its own ScreenGui so it
+-- can cover the top bar. Nothing persists past ~1.2 seconds.
 --
 -- Coordinate note: the layer lives inside the UIScaled canvas, so a screen-space
 -- position from `AbsolutePosition` has to be divided back by the scale factor.
@@ -12,6 +12,7 @@
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
@@ -85,6 +86,53 @@ function Vfx.forgetRest(target: GuiObject)
 	shakes[target] = nil
 end
 
+--- Builds (or adopts) the wash layer. Called from `init` and lazily from
+--- `flash`, because a flash that silently no-ops when init ran before the
+--- PlayerGui existed is the worst possible failure for a feedback effect: the
+--- player sees nothing and has no way to tell why.
+---
+--- Idempotent on purpose. A second init reuses the existing ScreenGui instead of
+--- leaving a duplicate one at the same DisplayOrder behind it.
+local function ensureFlashLayer(): Frame?
+	local playerGui = Players.LocalPlayer and Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return nil
+	end
+
+	local screen = playerGui:FindFirstChild("VfxScreen")
+	if screen and not screen:IsA("ScreenGui") then
+		screen:Destroy()
+		screen = nil
+	end
+	if screen == nil then
+		screen = UiKit.create("ScreenGui", {
+			Name = "VfxScreen",
+			DisplayOrder = 500,
+			IgnoreGuiInset = true,
+			ResetOnSpawn = false,
+			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		}) :: ScreenGui
+		screen.Parent = playerGui
+	end
+
+	local existing = (screen :: ScreenGui):FindFirstChild("VfxFlash")
+	if existing and existing:IsA("Frame") then
+		flashLayer = existing
+		return existing
+	end
+
+	local created = UiKit.create("Frame", {
+		Name = "VfxFlash",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 1,
+	}) :: Frame
+	created.Parent = screen
+	flashLayer = created
+	return created
+end
+
 function Vfx.init(canvas: Frame, uiScale: UIScale)
 	layer = UiKit.create("Frame", {
 		Name = "Vfx",
@@ -96,20 +144,20 @@ function Vfx.init(canvas: Frame, uiScale: UIScale)
 	layer.Parent = canvas
 	scaleFactor = uiScale.Scale
 
-	-- The wash layer. A child of the ScreenGui at a higher ZIndex than the
-	-- canvas, so it covers the whole game area and lands above every panel and
-	-- the crate ceremony. `Vfx.flash` is the only writer.
-	local gui = canvas.Parent
-	if gui and gui:IsA("ScreenGui") then
-		flashLayer = UiKit.create("Frame", {
-			Name = "VfxFlash",
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 100,
-		}) :: Frame
-		flashLayer.Parent = gui
-	end
+	-- The wash layer. It gets its own ScreenGui rather than a frame on the game
+	-- screen, for two reasons that both showed up in playtest:
+	--
+	-- 1. `UiKit.screen` sets `IgnoreGuiInset = false`, so the game ScreenGui
+	--    starts below the Roblox top bar. A wash inside it leaves a strip of
+	--    untouched screen along the top, which is exactly what "not full screen"
+	--    looks like.
+	-- 2. The crate ceremony and the guide layer are siblings with their own
+	--    ZIndex. A wash has to land on top of all of them.
+	--
+	-- A dedicated ScreenGui with `IgnoreGuiInset = true` and a DisplayOrder above
+	-- every other UI covers the raw viewport and the top bar at once. It has no
+	-- input surface: nothing here is clickable.
+	ensureFlashLayer()
 
 	-- The canvas scale changes when the window resizes; keep the conversion
 	-- honest rather than baking a stale value.
@@ -761,32 +809,64 @@ end
 --- flash that lingers is a headache.
 ---
 --- `duration` overrides the fade when the caller needs the wash to match a
---- shorter stage beat. The frame is parented to `flashLayer` on the ScreenGui so
---- the wash reaches the letterbox and the top bar, not just the canvas.
+--- shorter stage beat. The frame is parented to `flashLayer` on its own ScreenGui
+--- so the wash reaches the letterbox and the top bar, not just the canvas.
+---
+--- Three frames recycled round-robin rather than one frame per call: the strike
+--- fires this on every click, and at ten clicks a second a fresh instance plus a
+--- fresh tween twice a second is exactly the kind of churn that shows up as a
+--- hitch on a phone. Round-robin also means a second flash mid-fade takes its own
+--- frame instead of cancelling the first one and popping.
+local WASH_FRAMES = 3
+local washPool: { Frame } = {}
+local washTweens: { [Frame]: Tween } = {}
+local washIndex = 1
+
 function Vfx.flash(color: Color3, peak: number?, duration: number?)
-	if flashLayer == nil or not enabled then
+	if not enabled then
+		return
+	end
+	local host = flashLayer
+	if host == nil or host.Parent == nil then
+		host = ensureFlashLayer()
+	end
+	if host == nil then
 		return
 	end
 
 	local fade = duration or 0.5
-	local wash = UiKit.create("Frame", {
-		BackgroundColor3 = color,
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1 - (peak or 0.35),
-		ZIndex = 100,
-	}) :: Frame
-	wash.Parent = flashLayer
+	local wash = washPool[washIndex]
+	if wash == nil then
+		wash = UiKit.create("Frame", {
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 1,
+		}) :: Frame
+		wash.Parent = host
+		washPool[washIndex] = wash
+	else
+		local running = washTweens[wash]
+		if running then
+			running:Cancel()
+		end
+		if wash.Parent ~= host then
+			wash.Parent = host
+		end
+	end
+	washIndex = washIndex % WASH_FRAMES + 1
+
+	wash.BackgroundColor3 = color
+	wash.BackgroundTransparency = 1 - math.clamp(peak or 0.35, 0, 1)
 
 	-- A wash is a colour change, not travel, so it survives reduce motion; it is
 	-- just shortened.
-	UiKit.tween(wash, if Theme.reducedMotion() then math.min(0.12, fade) else fade, { BackgroundTransparency = 1 })
-
-	task.delay(fade + 0.05, function()
-		if wash.Parent then
-			wash:Destroy()
-		end
-	end)
+	washTweens[wash] = UiKit.tween(
+		wash,
+		if Theme.reducedMotion() then math.min(0.12, fade) else fade,
+		{ BackgroundTransparency = 1 }
+	)
 end
 
 return Vfx
