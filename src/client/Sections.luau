@@ -238,6 +238,13 @@ function Sections.activeTab(): string?
 	return active
 end
 
+--- The rail key for a section. The coach notes ring the real tab rather than
+--- re-creating one, so the marker follows a layout change for free.
+function Sections.tabButton(name: string): TextButton?
+	local handle = tabHandles[name]
+	return if handle ~= nil then handle.button else nil
+end
+
 --- The frame the rail keeps for telemetry. `HudController` fills it with the
 --- rate readout, because it owns the stall detector and the smoothing.
 function Sections.railFoot(): Frame?

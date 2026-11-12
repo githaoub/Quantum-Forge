@@ -4405,3 +4405,58 @@ bonus is deliberately modest: 35% at full completion sits under one blade step,
 so feats are direction, not a replacement for the blade ladder. The feat card
 reads existing counters, which means a hand-edited save can complete a feat it
 did not earn; the bonus is small enough that this is not worth a signature.
+
+
+## ADR-108 - The visual guide is a work-order card, not a popup
+
+**Context.** The onboarding had collapsed to a single welcome card whose only
+lesson was a `START FORGING` key. The eight-card spotlight chain before it was
+deleted for good reasons: it dimmed the game, it interrupted, and its predicate
+wiring let steps advance on their own. Neither shape taught the loop a new player
+actually has to run in the first two minutes: strike until the core can vent,
+purge, spend the Aether on a drone, then open a crate. The requirement was a
+visual guide that stays out of the way, in a text box, with no black overlay and
+no popup, every step optional, and a way to watch it again from the handbook.
+
+**Decision.** `TutorialController` is eight coach notes. Each note is a 360x176
+card with a step counter, a title, one or two sentences, a progress rule and a
+`SKIP` key, plus a gold marker on the live control: a 2px rounded ring grown 6px
+outside a button or rail tab, and four 26px corner brackets on the forge stage,
+which is a full-bleed region that already carries a gold border, so a second
+frame there would read as a double border. The card is placed relative to the
+target (right, left, above, inside the stage's dead top-left corner) and clamped
+to the canvas; the closing note stays where the previous note was instead of
+hopping onto another live control. Targets are resolved by name on every poll,
+and a target on a hidden section drops the marker rather than pointing at empty
+space.
+
+The steps are strike, purge, save for a drone, open FLEET, build a drone, open
+CRATES, roll a blade, done. Prices and thresholds are read from the payload and
+`Config` at paint time, never typed into copy. Advancement comes from real
+actions: heat at the vent line, the `vent` event, the Aether balance, the active
+rail tab, a drone count above the run's starting count, and a blade count above
+the run's starting count. Nothing is a click-through carousel.
+
+Step 2 is the whole reason the server is involved. The gauge cools at 5/s, so by
+the time a player reads "press PURGE" the heat that made the key legal is gone.
+The client sends `tutorialHold` when the run starts. While armed, `ForgeService`
+caps heat gain at `Config.VentThreshold`, stops decay once the gauge reaches it,
+and suppresses the auto-vent pass. The hold clears on the real vent, on skip, on
+leave, and after 120 seconds, so a client cannot park the gauge forever. Strikes
+while held are also denied the sweet-spot multiplier, because a frozen 85 would
+otherwise be the top of the band and a free 2.5x.
+
+The handbook's rail foot carried the `SKY + METAL: LIHFOLK` credit. That slot is
+now `REPLAY VISUAL GUIDE`: it closes the book, then starts the notes. It reads
+GUIDE RUNNING and is inert while a run is live, so two runs cannot overlap. The
+top bar's GUIDE key is the same escape hatch: SKIP during a run, the handbook
+after it. `guideSeen` and `tutorialCompleted` keep their old meaning; a replay
+pays no second reward.
+
+**What it costs.** The card has to be positioned by hand per target, so a future
+layout change can leave a note in an awkward corner; the fallbacks (top-right,
+clamped, marker dropped) keep it readable but not pretty. The heat hold is a
+server-side special case in the strike path. Its blast radius is bounded: two
+minutes, one account, no multiplier, no auto-vent, and the reward path is
+unchanged. The guide also cannot force the player to stay on the step's section,
+which is deliberate: a marker that follows the player is better than a lock.

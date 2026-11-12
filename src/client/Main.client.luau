@@ -245,11 +245,21 @@ local function boot()
 	OrbitalLobby.init()
 	Music.init()
 
-	-- Boots hidden and reveals itself on the first payload: at this point the
-	-- profile has not arrived, so whether this player has already finished
-	-- onboarding is still unknown. The controller reads `tutorialCompleted` from
-	-- that first payload and shows the welcome card once.
+	-- Boots hidden and starts on the first payload: at this point the profile has
+	-- not arrived, so whether this player has already finished onboarding is
+	-- still unknown. The controller reads `tutorialCompleted` and `guideSeen`
+	-- from that first payload and starts the coach notes once.
+	TutorialController.onRunChanged = function(running: boolean)
+		HudController.setGuideLabel(if running then "SKIP" else "GUIDE", running)
+		HandbookView.setGuideRunning(running)
+	end
 	TutorialController.init(canvas, uiScale)
+	HandbookView.onReplayGuide = function()
+		-- Close first: the notes point at live controls, and a full-screen book
+		-- would sit on top of every one of them.
+		HandbookView.close()
+		TutorialController.replay()
+	end
 	FeedbackView.init(canvas)
 
 	-- The utility bank lives in the top bar now: seven labelled keys and two
@@ -310,6 +320,12 @@ local function boot()
 	end
 
 	HudController.guideHandler = function()
+		-- One key, two jobs. During a run it is the promised escape hatch; after
+		-- the run it is the reference book.
+		if TutorialController.isRunning() then
+			TutorialController.skip()
+			return
+		end
 		HandbookView.open()
 	end
 
@@ -382,6 +398,7 @@ local function boot()
 	local renderConnection = RunService.RenderStepped:Connect(function(dt)
 		HudController.step(dt)
 		ForgeView.step(dt)
+		TutorialController.step(dt)
 
 		badgeAccumulator += dt
 		if badgeAccumulator >= 0.5 then
@@ -460,6 +477,12 @@ local function boot()
 					heat = state.heat,
 					yield = state.clickYield,
 					sm = state.sm,
+					as = state.as,
+					drones = state.drones,
+					invCount = state.invCount,
+					tutorialCompleted = state.tutorialCompleted,
+					guideSeen = state.guideSeen,
+					tab = Sections.activeTab(),
 					bandMult = state.bandMult,
 					inSweetSpot = state.inSweetSpot,
 					overdrive = state.overdriveRemaining,
@@ -535,6 +558,15 @@ local function boot()
 			elseif command == "skipGuide" then
 				TutorialController.skip()
 				return true
+			elseif command == "replayGuide" then
+				HandbookView.close()
+				TutorialController.replay()
+				return true
+			elseif command == "guideState" then
+				return {
+					running = TutorialController.isRunning(),
+					step = TutorialController.currentStep(),
+				}
 			elseif command == "detailAt" then
 				return InventoryModal.openDetailAt(argument)
 			elseif command == "toggleAt" then

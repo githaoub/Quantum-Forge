@@ -390,33 +390,35 @@ the server's rules instead of guessing at them.
 
 ### Onboarding
 
-One card, on the first join, and then nothing. The card is the same shape as the
-offline `WELCOME BACK` popup: a dimmed scrim, a 480x300 plate, one line of copy and
-one CTA (`START FORGING`). Dismissing it writes `guideSeen` and `tutorialCompleted`,
-and the controller stops: no second card, no objective strip, no floating tracker,
-no fallback card on a slow join.
+First join runs eight coach notes, not a popup. A 360x176 work-order card sits
+beside the control the player needs next, and a gold marker names that control:
+a rounded ring on a button or rail tab, four corner brackets on the forge stage,
+which already has a gold border of its own. Nothing dims, nothing blocks input,
+and every note carries its own `SKIP` key. The sequence is strike to the vent
+line, purge, earn the first drone's Aether, open FLEET, build a drone, open
+CRATES, roll a blade, hand the game back.
 
-The top bar's `? GUIDE` replays the card without touching either flag, which is the
-only way to see it again after the first session. While the card is live the same
-button reads `SKIP GUIDE` and ends it the same way the CTA does.
+Step 2 is the only one the server has to help with. Without a hold the gauge
+cools while the player reads the note that says "press purge". The client arms
+`tutorialHold` when the run starts; the server caps gain at the vent line, stops
+decay once the gauge is there, and suppresses auto-vent for that window. The hold
+releases on vent, on skip, on leave, or after two minutes. Strikes while it is
+armed pay no sweet-spot multiplier, so a client cannot park the band for free.
 
-The old guide was eight cards gated on heat, venting, the first forge, the first
-drone, the first rune, ascension and tech, with a 44px objective strip filling the
-gaps and staying for the rest of the session. That is eight interruptions plus a
-card that never leaves, and it also had a wiring bug that made it worse: `modalCta`
-was never assigned, so the CTA only hid the card and the guide advanced itself on
-the next step's predicate. The lesson table is gone with it; see
-[ADR-047](design-decisions.md).
+The top bar's GUIDE key becomes SKIP during a run and opens the handbook after
+it. The handbook rail's bottom slot used to carry the `SKY + METAL: LIHFOLK`
+credit; it now carries `REPLAY VISUAL GUIDE`, which closes the book and restarts
+the notes. It reads GUIDE RUNNING and refuses a press while a run is live.
 
-The ring survives, because the card uses it to point at the anvil while it is open.
-It is still an overlay rather than a child of its target: `TutorialHighlightLayer`
-is a top-level canvas sibling at `ZIndex 50`, created before the modal so the card
-stays above it, and its screen rectangle is copied from the target every
-`RenderStepped`. Parenting it inside the target put it at the mercy of
-`ClipsDescendants`; the overlay version clamps itself to the visible window.
+`guideSeen` and `tutorialCompleted` still latch the first run and its one-time
+reward; a replay pays neither again. The spotlight chain and its objective strip
+are gone with [ADR-047](design-decisions.md). The card, the ring and the brackets
+live in `TutorialController` at `ZIndex` 21-23, above the normal UI and below
+every modal, and are positioned from live `AbsolutePosition` every 100ms, so a
+resize or a reflow moves the marker with the control.
 
 See [ADR-017](design-decisions.md), [ADR-028](design-decisions.md),
-[ADR-036](design-decisions.md) and [ADR-047](design-decisions.md).
+[ADR-047](design-decisions.md) and [ADR-108](design-decisions.md).
 
 ### Type scale: nothing interactive sits under 13px
 

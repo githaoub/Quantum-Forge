@@ -35,6 +35,12 @@ local function close()
 	end
 end
 
+--- True while a blocking card owns the screen. The coach notes wait for the
+--- starter gift to be dismissed instead of pointing at controls behind it.
+function Modals.isOpen(): boolean
+	return activeModal ~= nil
+end
+
 local function shell(
 	title: string,
 	subtitle: string?,

@@ -25,11 +25,44 @@ local ForgeService = {}
 local clickWindows: { [Player]: { count: number, startedAt: number } } = {}
 local autoClickAccumulators: { [Player]: number } = {}
 local playtimeAccumulators: { [Player]: number } = {}
+--- Deadline for the guide's heat hold. The note asks the player to read first
+--- and purge second; without a hold the gauge would cool below the vent line
+--- while they read. It expires on its own so a client cannot park the sweet
+--- spot forever.
+local tutorialHoldUntil: { [Player]: number } = {}
+local TUTORIAL_HOLD_SECONDS = 120
 
 -- ---------------------------------------------------------------------------
 -- Heat helpers
 -- ---------------------------------------------------------------------------
 
+local function tutorialHeld(player: Player): boolean
+	local deadline = tutorialHoldUntil[player]
+	if deadline == nil then
+		return false
+	end
+	if os.clock() > deadline then
+		tutorialHoldUntil[player] = nil
+		return false
+	end
+	return true
+end
+
+--- Sets or clears the guide hold. Arming may happen at any heat: the gauge keeps
+--- cooling on the way up, the gain caps at the vent line, and from there the
+--- gauge is frozen until the purge. A hold is a guide lesson, not a reward, so
+--- `strike` withholds the sweet-spot bonus while it is armed.
+function ForgeService.setTutorialHold(player: Player, held: boolean): boolean
+	if not held then
+		tutorialHoldUntil[player] = nil
+		return true
+	end
+	if DataManager.get(player) == nil then
+		return false
+	end
+	tutorialHoldUntil[player] = os.clock() + TUTORIAL_HOLD_SECONDS
+	return true
+end
 
 local function clickBudget(state: Types.ProfileState): number
 	local budget = Config.ClickRateLimit
@@ -56,12 +89,17 @@ end
 --- in the sweet spot, and the name of a cache if this strike filled the meter.
 --- Every one of them is a client-facing event and reconstructing them afterwards
 --- would mean a second copy of the rules.
-local function strike(state: Types.ProfileState): (number, boolean, number, boolean, boolean, boolean, string?)
+local function strike(
+	state: Types.ProfileState,
+	heatHeld: boolean
+): (number, boolean, number, boolean, boolean, boolean, string?)
 	local stats = ProgressionService.stats(state)
 	local bonus = ProgressionService.runeBonus(state)
 	local salvage = ProgressionService.salvageBonus(state)
 	local variant = ProgressionService.variantBonus(state)
-	local inSweetSpot = state.heat >= stats.sweetSpotMin and state.heat <= stats.sweetSpotMax
+	-- A frozen gauge sits inside the band by construction. Paying the band
+	-- multiplier there would let any client hold the top of the band forever.
+	local inSweetSpot = not heatHeld and state.heat >= stats.sweetSpotMin and state.heat <= stats.sweetSpotMax
 	local overdriveWasActive = ProgressionService.forgeOverdriveActive(state)
 
 	local amount = ProgressionService.clickYield(state)
@@ -106,7 +144,11 @@ local function strike(state: Types.ProfileState): (number, boolean, number, bool
 		state.voidShards += shards
 	end
 
-	state.heat = math.min(state.heat + Config.HeatPerClick, Config.OverheatAt)
+	local nextHeat = math.min(state.heat + Config.HeatPerClick, Config.OverheatAt)
+	if heatHeld then
+		nextHeat = math.min(nextHeat, math.max(Config.VentThreshold, state.heat))
+	end
+	state.heat = nextHeat
 
 	-- Salvage meter last, so the strike that drops a cache is also the strike
 	-- that paid out. One cache per strike at most by construction.
@@ -139,7 +181,8 @@ function ForgeService.click(player: Player): boolean
 	end
 	window.count += 1
 
-	local amount, crit, shards, overdriveStarted, masteryUp, inSweetSpot, dropped = strike(state)
+	local held = tutorialHeld(player)
+	local amount, crit, shards, overdriveStarted, masteryUp, inSweetSpot, dropped = strike(state, held)
 
 	Net.sendEvent(player, { kind = if crit then "crit" else "forge", amount = amount, crit = crit })
 
@@ -183,8 +226,10 @@ function ForgeService.click(player: Player): boolean
 		})
 	end
 
-	-- Auto-Vent pass: release the heat before it becomes a problem.
-	if state.passes.autoVent and state.heat >= Config.VentThreshold then
+	-- Auto-Vent pass: release the heat before it becomes a problem. Suppressed
+	-- while the guide holds the gauge, because the hold exists to make the
+	-- manual purge legible and an automatic purge would swallow the lesson.
+	if state.passes.autoVent and state.heat >= Config.VentThreshold and not held then
 		ForgeService.vent(player, true)
 	end
 
@@ -223,6 +268,9 @@ function ForgeService.vent(player: Player, automatic: boolean?): (boolean, strin
 
 	ProgressionService.addAether(state, gained)
 	state.heat = 0
+	-- The lesson ends at the purge whether or not the client remembers to say
+	-- so.
+	tutorialHoldUntil[player] = nil
 
 	if not automatic then
 		Net.sendEvent(player, {
@@ -253,8 +301,12 @@ function ForgeService.step(dt: number)
 		end
 
 		-- Heat always decays, so the gauge settles between bursts. Tempo runes
-		-- speed the cooling, which is what makes them worth a socket.
-		if state.heat > 0 then
+		-- speed the cooling, which is what makes them worth a socket. The one
+		-- exception is the guide's purge lesson: once the gauge reaches the line
+		-- it is frozen until the purge, so reading the note costs no heat.
+		local held = tutorialHeld(player)
+		local frozen = held and state.heat >= Config.VentThreshold
+		if state.heat > 0 and not frozen then
 			local bonus = ProgressionService.runeBonus(state)
 			local salvage = ProgressionService.salvageBonus(state)
 			local variant = ProgressionService.variantBonus(state)
@@ -297,7 +349,7 @@ function ForgeService.step(dt: number)
 			local whole = math.floor(acc)
 			autoClickAccumulators[player] = acc - whole
 			for _ = 1, math.min(whole, 20) do
-				strike(state)
+				strike(state, held)
 			end
 			if whole > 0 then
 				DataManager.markDirty(player)
@@ -331,6 +383,7 @@ function ForgeService.forget(player: Player)
 	clickWindows[player] = nil
 	autoClickAccumulators[player] = nil
 	playtimeAccumulators[player] = nil
+	tutorialHoldUntil[player] = nil
 end
 
 -- ---------------------------------------------------------------------------

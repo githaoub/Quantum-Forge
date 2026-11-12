@@ -150,6 +150,17 @@ local function registerActions()
 		return ok
 	end)
 
+	--- The guide holds the gauge between the vent lesson and the purge. Any
+	--- client may ask; the server caps gain at the line, stops decay there,
+	--- suppresses auto-vent and expires the hold on its own, so the worst case
+	--- is a two-minute frozen gauge that pays no band bonus.
+	Net.onAction("tutorialHold", function(player: Player, payload: unknown): boolean
+		if type(payload) ~= "boolean" then
+			return false
+		end
+		return ForgeService.setTutorialHold(player, payload)
+	end)
+
 	Net.onAction("crate", function(player: Player, payload: unknown): boolean
 		local id = if type(payload) == "string" then payload elseif type(payload) == "table" then (payload :: any).id else nil
 		if type(id) ~= "string" then

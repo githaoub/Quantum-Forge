@@ -67,6 +67,13 @@ local rail: ScrollingFrame? = nil
 local content: Frame? = nil
 local activeIndex = 1
 local cleanup: (() -> ())? = nil
+local replayHandle: UiKit.ActionHandle? = nil
+local replayRunning = false
+
+--- Set by `Main`: closes the book and starts the coach notes. The handbook does
+--- not require `TutorialController` directly, because that module already
+--- requires this one for the running state.
+HandbookView.onReplayGuide = nil :: (() -> ())?
 
 -- ---------------------------------------------------------------------------
 -- Drawing helpers
@@ -1032,6 +1039,26 @@ function HandbookView.refresh()
 	end
 end
 
+--- Paints the replay key from the guide's run state. A running guide owns the
+--- screen's attention, so the key reads GUIDE RUNNING and refuses a second
+--- start rather than silently doing nothing.
+local function paintReplay()
+	local handle = replayHandle
+	if handle == nil then
+		return
+	end
+	if replayRunning then
+		handle.set("locked", "GUIDE RUNNING")
+	else
+		handle.set("ready", "REPLAY VISUAL GUIDE", Theme.Color.gold)
+	end
+end
+
+function HandbookView.setGuideRunning(value: boolean)
+	replayRunning = value
+	paintReplay()
+end
+
 function HandbookView.open()
 	local handle = shell
 	if handle == nil then
@@ -1040,6 +1067,7 @@ function HandbookView.open()
 	if handle.isOpen() then
 		return
 	end
+	paintReplay()
 	handle.open()
 	HandbookView.refresh()
 end
@@ -1101,20 +1129,29 @@ function HandbookView.init(canvas: Frame)
 	local railArea = UiKit.scroll(handle.body)
 	railArea.Name = "HandbookRail"
 	railArea.Position = UDim2.fromOffset(16, 12)
-	railArea.Size = UDim2.fromOffset(RAIL_W, 600)
+	-- The page list is 494px tall in ten rows. The old 600px box left a bare
+	-- strip under it; the replay key now owns that strip instead of a credit.
+	railArea.Size = UDim2.fromOffset(RAIL_W, 578)
 	UiKit.vlist(railArea, { gap = 6 })
 	rail = railArea
 
-	local credit = UiKit.label(handle.body, {
-		text = "SKY + METAL: LIHFOLK",
+	replayHandle = UiKit.actionButton(handle.body, {
+		label = "REPLAY VISUAL GUIDE",
+		accent = Theme.Color.gold,
+		height = 40,
+		radius = Theme.Radius.sm,
 		size = Theme.Text.Tiny,
-		font = Theme.Font.Label,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Left,
+		handler = function()
+			local callback = HandbookView.onReplayGuide
+			if callback ~= nil and not replayRunning then
+				callback()
+			end
+		end,
 	})
-	credit.Name = "HandbookCredit"
-	credit.Position = UDim2.fromOffset(18, 616)
-	credit.Size = UDim2.fromOffset(RAIL_W, 16)
+	replayHandle.button.Name = "HandbookReplayGuide"
+	replayHandle.button.Position = UDim2.fromOffset(16, 596)
+	replayHandle.button.Size = UDim2.fromOffset(RAIL_W, 40)
+	paintReplay()
 
 	local divider = UiKit.create("Frame", {
 		Name = "Divider",
@@ -1147,6 +1184,8 @@ function HandbookView.destroy()
 	end
 	rail = nil
 	content = nil
+	replayHandle = nil
+	replayRunning = false
 end
 
 return HandbookView

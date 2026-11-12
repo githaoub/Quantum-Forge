@@ -44,6 +44,7 @@ local bladeName: TextLabel? = nil
 local bladeFlavor: TextLabel? = nil
 local multChip: TextLabel? = nil
 
+local heatBlock: Frame? = nil
 local heatLabel: TextLabel? = nil
 local heatStatus: TextLabel? = nil
 local heatTrackStroke: UIStroke? = nil
@@ -55,6 +56,10 @@ local heatVentTick: Frame? = nil
 local heatLeanTick: Frame? = nil
 local heatNeedle: Frame? = nil
 local heatBandLabel: TextLabel? = nil
+--- True while the coach notes hold the gauge for the purge lesson. The server
+--- is the authority; this stops the local prediction from racing past 85 while
+--- the player reads.
+local heatHold = false
 
 local strikeButton: TextButton? = nil
 local strikeFlash: Frame? = nil
@@ -411,6 +416,7 @@ local function buildHeat(parent: Frame)
 		ZIndex = 7,
 	}) :: Frame
 	block.Parent = parent
+	heatBlock = block
 
 	heatLabel = UiKit.label(block, {
 		text = "CORE HEAT",
@@ -891,9 +897,11 @@ function ForgeView.strike()
 	StateStore.send("click")
 
 	-- Heat is server-authoritative but a local nudge keeps the gauge moving
-	-- between packets instead of stepping at 10Hz.
+	-- between packets instead of stepping at 10Hz. A held gauge stops at the
+	-- vent line so the purge note cannot be contradicted by the bar.
 	if state then
-		state.heat = math.min(state.heat + 2.5, 100)
+		local ceiling = if heatHold then math.max(Config.VentThreshold, state.heat) else 100
+		state.heat = math.min(state.heat + Config.HeatPerClick, ceiling)
 		ForgeView.render(state)
 	end
 end
@@ -1688,6 +1696,26 @@ end
 --- this module (crit flourishes, overheat flashes). Returns nil before init.
 function ForgeView.strikeAnchor(): TextButton?
 	return strikeButton
+end
+
+--- Freezes the local heat prediction at the vent line while the coach notes
+--- explain the purge. The server does the real hold. Nothing is clamped here:
+--- a replay may begin with the gauge already above the line, and dropping the
+--- bar under the player's eyes would be a lie.
+function ForgeView.setHeatHold(value: boolean)
+	heatHold = value
+end
+
+--- The heat dial, for the coach notes. The whole block is the target: the
+--- gauge, the number and the band caption are one control in the player's head.
+function ForgeView.heatAnchor(): Frame?
+	return heatBlock
+end
+
+--- The purge key, for the coach notes. Same button the player presses, not a
+--- stand-in that would point at the wrong place after a reflow.
+function ForgeView.ventAnchor(): TextButton?
+	return ventPill
 end
 
 --- The hero orbit, for the Studio seam. The camera is normally driven by
