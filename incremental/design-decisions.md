@@ -4166,3 +4166,30 @@ adds no asset and cannot fail an upload.
 key is relative: playback speed 1.0 is "do", so the scale is consistent inside
 the game but not with an external track. The anvil keeps its pentatonic ladder;
 the crate and the anvil are deliberately different instruments.
+
+## ADR-098 - The crate sells the hit with a flash, not a camera move
+
+**Context.** The anvil feels right and the crate did not, and the difference was
+not the model: the forge answers every press with a full-screen flash, a punch
+and sparks. The crate answered with a small shockwave. The first fix added a
+stage zoom and a large shake on every click, which made the crate read as the
+camera being knocked around rather than as the crate being hit.
+
+**Decision.** The per-click answer is a scrim flash in the crate accent (white
+on the click that gives the seal), a wider shockwave, more sparks, and a
+burst on the opening blow. The stage no longer scales per click; the shake is
+1.3-4.5px, and the reveal is 6+1.2*rank. The crate knock tilts 7/10 degrees
+and pulls the lens 3 units instead of 14/18 and 7. The reveal keeps one 1.08
+scale punch and adds a fast white ring inside the rarity ring, the forge's
+Vfx.resultWash for Void-Touched and Prismatic, and a 0.18 s name slam.
+The orbit controller now ignores the first 8px of cursor travel, so a twitchy
+press on the full-screen strike button cannot rotate the preview; a real drag
+still orbits. Crate sound gains are 1.35-1.4x, the tick ladder is louder,
+and the shatter gained a slow air layer for mass.
+
+**What it costs.** A ten-pull strobes the scrim ten times in about two
+seconds. The wash is capped at 0.42 until the final click and fades in 80-130
+ms, so it reads as impact rather than as a strobing screen; reduced motion
+collapses it with every other tween. The camera deadzone delays the start of a
+drag by 8px everywhere, which is below the perception threshold for a real
+drag and above the jitter of a click.

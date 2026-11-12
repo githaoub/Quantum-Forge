@@ -166,3 +166,41 @@ fanfare during the shake, before the reveal.
 - The marketplace listings exist; a live purchase was still not attempted.
 - The crate meshes are still primitives. The light sells them; a sculpted mesh
   would sell them harder, and the upload is still blocked.
+
+## Round 3 - the crate answers like the anvil
+
+The crate had the sizes right and the reaction wrong. An anvil press fires a
+full-bleed flash, a punch and sparks; a crate press fired a small shockwave.
+The first attempt at closing that gap added a stage zoom and an 11px shake on
+every click, which traded one problem for another: the whole frame moved, and
+the crate read as the camera being knocked around.
+
+The shipped answer is the forge's flash without the camera work. Every click
+washes the scrim in the crate accent, the seal click washes white, the
+shockwave is wider, the sparks are denser, and the opening blow gets a burst.
+The stage stays put; the shake is 1.3-4.5px per click and 6+1.2*rank on the
+reveal. The crate knock is a shiver now (7/10 degrees, 3 units of lens) instead
+of a swing (14/18 degrees, 7 units). The reveal adds a fast white ring inside
+the rarity ring, borrows the forge's result wash for Void-Touched and
+Prismatic, and lands the sword name from 16% over in 0.18 s.
+
+The orbit controller now ignores the first 8px of cursor travel, so a press
+with a little hand jitter cannot rotate the preview. A 30px drag still orbits,
+and the tap guard on the strike button still separates a tap from a drag.
+
+Sound was raised at the source: crate landing, break and shatter take an
+optional gain, the ceremony passes 1.35-1.4, the tick ladder starts at 0.09
+and climbs 0.014 per click, the claim and riser are louder, and the shatter
+gained a slow air layer under the crack. The anvil mix is unchanged.
+
+### Round 3 verification
+
+| Thing | State |
+| --- | --- |
+| Click flash | Probe on the scrim flash: peak opacity 0.86 (transparency 0.14), colour equals the rolled rarity |
+| Click camera | Max stage scale during a one-crate pull was 1.0; the only punch was the reveal's 1.0666 at 4.13 s |
+| Orbit deadzone | 5px drag left `CrateCamera` CFrame byte-identical; 30px drag changed yaw and pitch |
+| Name slot | Label anchor is `0.5, 0`; centre at scale 1 and scale 1.5 is 606.4px both times |
+| x1 | Six clicks, sealed hold, Prismatic reveal, one claim closes |
+| x10 | Ten clicks, `COPY 1 OF 10`, chip 1 `CLAIMED`, chip 2 hero and `CLAIM 2 / 10`, ten claims close |
+| Static | `selene src/` 0/0/0; `rojo build -o verify.rbxlx` succeeds |

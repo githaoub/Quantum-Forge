@@ -685,13 +685,17 @@ function CratePreview.mount(viewport: ViewportFrame, style: string?, opts: Mount
 		local yaw = (if step % 2 == 0 then 1 else -1) * strength * 1.7
 		local roll = (if step % 2 == 0 then -1 else 1) * strength
 		local lift = 0.1 + step * 0.03
+		-- A knock is the object taking a hit, not the camera swinging around it.
+		-- The original 14/18 degree tilt plus a 7 unit zoom read as the whole
+		-- room moving on every click; the crate now shivers a few degrees and the
+		-- screen flash carries the impact.
 		moveTo(
-			CFrame.new(0, lift, 0) * CFrame.Angles(math.rad(roll * 14), math.rad(yaw * 18), math.rad(roll * 7)),
+			CFrame.new(0, lift, 0) * CFrame.Angles(math.rad(roll * 7), math.rad(yaw * 10), math.rad(roll * 4)),
 			0.07,
 			Enum.EasingStyle.Quad,
 			Enum.EasingDirection.InOut
 		)
-		Theme.tween(camera, 0.14, { FieldOfView = math.max(FOV - 7, FOV + 1 - step * 0.8) }, Enum.EasingStyle.Quad)
+		Theme.tween(camera, 0.14, { FieldOfView = math.max(FOV - 3, FOV + 1 - step * 0.45) }, Enum.EasingStyle.Quad)
 		setSeams(tint, math.max(0, 0.5 - step * 0.08))
 	end
 

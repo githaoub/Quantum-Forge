@@ -82,6 +82,11 @@ local DEFAULT_PITCH_LIMIT = math.rad(40)
 -- Easing rate for the camera angles. 16/s settles in about 180ms: attached to
 -- the cursor, but a flick does not whip the frame.
 local EASE = 16
+-- Cursor travel, in pixels, before a press counts as a drag. Below this the
+-- press is a tap. The crate ceremony puts its strike button over the whole
+-- screen, so without a deadzone a slightly twitchy click nudged the camera on
+-- every press and the crate appeared to sway on its own.
+local TAP_SLOP = 8
 
 --- Attaches orbit control to `viewport` and starts the render loop.
 --- Returns a handle; call `handle.destroy()` when the viewport is torn down.
@@ -158,6 +163,9 @@ function OrbitController.attach(viewport: ViewportFrame, model: Model, options: 
 		-- is the "grab the object" direction, not the inverted "grab the world"
 		-- direction the first pass shipped.
 		handle.dragTravel += math.abs(dx) + math.abs(dy)
+		if handle.dragTravel < TAP_SLOP then
+			return
+		end
 		handle.cameraYaw += dx * sensitivity
 		handle.cameraPitch = math.clamp(handle.cameraPitch - dy * sensitivity, -pitchLimit, pitchLimit)
 	end

@@ -112,6 +112,7 @@ local bloom: StageBackdrop.Handle? = nil
 local canvasScale: UIScale? = nil
 local viewport: ViewportFrame? = nil
 local flash: Frame? = nil
+local flashTween: Tween? = nil
 local topLabel: TextLabel? = nil
 local mainLabel: TextLabel? = nil
 local subLabel: TextLabel? = nil
@@ -296,6 +297,22 @@ local function beamTo(color: Color3, strength: number, duration: number, style: 
 	Theme.tween(value, duration, { Value = strength }, style or Enum.EasingStyle.Quad)
 end
 
+--- A full-screen wash on the scrim. The forge sells every anvil hit with a
+--- frame flash; the crate had only a shockwave, which is why its clicks read
+--- lighter than the anvil's. `peak` is opacity 0..1, `hold` is the fade.
+local function screenFlash(color: Color3, peak: number, hold: number)
+	local frame = flash
+	if frame == nil then
+		return
+	end
+	if flashTween then
+		flashTween:Cancel()
+	end
+	frame.BackgroundColor3 = color
+	frame.BackgroundTransparency = 1 - math.clamp(peak, 0, 1)
+	flashTween = UiKit.tween(frame, hold, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end
+
 -- ---------------------------------------------------------------------------
 -- Build
 -- ---------------------------------------------------------------------------
@@ -331,9 +348,7 @@ local function claimOut()
 		Vfx.burst(viewport, color, 1.2 + resultRank * 0.06)
 	end
 	if flash then
-		flash.BackgroundColor3 = Theme.Color.white
-		flash.BackgroundTransparency = 0.2
-		UiKit.tween(flash, 0.3, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+		screenFlash(Theme.Color.white, 0.8, 0.3)
 	end
 	-- The VFX wash lives above the scrim, so it is still on screen one beat
 	-- after `close()` hides the ceremony. That overlap is what hides the cut.
@@ -523,7 +538,8 @@ local function buildStage(canvas: Frame)
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
 	})
-	main.Position = UDim2.fromOffset(0, VIEW_H + 30)
+	main.AnchorPoint = Vector2.new(0.5, 0)
+	main.Position = UDim2.fromOffset(STAGE_W / 2, VIEW_H + 30)
 	main.Size = UDim2.new(1, -40, 0, 40)
 	main.ZIndex = 3
 	main.TextTruncate = Enum.TextTruncate.AtEnd
@@ -787,7 +803,7 @@ local function layoutStage(batch: number, isResult: boolean)
 		viewport.Size = UDim2.fromOffset(STAGE_W, viewH)
 	end
 	if mainLabel then
-		mainLabel.Position = UDim2.fromOffset(0, viewH + 30)
+		mainLabel.Position = UDim2.fromOffset(STAGE_W / 2, viewH + 30)
 	end
 	if subLabel then
 		subLabel.Position = UDim2.fromOffset(0, viewH + 70)
@@ -1020,6 +1036,18 @@ local function showCopy(position: number)
 		mainLabel.Text = string.upper(display)
 		mainLabel.TextColor3 = Theme.Color.text
 		mainLabel.TextSize = if #display > 26 then Theme.Text.Heading else Theme.Text.Title
+		-- The name slams in. A label that simply appears next to a burst reads as
+		-- a caption; a label that lands from 16% over reads as part of the hit.
+		if not Theme.reducedMotion() then
+			local pop: UIScale? = mainLabel:FindFirstChildOfClass("UIScale") :: UIScale?
+			if pop == nil then
+				local created = UiKit.create("UIScale", { Scale = 1 }) :: UIScale
+				created.Parent = mainLabel
+				pop = created
+			end
+			pop.Scale = 1.16
+			UiKit.tween(pop, 0.18, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		end
 	end
 	if subLabel then
 		local pieces = {
@@ -1163,12 +1191,10 @@ claimOne = function()
 	local blade = bladeOf(copy and copy.blade)
 	local color = if blade then rarityColorOf(blade) else Theme.Color.gold
 	if flash then
-		flash.BackgroundColor3 = color
-		flash.BackgroundTransparency = 0.55
-		UiKit.tween(flash, 0.22, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+		screenFlash(color, 0.45, 0.22)
 	end
 	if stage then
-		Vfx.shake(stage, 1.6, 0.14)
+		Vfx.shake(stage, 1.5, 0.16)
 	end
 	if viewport then
 		Vfx.sparks(viewport, color, 6, 0.7)
@@ -1305,31 +1331,42 @@ local function reveal(result: Types.FeedEvent)
 		stageScale.Scale = 1.08
 		UiKit.tween(stageScale, Theme.Duration.slow, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	end
-	if flash then
-		flash.BackgroundColor3 = rarityColor
-		flash.BackgroundTransparency = 0.16
-		UiKit.tween(flash, 0.5, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		if rank >= 4 and not Theme.reducedMotion() then
-			task.delay(0.06, function()
-				if flash.Parent then
-					flash.BackgroundColor3 = Theme.Color.white
-					flash.BackgroundTransparency = 0.22
-					UiKit.tween(flash, 0.4, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-				end
-			end)
+	-- The reveal is the payoff, and the forge is the reference: a near-opaque
+	-- rarity wash, a white pop on top, a heavier shake and a real burst. Before
+	-- this the wash peaked at 16%, which is why the crate read as a model swap
+	-- rather than as the screen reacting.
+	screenFlash(rarityColor, 0.86, 0.45)
+	task.delay(0.07, function()
+		if stamp == token and phase == "result" then
+			Vfx.flash(Theme.Color.white, 0.18 + rank * 0.02)
 		end
-	end
+	end)
 	if stage then
-		Vfx.shake(stage, 2.5 + rank * 1.2, 0.34)
+		Vfx.shake(stage, 6 + rank * 1.2, 0.38 + rank * 0.02)
 	end
 	if viewport then
 		Vfx.shockwave(viewport, rarityColor, {
-			size = 150,
-			spread = 3.0,
-			duration = 0.5,
-			thickness = 5,
+			size = 190,
+			spread = 4.5,
+			duration = 0.55,
+			thickness = 6,
 		})
-		Vfx.sparks(viewport, rarityColor, 12 + rank, 1.2)
+		-- A fast white ring inside the rarity ring. One ring alone expands like a
+		-- ripple; a hot ring chasing it reads as the frame cracking open.
+		Vfx.shockwave(viewport, Theme.Color.white, {
+			size = 110,
+			spread = 6.5,
+			duration = 0.28,
+			thickness = 2,
+		})
+		Vfx.sparks(viewport, rarityColor, 22 + rank * 4, 1.5 + rank * 0.12)
+		Vfx.burst(viewport, rarityColor, 1.3 + rank * 0.12)
+	end
+	-- The top two variants borrow the forge's result wash, which is where the
+	-- lightning lives. Reusing it keeps the two surfaces in the same visual
+	-- language instead of inventing a second kind of celebration.
+	if stage and rank >= 4 then
+		Vfx.resultWash(stage, rarityColor, rank)
 	end
 	beamTo(rarityColor, 1, 0.1)
 	local beamStamp = token
@@ -1343,7 +1380,7 @@ local function reveal(result: Types.FeedEvent)
 	end
 	startRays(rarityColor, rank)
 
-	Sfx.crateShatter()
+	Sfx.crateShatter(1.4)
 	Sfx.result(rank)
 	Haptics.pulse(0.85, 0.22)
 end
@@ -1399,27 +1436,47 @@ local function strike()
 		end
 	end
 	Sfx.crateBreak(opensCrate)
-	Haptics.pulse(if opensCrate then 0.55 else 0.18 + normalized * 0.045, if opensCrate then 0.09 else 0.05)
+	Haptics.pulse(
+		if final then 0.9 elseif opensCrate then 0.65 else 0.28 + normalized * 0.06,
+		if final then 0.14 elseif opensCrate then 0.1 else 0.055
+	)
+
 	-- The room brightens as the seal gives. By the last click the column is
 	-- already half-lit, so the held beat has somewhere to go.
 	beamTo(crate.accent, 0.16 + math.min(strikes / strikeTotal, 1) * 0.34, 0.18)
 
+	-- The forge sells every anvil hit with a frame flash and a spike of sparks.
+	-- The crate had the shockwave and the sparks but not the flash, which is why
+	-- its clicks read lighter than the anvil's. `final` is the seal giving, so it
+	-- gets the white version and the longest fade. The stage itself does not
+	-- scale or jump here: the flash is the impact, and moving the whole frame on
+	-- every click read as the camera being knocked around.
+	screenFlash(
+		if final then Theme.Color.white else crate.accent,
+		if final then 0.42 elseif opensCrate then 0.32 else 0.22,
+		if opensCrate then 0.13 else 0.08
+	)
+
 	-- The same answer the anvil gives, scaled by how hard the crate was hit.
 	if viewport then
 		Vfx.shockwave(viewport, crate.accent, {
-			size = 40 + normalized * 6,
-			spread = 2.0 + normalized * 0.15,
-			duration = 0.3,
-			thickness = 2 + normalized * 0.3,
+			size = 58 + normalized * 8,
+			spread = 3.0 + normalized * 0.22,
+			duration = 0.32,
+			thickness = 3 + normalized * 0.4,
 			at = Vfx.pointer(root),
 		})
-		Vfx.sparks(viewport, crate.accent, 6 + normalized, 0.9)
+		Vfx.sparks(viewport, crate.accent, math.floor(10 + normalized * 1.6), 1.15)
 		if opensCrate then
-			Vfx.burst(viewport, crate.accent, 0.8)
+			Vfx.burst(viewport, crate.accent, if final then 1.4 else 1.0)
 		end
 	end
 	if stage then
-		Vfx.shake(stage, 1.0 + normalized * 0.22, 0.12)
+		Vfx.shake(
+			stage,
+			if final then 4.5 else (1.3 + normalized * 0.3) * (if opensCrate then 1.15 else 1),
+			0.16
+		)
 	end
 	Sfx.crateTick(strikes, strikeTotal)
 
@@ -1444,6 +1501,16 @@ local function strike()
 	-- darkens, the pad builds, and two heartbeats carry the silence. The server
 	-- answer is already in hand; this is the pause before the screen admits it.
 	beamTo(crate.accent, 0.75, 0.5)
+	if stage then
+		-- One slow ring off the seal. It travels for the whole hold, so the
+		-- screen is still moving while the sound drops to the heartbeats.
+		Vfx.shockwave(stage, crate.accent, {
+			size = 240,
+			spread = 1.6,
+			duration = SEALED_HOLD,
+			thickness = 2,
+		})
+	end
 	if vignetteLeft then
 		Theme.tween(vignetteLeft, SEALED_HOLD, { Size = UDim2.new(0, 230, 1, 0) }, Enum.EasingStyle.Quad)
 	end
@@ -1556,7 +1623,7 @@ local function open(opts: {
 						mainLabel.Text = "CLICK TO OPEN"
 						mainLabel.TextColor3 = Theme.Color.text
 					end
-					Sfx.crateLand()
+					Sfx.crateLand(1.35)
 				end,
 			}, true)
 		end

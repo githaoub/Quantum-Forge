@@ -1136,7 +1136,7 @@ local function revealNow()
 		chargeCaption.Visible = false
 	end
 
-	Sfx.crateShatter()
+	Sfx.crateShatter(1.35)
 	task.delay(0.07, function()
 		Sfx.result(rank)
 	end)

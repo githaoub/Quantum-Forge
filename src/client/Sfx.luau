@@ -290,32 +290,38 @@ end
 --- wooden knock, and the ring of the iron bands. This is phase one of the roll,
 --- and it used to be a single `rollTick`, which is why the crate read as a
 --- graphic arriving rather than as an object landing.
-function Sfx.crateLand()
-	play(SMACK, jitter(0.44, 0.03), 0.34)
-	play(SNAP, jitter(0.72, 0.04), 0.17, 0.005)
-	play(RING, jitter(0.66, 0.02), 0.11, 0.03)
-	play(WATER, jitter(0.9, 0.06), 0.05, 0.02)
+function Sfx.crateLand(gain: number?)
+	local g = gain or 1
+	play(SMACK, jitter(0.44, 0.03), 0.34 * g)
+	play(SNAP, jitter(0.72, 0.04), 0.17 * g, 0.005)
+	play(RING, jitter(0.66, 0.02), 0.11 * g, 0.03)
+	play(WATER, jitter(0.9, 0.06), 0.05 * g, 0.02)
 end
 
 --- One crate taking the hit. This is the per-click payoff, not the reveal: a
 --- short crack and a wooden knock, with a heavier body only on the crate that
 --- actually opens.
 function Sfx.crateBreak(final: boolean?)
-	play(SNAP, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.2 else 0.12)
-	play(SMACK, jitter(0.82, 0.05), if final then 0.16 else 0.085, 0.005)
+	play(SNAP, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.3 else 0.18)
+	play(SMACK, jitter(0.82, 0.05), if final then 0.24 else 0.13, 0.005)
 	if final then
-		play(SMACK, jitter(0.55, 0.03), 0.12, 0.03)
-		play(RING, jitter(0.92, 0.02), 0.09, 0.05)
+		play(SMACK, jitter(0.55, 0.03), 0.18, 0.03)
+		play(RING, jitter(0.92, 0.02), 0.15, 0.05)
 	end
 end
 
 --- The crate splitting. A hard crack over the same body as the landing, so the
---- two read as the same object at two moments.
-function Sfx.crateShatter()
-	play(SNAP, jitter(0.95, 0.03), 0.22)
-	play(SMACK, jitter(0.6, 0.03), 0.24, 0.02)
-	play(RING, jitter(1.2, 0.02), 0.14, 0.04)
-	play(WATER, jitter(1.3, 0.05), 0.08, 0.03)
+--- two read as the same object at two moments. `gain` lets the ceremony be
+--- louder than the anvil without changing the anvil's mix.
+function Sfx.crateShatter(gain: number?)
+	local g = gain or 1
+	play(SNAP, jitter(0.95, 0.03), 0.22 * g)
+	play(SMACK, jitter(0.6, 0.03), 0.24 * g, 0.02)
+	-- A slow air layer under the crack. Without it the split is all transient and
+	-- no mass, which is the difference between a box breaking and a box popping.
+	play(WATER, jitter(0.55, 0.04), 0.16 * g, 0.01)
+	play(RING, jitter(1.2, 0.02), 0.14 * g, 0.04)
+	play(WATER, jitter(1.3, 0.05), 0.08 * g, 0.03)
 end
 
 --- One tick of the roll cadence, climbing the same ladder as the strike band so
@@ -349,25 +355,25 @@ function Sfx.crateTick(index: number, total: number)
 	local ten = { 1, 2, 3, 4, 5, 6, 7, 8, 5, 8 }
 	local ladder = if total >= 10 then ten else six
 	local step = ladder[math.clamp(index, 1, #ladder)]
-	local weight = 0.06 + math.min(index, 10) * 0.01
+	local weight = 0.09 + math.min(index, 10) * 0.014
 	play(CLICK, jitter(1.05, 0.02), weight * 0.8)
-	play(PING, jitter(degree(step), 0.005), weight + 0.06, 0.005)
+	play(PING, jitter(degree(step), 0.005), weight + 0.08, 0.005)
 	-- The last note lands on the tonic an octave up; give it a low octave so the
 	-- click has a floor instead of only a ceiling. The first tonic in a ten-pull
 	-- is the top of the scale, not the end, so only the actual last click gets it.
 	if step == 8 and index >= total then
-		play(PING, 0.5, 0.09, 0.01)
+		play(PING, 0.5, 0.14, 0.01)
 	end
 	if index >= 5 then
-		play(SMACK, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.1, 0)
+		play(SMACK, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.16, 0)
 	end
 end
 
 --- A single heartbeat under the sealed hold. Low, soft and deliberately not a
 --- tick: the rattle is over, and what is left is the player waiting.
 function Sfx.heartbeat()
-	play(SMACK, jitter(0.42, 0.03), 0.2)
-	play(PING, jitter(0.55, 0.02), 0.055, 0.03)
+	play(SMACK, jitter(0.42, 0.03), 0.3)
+	play(PING, jitter(0.55, 0.02), 0.085, 0.03)
 end
 
 --- The last half-second before a reveal. The top of the do-re-mi ladder, ending
@@ -379,29 +385,29 @@ function Sfx.riser(steps: number?)
 	local last = 7
 	local first = math.max(1, last - count + 1)
 	for index = first, last do
-		play(PING, jitter(degree(index), 0.005), 0.055 + (index - first) * 0.006, (index - first) * 0.06)
+		play(PING, jitter(degree(index), 0.005), 0.09 + (index - first) * 0.009, (index - first) * 0.06)
 	end
-	play(WATER, jitter(0.88, 0.04), 0.07, 0.02)
-	play(SMACK, jitter(0.5, 0.03), 0.1, count * 0.06)
+	play(WATER, jitter(0.88, 0.04), 0.11, 0.02)
+	play(SMACK, jitter(0.5, 0.03), 0.16, count * 0.06)
 end
 
 --- One copy leaving the ceremony. Deliberately smaller than the reveal: a claim
 --- happens once per sword now, so it has to be repeatable without becoming a
 --- second fanfare. A rising sol-do fourth and the ring of the blade.
 function Sfx.claim()
-	play(PING, jitter(1.498, 0.005), 0.1)
-	play(PING, jitter(2.0, 0.005), 0.085, 0.05)
-	play(RING, jitter(1.0, 0.02), 0.08, 0.015)
-	play(CLICK, jitter(1.0, 0.04), 0.06, 0.02)
+	play(PING, jitter(1.498, 0.005), 0.15)
+	play(PING, jitter(2.0, 0.005), 0.13, 0.05)
+	play(RING, jitter(1.0, 0.02), 0.12, 0.015)
+	play(CLICK, jitter(1.0, 0.04), 0.09, 0.02)
 end
 
 --- The last copy leaving. The claim beat plus a low do, so the ceremony has a
 --- downbeat instead of stopping on the same note as every individual claim.
 function Sfx.claimAll()
 	Sfx.claim()
-	play(SMACK, 0.5, 0.14, 0.02)
-	play(PING, 0.5, 0.1, 0.08)
-	play(PING, 1.0, 0.09, 0.14)
+	play(SMACK, 0.5, 0.22, 0.02)
+	play(PING, 0.5, 0.14, 0.08)
+	play(PING, 1.0, 0.13, 0.14)
 end
 
 --- Forge celebration: a legendary blade drawn from the quench. The phrase is a
