@@ -91,7 +91,7 @@ Config.ProgressReference = 1e9
 Config.ProgressExponent = 0.5
 Config.ProgressCap = 1e4
 
---- Multiplier applied to the Star-Matter sinks (forge rolls). 1 below the
+--- Multiplier applied to the Star-Matter sinks (crate rolls). 1 below the
 --- reference, then `(lifetime / reference) ^ 0.5` up to the cap.
 function Config.progressScale(lifetimeStarMatter: number): number
 	local safe = math.max(0, lifetimeStarMatter or 0)
@@ -102,11 +102,11 @@ function Config.progressScale(lifetimeStarMatter: number): number
 	return math.min(ratio ^ Config.ProgressExponent, Config.ProgressCap)
 end
 
---- The forge price, blended by how much of the account's lifetime total this run
+--- The crate price, blended by how much of the account's lifetime total this run
 --- has actually re-earned.
 ---
 --- The bug this exists for: after an ascension `runStarMatter` is 0 while lifetime
---- stays at 1e18, so the Cosmic banner priced a roll at 2e8 x 1e4 = 2e12 (2T) the
+--- stays at 1e18, so the top crate priced a roll at 4e8 x 1e4 = 4e12 (4T) the
 --- instant the player was reset to zero. That is not a difficulty curve, it is a
 --- locked door with the key on the other side. Blending the progress multiplier by
 --- the run's share keeps the first rolls of a fresh run at base price and brings

@@ -335,20 +335,23 @@ function Modals.confirm(title: string, body: string, confirmText: string, accent
 	confirm.button.Size = UDim2.new(0.5, -42, 0, 50)
 end
 
---- Settings sheet. Four persisted preferences, each with an explicit ON/OFF
+--- Settings sheet. Five persisted preferences, each with an explicit ON/OFF
 --- face: a toggle that only changes colour is unreadable to a colour-blind
 --- player and invisible at a glance. `onChange` fires after the local face has
 --- already flipped, so the UI never waits on a server round trip to feel alive.
-export type PreferenceKey = "sfx" | "vfx" | "shake" | "trades"
+export type PreferenceKey = "sfx" | "music" | "vfx" | "shake" | "trades"
 
 function Modals.settings(
-	values: { sfx: boolean, vfx: boolean, shake: boolean, trades: boolean },
+	values: { sfx: boolean, music: boolean, vfx: boolean, shake: boolean, trades: boolean },
 	onChange: (key: PreferenceKey, value: boolean) -> ()
 )
-	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 400)
+	-- 462 rather than 400: the fifth row would otherwise leave the DONE plate
+	-- sitting two pixels under it.
+	local panel = shell("SETTINGS", "Saved to your profile.", Theme.Color.cyan, 462)
 
 	local rows: { { key: PreferenceKey, label: string, note: string } } = {
 		{ key = "sfx", label = "SOUND EFFECTS", note = "Strikes, forge results, UI ticks" },
+		{ key = "music", label = "MUSIC", note = "The looped room tone under the forge" },
 		{ key = "vfx", label = "SCREEN EFFECTS", note = "Sparks, rings, embers, flashes" },
 		{ key = "shake", label = "SCREEN SHAKE", note = "Anvil and forge impact shake" },
 		{ key = "trades", label = "ALLOW TRADE REQUESTS", note = "Off means other forgers cannot ask" },

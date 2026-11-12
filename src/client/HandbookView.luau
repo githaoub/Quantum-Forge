@@ -563,7 +563,7 @@ local function pages(): { Page }
 			title = "THE CRATE",
 			kicker = "SPEND STAR-MATTER, ROLL A COPY",
 			accent = Theme.Color.starMatter,
-			lead = string.format("The crate rolls one copy from the banner you are on. Price is the banner cost, ramped by rolls taken at that banner, and floored at %d strikes of your own income so it stays visible at every point on the curve.", ForgeConfig.RollIncomeStrikes),
+			lead = string.format("The crate rolls one copy from the banner you are on. Price is the banner cost, ramped by rolls taken at that banner, and floored at %d seconds of your own income so it stays visible at every point on the curve.", ForgeConfig.RollIncomeSeconds),
 			steps = {
 				{ head = "PICK A BANNER", body = "Five banners unlock on run Star-Matter. A higher banner costs more and rolls a stronger pool." },
 				{ head = "ROLL", body = string.format("This roll costs %s SM. The next one costs more until the ramp caps at %.0fx the banner price.", NumberUtil.abbreviate(cost), ForgeConfig.RollCostCap) },
@@ -573,7 +573,7 @@ local function pages(): { Page }
 				{ label = "BANNER", value = string.upper(tierName) },
 				{ label = "ROLL COST", value = string.format("%s SM", NumberUtil.abbreviate(cost)) },
 				{ label = "ROLLS TAKEN", value = if state then tostring(state.forgeRolls) else "0" },
-				{ label = "INCOME FLOOR", value = string.format("%d STRIKES", ForgeConfig.RollIncomeStrikes) },
+				{ label = "INCOME FLOOR", value = string.format("%d SEC x TIER", ForgeConfig.RollIncomeSeconds) },
 			},
 			art = "odds",
 			tip = "The crate is a roll, not a shop. The blade you get is the blade you get; the vault is where duplicates become value.",

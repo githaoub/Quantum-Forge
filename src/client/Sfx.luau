@@ -295,7 +295,6 @@ function Sfx.crateLand(gain: number?)
 	play(SMACK, jitter(0.44, 0.03), 0.34 * g)
 	play(SNAP, jitter(0.72, 0.04), 0.17 * g, 0.005)
 	play(RING, jitter(0.66, 0.02), 0.11 * g, 0.03)
-	play(WATER, jitter(0.9, 0.06), 0.05 * g, 0.02)
 end
 
 --- One crate taking the hit. This is the per-click payoff, not the reveal: a
@@ -317,11 +316,7 @@ function Sfx.crateShatter(gain: number?)
 	local g = gain or 1
 	play(SNAP, jitter(0.95, 0.03), 0.22 * g)
 	play(SMACK, jitter(0.6, 0.03), 0.24 * g, 0.02)
-	-- A slow air layer under the crack. Without it the split is all transient and
-	-- no mass, which is the difference between a box breaking and a box popping.
-	play(WATER, jitter(0.55, 0.04), 0.16 * g, 0.01)
 	play(RING, jitter(1.2, 0.02), 0.14 * g, 0.04)
-	play(WATER, jitter(1.3, 0.05), 0.08 * g, 0.03)
 end
 
 --- One tick of the roll cadence, climbing the same ladder as the strike band so
@@ -387,7 +382,6 @@ function Sfx.riser(steps: number?)
 	for index = first, last do
 		play(PING, jitter(degree(index), 0.005), 0.09 + (index - first) * 0.009, (index - first) * 0.06)
 	end
-	play(WATER, jitter(0.88, 0.04), 0.11, 0.02)
 	play(SMACK, jitter(0.5, 0.03), 0.16, count * 0.06)
 end
 

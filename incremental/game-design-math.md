@@ -250,13 +250,15 @@ and a dedicated one has something to chase all evening.
 
 ### 4.4 The roll price ramp
 
-A flat price means the hundredth roll of a banner costs exactly what the first one
+A flat price means the hundredth roll of a crate costs exactly what the first one
 did, so a player who can afford one roll can afford every roll, and there is no
-reason to bank income between them. The price now climbs with the rolls already
-taken at the current banner:
+reason to bank income between them. The price now has two terms, and the higher
+one wins:
 
 ```
-cost(rolls) = floor(base · min(1.05^rolls, 12))
+banner(rolls) = crate.cost * min(1.05^rolls, 12)
+floor(rolls)  = clickYield * 6 * 18 * crateTier * min(1.05^rolls, 12)
+cost          = max(banner(rolls) * runScale, floor(rolls))
 ```
 
 `1.05^rolls` reaches the 12x ceiling at `ceil(ln 12 / ln 1.05) = 51` rolls and then
@@ -264,59 +266,70 @@ stays flat, so a long session never prices the loop out of existence. The clamp 
 also load-bearing in the arithmetic: a double overflows to `inf` around 14 000
 rolls, and the button would print `inf` without it.
 
-Roll price across the first fifty rolls of the Scrap Forge (base 50):
+The floor is the term that changed in ADR-101. The old floor was 18 **strikes**
+of click yield, which a late profile could earn in two or three seconds. It is now
+18 **seconds** at the base rate of 6 clicks per second, multiplied by the crate's
+rung. At the opening fivefold strike, Standard costs 540 Star-Matter, not 50, and
+the ramp still climbs from there:
 
-| rolls taken | price | spent on the batch so far |
+| rolls taken | next roll price at 5 SM/click | spent on those rolls |
 | --- | --- | --- |
-| 0 | 50 | 50 |
-| 10 | 81 | 629 |
-| 20 | 132 | 1 653 |
-| 30 | 216 | 3 322 |
-| 40 | 351 | 6 040 |
-| 50 | 573 | 10 467 |
-| 51+ | 600 | flat |
+| 0 | 540 | 0 |
+| 10 | 879 | 6 792 |
+| 20 | 1 432 | 17 856 |
+| 30 | 2 333 | 35 877 |
+| 40 | 3 801 | 65 232 |
+| 50 | 6 192 | 113 048 |
+| 51 | 6 480 | 119 240 |
+| 52+ | 6 480 | +6 480 each |
 
 The last column is the sum of the prices, and it is the number that matters: the
-first fifty rolls cost **10 467** Star-Matter instead of 2 500, a 4.2x increase in
-the price of the same amount of content. At the Scrap Forge's click income that is
-the difference between emptying the banner in two minutes and spending the first
-few minutes deciding which rolls to keep.
+first fifty rolls cost **113 048** Star-Matter at that yield. The floor is quoted
+in click income rather than in passive income, so a drone fleet does not reprice
+the crates, and it uses the base click rate, so Fast Forge does not either.
 
 Two rules keep it from becoming a wall:
 
-- **The counter is per banner.** Crossing into a new tier zeroes `forgeRolls`
-  (`forgeRollTier` tracks which banner the counter belongs to). The new banner
-  already costs 18x more, and carrying the ramp across would double-charge the
-  same progression step.
+- **The counter is per crate.** Switching crates zeroes `forgeRolls`
+  (`forgeRollTier` tracks which crate the counter belongs to). The new crate
+  already costs more, and carrying the ramp across would double-charge the same
+  progression step.
 - **Ascension zeroes both.** The roll ramp belongs to the run that just ended.
 
-The ceiling matters more at the top than at the bottom. At the Cosmic Engine
-(base 2e8) the 12x cap is 2.4e9, which is a rounding error against a fleet that
-pays 7.2e8/s; the ramp is felt in the first two banners, where clicks are the only
-income and 4.2x on a batch is real time.
+The ceiling matters more at the top than at the bottom. At the Singularity Vault
+(base 4e8) the 12x cap is 4.8e9, which is a rounding error against a late fleet;
+the ramp is felt in the first two crates, where clicks are the only income and a
+4x batch is real time.
 
 ### 4.5 The account multiplier
 
-The ramp answers "how many rolls have I taken at this banner". It cannot answer
+The ramp answers "how many rolls have I taken at this crate". It cannot answer
 "how rich am I", because it resets by design. The second multiplier is anchored
 on lifetime Star-Matter, which is monotonic and survives ascension:
 
 ```
 progressScale(lifetime) = min((lifetime / 1e9) ^ 0.5, 1e4)
-cost(tier, rolls) = max(1, floor(tier.cost · min(1.05^rolls, 12) · progressScale))
+runScale(run, lifetime) = 1 + (progressScale(lifetime) - 1) * run / lifetime
+cost(crate, rolls) = max(1, max(banner(rolls) * runScale, floor(rolls)))
 ```
 
 It is exactly `1` below `1e9`, so nothing in the early game moved. The exponent is
 `0.5` because income scales roughly linearly with the blade multiplier: a square
 root keeps the price rising while the ratio of price to income still falls.
 
-| lifetime Star-Matter | multiplier | Cosmic Engine price (rolls = 0) |
+`runScale` is not applied at full strength on the first roll after an ascension.
+The bug it fixes: `runStarMatter` resets to zero while lifetime stays high, so the
+full multiplier charged a post-ascension player 1e4x the base price before they had
+earned a single Star-Matter back. The run share brings the tax in as the run
+re-earns its way back.
+
+| lifetime Star-Matter | progress multiplier | Singularity price, run = lifetime (rolls = 0) |
 | --- | --- | --- |
-| 1e9 | 1 | 2.0e8 |
-| 1e10 | 3.16 | 6.3e8 |
-| 1e12 | 31.6 | 6.3e9 |
-| 1e14 | 316 | 6.3e10 |
-| 1e17 | 1e4 (cap) | 2.0e12 |
+| 1e9 | 1 | 4.0e8 |
+| 1e10 | 3.16 | 1.3e9 |
+| 1e12 | 31.6 | 1.3e10 |
+| 1e14 | 316 | 1.3e11 |
+| 1e17 | 1e4 (cap) | 4.0e12 |
 
 Drones take the square root of the same number, `sqrt(progressScale)`, which is
 the fourth root of the lifetime ratio. The asymmetry is deliberate: Aether income

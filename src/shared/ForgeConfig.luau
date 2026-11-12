@@ -205,9 +205,10 @@ export type Tier = {
 --- top crate used to hand out a Quantum every six rolls, which made the rarest
 --- blade a routine drop by the time a player could afford the vault.
 ---
---- Unlocks were widened with the drone nerf. Lifetime Star-Matter is the shared
---- clock, so stretching these stretches the codex next to it: the last tier used
---- to open at 2e11 and now opens at 4e11, and the fourth at 6e8 instead of 2e8.
+--- Unlocks were widened with the drone nerf. Run Star-Matter is the shared clock,
+--- so stretching these stretches the codex next to it: the last tier opens at
+--- 1.5e12, the fourth at 2.5e9, and the second at 2e5. A crate that arrives after
+--- two minutes of play is not a reward; it is a menu item.
 ForgeConfig.Tiers = {
 	{
 		tier = 1,
@@ -230,7 +231,7 @@ ForgeConfig.Tiers = {
 		short = "VOID",
 		blurb = "Sealed in the dark. Something inside is still counting.",
 		cost = 1400,
-		unlock = 6e4,
+		unlock = 2e5,
 		pity = 11,
 		scrap = 14,
 		weights = { Scrap = 33, Forged = 38, Astral = 20.2, Void = 7.6, Quantum = 1.2 },
@@ -244,7 +245,7 @@ ForgeConfig.Tiers = {
 		short = "QNT",
 		blurb = "Two states at once. Both of them sharp.",
 		cost = 9e4,
-		unlock = 8e6,
+		unlock = 3e7,
 		pity = 10,
 		scrap = 30,
 		weights = { Scrap = 18, Forged = 34, Astral = 34, Void = 12.5, Quantum = 1.5 },
@@ -258,7 +259,7 @@ ForgeConfig.Tiers = {
 		short = "CEL",
 		blurb = "Cut from something that was already old when the yard was new.",
 		cost = 6e6,
-		unlock = 6e8,
+		unlock = 2.5e9,
 		pity = 9,
 		scrap = 60,
 		weights = { Scrap = 9, Forged = 30, Astral = 41, Void = 18, Quantum = 2 },
@@ -272,7 +273,7 @@ ForgeConfig.Tiers = {
 		short = "SNG",
 		blurb = "The last box. It does not open so much as remember opening.",
 		cost = 4e8,
-		unlock = 4e11,
+		unlock = 1.5e12,
 		pity = 8,
 		scrap = 120,
 		weights = { Scrap = 4, Forged = 22, Astral = 47, Void = 25, Quantum = 2 },
@@ -352,7 +353,7 @@ end
 ForgeConfig.RollCostGrowth = 1.05
 ForgeConfig.RollCostCap = 12
 
---- Strikes of current income a roll must cost before the banner price applies.
+--- Seconds of current income a roll must cost before the banner price applies.
 ---
 --- The bug this exists for: `tier.cost` is a fixed number per banner (2e8 at
 --- Cosmic) while the player's per-click yield compounds with blades, variants,
@@ -360,39 +361,44 @@ ForgeConfig.RollCostCap = 12
 --- which is eighteen thousandths of one click. The cost was being deducted; it
 --- was simply invisible, so the forge read as free.
 ---
---- Pricing a roll at this many strikes keeps the purchase legible at every point
---- on the curve: early runs pay the banner price (income is still small), and a
---- late profile pays a fraction of a second of its own output instead of a
---- rounding error. Growth still happens through `RollCostGrowth` on top.
-ForgeConfig.RollIncomeStrikes = 18
+--- The unit is seconds, not strikes. A late profile clicks several times a
+--- second, so an eighteen-strike floor was two seconds of play and still read as
+--- free. `RollIncomeClickRate` converts the per-click yield into the money per
+--- second the price is actually quoted in.
+ForgeConfig.RollIncomeSeconds = 18
 
---- Income floor per crate, in strikes.
+--- Clicks per second the price assumes. Deliberately the base rate, not the
+--- player's: buying Fast Forge must not silently raise every price in the game.
+ForgeConfig.RollIncomeClickRate = 6
+
+--- Income floor per crate, in seconds.
 ---
---- The floor is what makes a roll legible on a late profile, but a flat floor made
---- all five pools cost the same the moment income passed the top banner price:
---- live, Standard and Singularity both quoted 673.40B, so the cheap pools were
---- pure upside and the expensive one had no reason to exist. Multiplying the
---- floor by the crate's own rung keeps the ladder: Standard is 18 strikes,
---- Void 36, Quantum 54, Celestial 72, Singularity 90.
-function ForgeConfig.floorStrikes(tier: Tier): number
-	return ForgeConfig.RollIncomeStrikes * math.max(1, tier.tier)
+--- The floor is what makes a roll legible on a late profile, but a flat 18s made
+--- all five pools cost the same the moment income passed the top banner price.
+--- Multiplying the floor by the crate's own rung keeps the ladder: Standard is
+--- 18s, Void 36s, Quantum 54s, Celestial 72s, Singularity 90s.
+function ForgeConfig.floorSeconds(tier: Tier): number
+	return ForgeConfig.RollIncomeSeconds * math.max(1, tier.tier)
 end
 
 --- Price of the next roll: base cost for the crate, ramped by the rolls taken
 --- on it, scaled by account progress, and floored by current income.
 ---
---- `scale` and `income` are passed in by the server rather than read here,
---- because this module is shared and the profile is not. `income` is the
---- player's un-critical per-strike yield (`ProgressionService.clickYield`).
-function ForgeConfig.rollCost(tier: Tier, rolls: number, scale: number?, income: number?): number
+--- `scale` and `incomePerSecond` are passed in by the server rather than read
+--- here, because this module is shared and the profile is not.
+--- `incomePerSecond` is the player's un-critical per-second click yield.
+function ForgeConfig.rollCost(tier: Tier, rolls: number, scale: number?, incomePerSecond: number?): number
 	local safe = math.max(0, math.floor(rolls))
 	-- 1.05^safe reaches inf past ~14000 rolls; the clamp keeps the number finite
 	-- so the button prints an absurd price instead of `inf`.
 	local factor = math.min(ForgeConfig.RollCostGrowth ^ safe, ForgeConfig.RollCostCap)
 	local progress = math.max(1, scale or 1)
 	local banner = math.max(1, math.floor(tier.cost * factor * progress))
-	local floor = math.max(1, math.floor(math.max(0, income or 0) * ForgeConfig.floorStrikes(tier)))
-	return math.max(banner, floor)
+	-- The ramp applies to the floor too. Without this, a late profile's banner is
+	-- a rounding error, the floor wins every roll, and every roll in a tier costs
+	-- the same no matter how many have been taken. The sink has to grow.
+	local floorCost = math.max(1, math.floor(math.max(0, incomePerSecond or 0) * ForgeConfig.floorSeconds(tier) * factor))
+	return math.max(banner, floorCost)
 end
 
 --- How many rolls at this banner it takes to reach the ceiling. The vault and
@@ -409,15 +415,15 @@ end
 --- exactly when the player has the income to spam it. This sums the geometric
 --- series the ramp actually is, and a ten-pull therefore costs what ten clicks
 --- would have.
-function ForgeConfig.bulkRollCost(tier: Tier, rolls: number, count: number, scale: number?, income: number?): number
+function ForgeConfig.bulkRollCost(tier: Tier, rolls: number, count: number, scale: number?, incomePerSecond: number?): number
 	if count <= 0 then
 		return 0
 	end
 	if count == 1 then
-		return ForgeConfig.rollCost(tier, rolls, scale, income)
+		return ForgeConfig.rollCost(tier, rolls, scale, incomePerSecond)
 	end
 	local progress = math.max(1, scale or 1)
-	local floorCost = math.max(1, math.floor(math.max(0, income or 0) * ForgeConfig.floorStrikes(tier)))
+	local floorPerSecond = math.max(0, incomePerSecond or 0) * ForgeConfig.floorSeconds(tier)
 	local ramp = ForgeConfig.RollCostGrowth
 	local safe = math.max(0, math.floor(rolls))
 	-- Sum of min(growth^r, cap) over r in [rolls, rolls + count). Past the cap
@@ -426,6 +432,7 @@ function ForgeConfig.bulkRollCost(tier: Tier, rolls: number, count: number, scal
 	local total = 0
 	for step = 0, count - 1 do
 		local factor = math.min(ramp ^ (safe + step), capped)
+		local floorCost = math.max(1, math.floor(floorPerSecond * factor))
 		total += math.max(math.floor(tier.cost * factor * progress), floorCost)
 	end
 	return math.min(math.floor(total), 1e308)

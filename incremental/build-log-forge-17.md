@@ -204,3 +204,61 @@ gained a slow air layer under the crack. The anvil mix is unchanged.
 | x1 | Six clicks, sealed hold, Prismatic reveal, one claim closes |
 | x10 | Ten clicks, `COPY 1 OF 10`, chip 1 `CLAIMED`, chip 2 hero and `CLAIM 2 / 10`, ten claims close |
 | Static | `selene src/` 0/0/0; `rojo build -o verify.rbxlx` succeeds |
+
+## Round 4 - Bought passes, wider vaults, a room tone
+
+The storefront now answers ownership instead of repeating the price. The sync
+payload carries `ownedPasses`, and `ShopView` keeps one row handle per pass key.
+On the test account, which owns every pass, all five pass rows rendered
+`BOUGHT` on the green plate with `Active = false`, while the three product rows
+kept `R$ 9`, `R$ 25` and `R$ 35` and stayed clickable. The distinction is the
+row type, not the item name: products are consumables and are never owned.
+
+The first teardown test caught a real regression: `ShopView.destroy` called
+`:Disconnect()` on the unsubscribe function returned by `StateStore.onSync`,
+which threw and left the store painted over the next section. The field is now
+typed as `(() -> ())?` and called directly. After the fix, STORE -> CRATES ->
+STORE left zero store rows visible on the crates page and no console error.
+
+Crate economics were widened in two places. The unlock gates are now
+`0 / 2e5 / 3e7 / 2.5e9 / 1.5e12`, and the income floor is quoted in seconds at
+the base click rate instead of strikes:
+
+| Yield | One roll | x3 | x10 |
+| --- | --- | --- | --- |
+| 5 SM per click | 540 SM | 1.70K SM | 6.79K SM |
+| 20.9 SM per click (after one blade) | 2.37K SM | 7.46K SM | 29.75K SM |
+
+That is `18 seconds x 6 clicks/second x click yield` for Standard, with the
+crate rung multiplying the floor and the usual `1.05` ramp applied per roll.
+Locked rail rows now print `<1% TO OPEN` rather than `0% TO OPEN` while the
+account is still below one percent of the gate.
+
+A real paid roll was walked on the live page: 130 strikes produced 1,102.5 SM,
+the Standard roll charged 540, `invCount` moved from 1 to 2, the ceremony
+opened, and `crateDismiss` returned to the browser. The console showed no
+sound or UI errors. The crate landing, shatter and tick cues no longer carry
+the water layer; the vent, overheat, burnout and melt steam cues are unchanged.
+
+`Music.luau` loops APMOfficial's "Dark Pulsing Synth" at 0.16 under the mix.
+In the running client the `ForgeMusic` Sound was playing, looped, 63.6 seconds
+into its 144-second track. It fades in and out, cancels an in-flight gain tween
+before starting the next, and has its own persisted `settings.music` switch in
+the settings sheet rather than riding on `settings.sfx`.
+
+### Round 4 verification
+
+| Thing | State |
+| --- | --- |
+| Store ownership | Five pass rows `BOUGHT`, green, inactive; three product rows priced and active |
+| Hot teardown | Fixed the `:Disconnect()` on the sync unsubscribe; STORE -> CRATES -> STORE leaves no rows behind |
+| Crate floor | 540 / 1.70K / 6.79K at 5 yield; 2.37K / 7.46K / 29.75K after a blade raised yield to 20.9 |
+| Locked rail | Void through Singularity read `<1% TO OPEN` at 255 SM |
+| Paid roll | 540 SM charged, `invCount` 1 -> 2, reveal opened and dismissed, no console errors |
+| Music | `ForgeMusic` = `rbxassetid://9042781325`, playing, looped, volume 0.16; its own MUSIC switch pauses and resumes it without stopping the SFX |
+| Static | `selene src/` 0/0/0; `rojo build -o verify.rbxlx` succeeds |
+
+Still open: nobody has listened to the new loop or the de-winded crate on real
+speakers; no live Marketplace purchase was made, so the `BOUGHT` flip after a
+real receipt is unproven; and Studio runs DataStore in mock mode, so every
+Play session starts a fresh profile.

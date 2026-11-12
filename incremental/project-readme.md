@@ -136,7 +136,8 @@ src/
     Notifications.luau    Toasts
     Vfx.luau              Floaters, sparks, rings, lightning, embers, shake, flash
     SpriteFx.luau         Layered sprite-sheet playback (tinted flipbooks)
-    Sfx.luau              16-slot layered kit: UI, strike, heat, forge, cache, ascend
+    Sfx.luau              24-slot layered kit: UI, strike, heat, forge, cache, ascend
+    Music.luau            Looped Creator Store room tone, own persisted switch
 
 scripts/
   generate_icons.py       Local Pillow icon generation (offline, deterministic)
@@ -251,15 +252,16 @@ procedural lightning and a shallow flash. Forging adds a variant-ranked celebrat
 the new blade for 2.6s even when it is not the one that got equipped. The stage
 carries a pool of twelve ambient embers, recycled rather than spawned per frame.
 
-The sound kit is 16 pooled slots over three proven `rbxasset://` samples. Every
-button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
+The sound kit is 24 pooled slots over five proven `rbxasset://` samples, with a
+looped 144-second Creator Store track (`Dark Pulsing Synth`) at 0.16 underneath.
+Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
 the strike chime climbs with the streak so the ear tracks the rail before the eye
-does. The side-panel header holds a backpack and a gear; sound, screen effects and
-shake are three switches in the settings sheet, persisted to the profile. Each
-setting is a full-width row and the row is the switch: title, note and an `ON` /
-`OFF` chip, with the whole 402px surface flipping it. The old
-`SFX` text key is gone, because a mute that does not say what it mutes is a
-puzzle.
+does. The side-panel header holds a backpack and a gear; sound effects, music,
+screen effects, shake and trade requests are five switches in the settings sheet,
+persisted to the profile. Each setting is a full-width row and the row is the
+switch: title, note and an `ON` / `OFF` chip, with the whole row surface flipping
+it. The old `SFX` text key is gone, because a mute that does not say what it
+mutes is a puzzle, and music has its own switch so the anvil can play dry.
 
 Two rules keep it from becoming noise:
 
@@ -275,16 +277,21 @@ hero camera (26° azimuth, 11° elevation) with a continuous roll and a 2.3%-of-
 bob. Measured through a full turntable cycle on the live build: 70.8–77.1% of frame
 height, never touching an edge, worst case included.
 
-### The forge rolls; the inventory keeps
+### The crate rolls; the inventory keeps
 
-There is no longer a ladder. The forge card opens on the banner: the current tier,
-its price, the pity meter and a single `ROLL` key. A roll resolves in this order:
+There is no longer a ladder, and no roll column on the forge card. The CRATES
+page is a pool browser: a rail of five crates, a stage, and three keys
+(`ROLL`, `ROLL x3`, `ROLL x10`). A roll resolves in this order:
 
-1. **Banner.** Lifetime Star-Matter picks one of five tiers (Scrap, Molten, Astral,
-   Void, Cosmic). Banner unlock is monotonic, so it cannot fall behind a dry streak.
-2. **Rarity.** Weights are 55 / 28 / 12 / 4 / 1 across Scrap, Forged, Astral, Void
-   and Quantum. A pity hit forces the Void-or-Quantum pool and resets the counter.
-3. **Blade.** The tier pool holds one pattern per rarity, so a rarity roll is also
+1. **Crate.** Run Star-Matter unlocks the rail: Standard (0), Void (2e5), Quantum
+   (3e7), Celestial (2.5e9), Singularity (1.5e12). A locked crate is still
+   selectable as local browse; the keys read `LOCKED` and the server never sees
+   a roll. The rail prints `<1% TO OPEN` until there is a whole point of progress.
+2. **Rarity.** Each crate owns its weights, moving from Standard 55 / 29 / 13 /
+   2.6 / 0.4 to Singularity 4 / 22 / 47 / 25 / 2 across Scrap, Forged, Astral,
+   Void and Quantum. A pity hit forces the top pool within the crate's window
+   (12 / 11 / 10 / 9 / 8) and resets the counter.
+3. **Blade.** The crate pool holds one pattern per rarity, so a rarity roll is also
    a pattern roll.
 4. **Variant.** Standard 74, Tempered 14, Overclocked 8, Void-Touched 3, Prismatic 1.
    The variant multiplies the blade's multiplier and can add crit, vent, cooling or
@@ -302,22 +309,42 @@ nothing to swing. The card badge prints `2/3` when one of three copies is protec
 and the bar counts copies rather than cards, so the number on the key is the number
 the server will take.
 
+The roll page is only a browser until the first key is pressed: the ceremony
+takes over as a page overlay, never a modal. Each copy is claimed one at a time,
+best first, and the gold outline follows the claim cursor. The last claim closes
+the overlay and returns to the pool.
+
 ### Prices scale with the account
 
 A fixed price table stops being a sink the moment income outgrows it, and drones
-multiply the passive yield by the blade multiplier. Every Star-Matter price
+multiply the passive yield by the blade multiplier. The crate's banner price
 therefore takes a progress multiplier anchored on lifetime Star-Matter:
 
 ```
 progressScale(lifetime) = min((lifetime / 1e9) ^ 0.5, 1e4)
+runScale(run, lifetime) = 1 + (progressScale(lifetime) - 1) * run / lifetime
 ```
 
-It is exactly `1` below `1e9`, so no early-game price moved. The forge applies it
-last, after its own `1.05` per-roll ramp (capped at `12x`), so the two multiply.
-Drones take the square root of the same curve, because Aether income does not
-scale with the blade and a linear multiplier would price the ladder out of reach.
-Scrap rerolls and the tech tree stay on their own curves: both are priced by the
-resource that pays them.
+It is exactly `1` below `1e9`, so no early-game price moved. The run share keeps
+the first rolls of a post-ascension run at base price instead of charging the
+account tax while the run balance is still zero. The crate compares that banner
+term with an income floor and charges the larger one:
+
+```
+rollPrice = max(banner * 1.05^rolls * runScale,
+                clickYield * 6 * 18 * crateTier * 1.05^rolls)
+```
+
+The `1.05` ramp is capped at `12x` and `bulkRollCost` sums it per roll, so a
+ten-pull costs what ten singles would. The floor term is the legibility fix: a
+roll costs at least 18 seconds of click income at the base rate, multiplied by
+the crate's rung (18 / 36 / 54 / 72 / 90 seconds). `RollIncomeClickRate = 6` is
+a constant, not the player's actual rate, so Fast Forge and a fast mouse do not
+silently reprice the ladder; the floor is click income, so drones do not reprice
+it either. Drones take the square root of the same progress curve, because Aether
+income does not scale with the blade and a linear multiplier would price the
+ladder out of reach. Scrap rerolls and the tech tree stay on their own curves:
+both are priced by the resource that pays them.
 
 The server is the only place a price is computed. `ForgeConfig` and
 `DroneRegistry` are shared modules with no profile, so they take the multiplier as
@@ -445,6 +472,12 @@ as products. Emergency Vent was delisted: the free vent key already does the sam
 thing, so it was a trap. The Starter Pack's timer writes `boostX2Until`;
 `globalMultiplier` reads that field and multiplies it with the paid 3x, so the two
 boosts stack instead of replacing each other.
+
+Pass rows remember ownership. The sync carries `ownedPasses`, and an owned pass
+prints `BOUGHT` on the green plate with the button inactive, so a receipt never
+looks like a price. Products under `BOOSTS & UTILITY` are consumables and never
+take that label; Starter Forge, Instant Overdrive and Express Salvage stay
+buyable after every purchase.
 
 ### Store row geometry
 
@@ -965,7 +998,7 @@ tables if changed.
 | Icons | `rbxassetid://0` | UI falls back to vector glyphs. |
 | VFX sheets | `rbxassetid://0` | 22 sheets are generated and margin-checked; effects fall back to the procedural burst in `Vfx.luau`. |
 | Leaderboards | Absent | `lifetimeStarMatter` is already tracked, ready to sync. |
-| Sound | Engine samples only | Every cue is layered from three proven `rbxasset://` samples across a 16-slot pool. Nothing is uploaded, and the whole kit mutes instantly from the settings sheet's sound switch. |
+| Sound | Engine samples plus one Creator Store loop | Every cue is layered from five proven `rbxasset://` samples across a 24-slot pool. `ForgeMusic` is APMOfficial's free "Dark Pulsing Synth" at 0.16. The kit and the loop have separate persisted switches in the settings sheet. |
 
 ---
 

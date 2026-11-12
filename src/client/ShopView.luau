@@ -20,8 +20,22 @@ local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
 local StateStore = require(script.Parent.StateStore)
 local Notifications = require(script.Parent.Notifications)
+local Types = require(Shared:WaitForChild("Types"))
 
 local ShopView = {}
+
+--- Rows are built once. Pass ownership arrives later (join refresh or a
+--- purchase), so the buttons are kept by key and repainted from the sync.
+local ownedPasses: { [string]: boolean } = {}
+local passRows: { [string]: { handle: UiKit.ActionHandle, def: MonetizationConfig.PassDef } } = {}
+--- Last painted face per row. The sync runs at 10 Hz, and calling `set` every
+--- packet would wipe the hover tint under the cursor. Compare first, repaint only
+--- when the receipt or the price actually changes.
+local passPaint: { [string]: string } = {}
+--- `StateStore.onSync` returns an unsubscribe function, not a connection. The
+--- old `:Disconnect()` call took the whole section teardown down with it, which
+--- left the store painted over the next section.
+local passSubscription: (() -> ())? = nil
 
 --- Row geometry. 104 tall holds a 72px badge beside a 22px title and a
 --- three-line 14px description with 8px to spare. The badge is 72 rather than
@@ -48,6 +62,9 @@ local HERO_TEXT_X = ICON_X + HERO_ICON + 16
 local HERO_TEXT_W = -(HERO_TEXT_X + 132)
 
 type RowOpts = {
+	--- Pass config key. Only pass rows carry it; products are consumables and
+	--- never print `BOUGHT`.
+	key: string?,
 	name: string,
 	description: string,
 	badge: string,
@@ -137,7 +154,7 @@ local function buildIconBadge(row: Frame, imageId: string, accent: Color3, size:
 	return well
 end
 
-local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
+local function buildRow(parent: Instance, order: number, opts: RowOpts): (Frame, UiKit.ActionHandle)
 	local hero = opts.hero == true
 	local height = if hero then HERO_H else ROW_H
 	local iconSize = if hero then HERO_ICON else ICON_SIZE
@@ -222,6 +239,9 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 		size = Theme.Text.Small,
 		label = string.format("R$ %d", opts.price),
 		handler = function()
+			if opts.key ~= nil and ownedPasses[opts.key] == true then
+				return
+			end
 			if not opts.enabled then
 				return
 			end
@@ -243,7 +263,35 @@ local function buildRow(parent: Instance, order: number, opts: RowOpts): Frame
 		handle.set("locked", "SOON", Theme.Color.textFaint)
 	end
 
-	return row
+	return row, handle
+end
+
+--- Repaints every pass button from the server's ownership table. A bought pass
+--- keeps its green key but stops being a key: the label is the receipt, and
+--- `Active` is off so a hover cannot make it look buyable again. Products are
+--- deliberately absent: a consumable is never owned.
+local function applyPasses(state: Types.SyncPayload)
+	ownedPasses = state.ownedPasses or {}
+	for key, entry in passRows do
+		local def = entry.def
+		local kind: UiKit.ActionKind
+		local label: string
+		local accent: Color3
+		if ownedPasses[key] == true then
+			kind, label, accent = "ready", "BOUGHT", Theme.Color.good
+		elseif def.enabled and def.id ~= 0 then
+			kind, label, accent = "ready", string.format("R$ %d", def.price), Theme.Color.good
+		else
+			kind, label, accent = "locked", "SOON", Theme.Color.textFaint
+		end
+
+		local paint = string.format("%s:%s", kind, label)
+		if passPaint[key] ~= paint then
+			passPaint[key] = paint
+			entry.handle.set(kind, label, accent)
+		end
+		entry.handle.button.Active = kind == "ready" and ownedPasses[key] ~= true
+	end
 end
 
 --- Group header. A 14px caption over a stack of 104px plates was invisible, so
@@ -263,6 +311,8 @@ end
 
 function ShopView.init(parent: Instance)
 	local order = 0
+	passRows = {}
+	passPaint = {}
 
 	buildHeader(parent, "GAME PASSES", #MonetizationConfig.PassOrder, order)
 	order += 1
@@ -285,7 +335,8 @@ function ShopView.init(parent: Instance)
 			if key == "vipAura" and separateTotal > def.price then
 				description = string.format("%s Buy separately: R$ %d.", description, separateTotal)
 			end
-			buildRow(parent, order, {
+			local _, handle = buildRow(parent, order, {
+				key = key,
 				name = def.name,
 				description = description,
 				badge = def.badge,
@@ -300,9 +351,18 @@ function ShopView.init(parent: Instance)
 					StateStore.send("prompt", { kind = "pass", key = key })
 				end,
 			})
+			passRows[key] = { handle = handle, def = def }
 			order += 1
 		end
 	end
+
+	-- The first payload may already be in hand (a repaint after a hot reload);
+	-- otherwise the sync below paints as soon as it lands.
+	local current = StateStore.current
+	if current then
+		applyPasses(current)
+	end
+	passSubscription = StateStore.onSync(applyPasses)
 
 	buildHeader(parent, "BOOSTS & UTILITY", #MonetizationConfig.ProductOrder, order)
 	order += 1
@@ -332,6 +392,13 @@ function ShopView.init(parent: Instance)
 end
 
 function ShopView.destroy()
+	if passSubscription then
+		passSubscription()
+		passSubscription = nil
+	end
+	passRows = {}
+	passPaint = {}
+	ownedPasses = {}
 	-- Rows own their own connections; destroying the container is enough.
 end
 

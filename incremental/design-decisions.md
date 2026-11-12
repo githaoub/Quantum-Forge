@@ -4225,3 +4225,75 @@ is small, and the bet is volume and goodwill. The VIP row's "Buy separately"
 total is computed from the live prices, so a future price change moves that
 sentence without a second edit. The retired Emergency Vent listing still exists
 in the Creator Dashboard; it is off sale and unreachable from the game.
+
+## ADR-100 - A bought pass says BOUGHT; a consumable never does
+
+**Context.** Every pass button stayed a green price key after the player owned
+it. The server ignored the second prompt, but the storefront still looked like
+it was selling something the account already had, so a bought pass was
+indistinguishable from a buyable one until the click did nothing.
+
+**Decision.** The sync payload carries `ownedPasses = state.passes`, and
+`ShopView` keeps its pass rows by config key and repaints them from that table.
+An owned pass prints `BOUGHT` on the same green plate, with `Active` off, so it
+reads as a receipt rather than a call to action. VIP is a bundle, so buying it
+flips every pass row at once. Products under `BOOSTS & UTILITY` are consumables
+and deliberately never print `BOUGHT`: Starter Forge, Instant Overdrive and
+Express Salvage stay buyable no matter how many times they have been bought.
+
+**What it costs.** The store now depends on a table it used to ignore, and the
+button is repainted on every 10 Hz sync. That is a few property writes for five
+rows. It also means a pass granted outside `state.passes` would still look
+buyable until the grant reaches the same table, which is why every grant path
+already writes through `grantPass`.
+
+## ADR-101 - The crate floor is quoted in seconds of income
+
+**Context.** The test profile had every pool open and was buying Singularity
+rolls for a fraction of one click. Two things had drifted: the unlock gates were
+low enough that the whole ladder arrived early, and the income floor was
+`18` strikes of click yield. A late profile clicks several times a second, so
+eighteen strikes was two or three seconds of play. The sink was being charged;
+it just read as free.
+
+**Decision.** The gates widen to `0 / 2e5 / 3e7 / 2.5e9 / 1.5e12` run
+Star-Matter. The floor is now stated in seconds:
+`RollIncomeSeconds = 18`, multiplied by the crate's rung (`18 / 36 / 54 / 72 /
+90` seconds) and by `RollIncomeClickRate = 6`, the base clicks per second the
+quote assumes. `ProgressionService.clickIncomePerSecond` supplies the per-click
+yield at that rate, and both the quote and the charge call the same function.
+`bulkRollCost` sums the floor with the same `1.05` per-roll ramp as the banner
+price, so a ten-pull still costs what ten singles would. The handbook prints
+seconds, and a locked rail row says `<1% TO OPEN` instead of a dead `0%`.
+
+**What it costs.** A fresh profile's first Standard roll is 540 Star-Matter at
+the opening fivefold strike, not 90, which is about eighteen seconds of assumed
+clicking. The second crate is a 2e5 gate rather than 6e4. The floor uses click
+income, not passive income, so a drone fleet does not silently reprice the
+crates; Fast Forge also does not raise the quote, because the rate is the base
+rate rather than the player's own.
+
+## ADR-102 - The forge gets a room tone, and the crate loses its wind
+
+**Context.** Between anvil hits the game was silent, which read as dead rather
+than as quiet. The crate also carried an `impact_water` layer in its landing,
+shatter and tick sounds; at crate pitch it reads as a wind whoosh over the
+ceremony rather than as weight.
+
+**Decision.** `Music.luau` loops APMOfficial's "Dark Pulsing Synth"
+(`rbxassetid://9042781325`, a free Creator Store track, 2:24) at `0.16` under
+the sound kit. It fades in over 2.4 seconds, fades out over 0.5, cancels an
+in-flight gain tween before starting another, and has its own persisted
+`settings.music` switch rather than riding on `settings.sfx`. `Main.client`
+applies it on the first payload and the MUSIC row in `Sections.openSettings`
+flips it. The crate's `crateLand`, `crateShatter` and `crateTick` no longer play
+the water layer. Vent, overheat, burnout and melt keep their steam hiss: those
+verbs are air, and the sound is the event rather than a bed.
+
+**What it costs.** One more asset dependency and one more migration field in
+`sanitiseSettings`: a save written before the MUSIC row inherits its old `sfx`
+value, so a muted player does not come back to a loop, while a new save starts
+with music on. The switch is separate, so a player can run the anvil dry or keep
+the bed with the effects muted, which is the point. The crate landing is drier
+now; if it needs air later, it should be a purpose-built riser rather than the
+water impact returning.

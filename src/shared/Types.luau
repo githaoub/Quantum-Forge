@@ -59,6 +59,9 @@ export type FleetEntry = {
 --- Client-side preferences. Server-persisted so a mute survives a rejoin.
 export type Settings = {
 	sfx: boolean,
+	--- The looped room tone. Its own switch rather than a passenger on `sfx`:
+	--- a player may want the anvil and the crate without a bed under them.
+	music: boolean,
 	vfx: boolean,
 	shake: boolean,
 	--- Accept trade requests from other players. Off answers `ASK` with
@@ -261,6 +264,9 @@ export type SyncPayload = {
 	--- True when the account owns the VIP pass. Drives the plate badge; the
 	--- bundle's actual passes are granted server-side and never read here.
 	vip: boolean,
+	--- Pass ownership by config key. The store paints `BOUGHT` from this table
+	--- and the server is the only writer, so a client cannot claim a pass.
+	ownedPasses: { [string]: boolean },
 	clickYield: number,
 	passiveYield: number,
 	mult: number,

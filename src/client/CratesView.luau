@@ -540,7 +540,11 @@ local function paintRail()
 					price.TextColor3 = Theme.Color.textSecondary
 				else
 					local pct = if crate.unlock <= 0 then 1 else math.clamp(runSm / crate.unlock, 0, 1)
-					price.Text = string.format("%d%% TO OPEN", math.floor(pct * 100))
+					-- The widened unlock gates make single-digit percentages common,
+					-- and `floor` printed a dead `0% TO OPEN` for the first few
+					-- thousand Star-Matter. Say `<1%` until there is a whole point
+					-- to show, so a locked crate still reads as progress.
+					price.Text = if pct < 0.01 then "<1% TO OPEN" else string.format("%d%% TO OPEN", math.floor(pct * 100))
 					price.TextColor3 = Theme.Color.locked
 				end
 			end
@@ -585,7 +589,7 @@ local function paintPity(crate: ForgeConfig.Tier)
 			restPityValue.TextColor3 = Theme.Color.textFaint
 		end
 		if restPityHint then
-			restPityHint.Text = string.format("%d%% THIS RUN", math.floor(pct * 100))
+			restPityHint.Text = if pct < 0.01 then "<1% THIS RUN" else string.format("%d%% THIS RUN", math.floor(pct * 100))
 			restPityHint.TextColor3 = Theme.Color.textFaint
 		end
 		return

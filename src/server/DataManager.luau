@@ -118,7 +118,7 @@ local function defaults(): Types.ProfileState
 		tech = {},
 		passes = {},
 
-		settings = { sfx = true, vfx = true, shake = true, trades = true },
+		settings = { sfx = true, music = true, vfx = true, shake = true, trades = true },
 
 		boostX2Until = 0,
 		overdriveUntil = 0,
@@ -310,12 +310,19 @@ local function sanitiseBlades(raw: any): { [string]: Types.BladeInstance }
 end
 
 local function sanitiseSettings(raw: any): Types.Settings
-	local fallback: Types.Settings = { sfx = true, vfx = true, shake = true, trades = true }
+	local fallback: Types.Settings = { sfx = true, music = true, vfx = true, shake = true, trades = true }
 	if type(raw) ~= "table" then
 		return fallback
 	end
 	return {
 		sfx = if type(raw.sfx) == "boolean" then raw.sfx else true,
+		-- Music was folded into the SFX switch before it had a row of its own.
+		-- An old save with sound effects muted should not come back with the loop
+		-- playing, so inherit that value once; after this the two are independent.
+		music = if type(raw.music) == "boolean"
+			then raw.music
+			elseif type(raw.sfx) == "boolean" then raw.sfx
+			else true,
 		vfx = if type(raw.vfx) == "boolean" then raw.vfx else true,
 		shake = if type(raw.shake) == "boolean" then raw.shake else true,
 		-- A save written before the toggle existed has no key, and the honest

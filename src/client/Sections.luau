@@ -25,6 +25,7 @@ local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
 local StateStore = require(script.Parent.StateStore)
 local Sfx = require(script.Parent.Sfx)
+local Music = require(script.Parent.Music)
 local Vfx = require(script.Parent.Vfx)
 local Modals = require(script.Parent.Modals)
 local Layout = require(script.Parent.Layout)
@@ -351,10 +352,12 @@ function Sections.openSettings()
 	local current = StateStore.current
 	local values = if current
 		then current.settings
-		else { sfx = Sfx.isEnabled(), vfx = Vfx.isEnabled(), shake = true, trades = true }
+		else { sfx = Sfx.isEnabled(), music = Music.isEnabled(), vfx = Vfx.isEnabled(), shake = true, trades = true }
 	Modals.settings(values, function(key: Modals.PreferenceKey, value: boolean)
 		if key == "sfx" then
 			Sfx.setEnabled(value)
+		elseif key == "music" then
+			Music.setEnabled(value)
 		elseif key == "vfx" then
 			Vfx.setEnabled(value)
 		elseif key == "shake" then

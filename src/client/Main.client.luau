@@ -27,6 +27,7 @@ local StateStore = require(script.Parent.StateStore)
 local Vfx = require(script.Parent.Vfx)
 local SpriteFx = require(script.Parent.SpriteFx)
 local Sfx = require(script.Parent.Sfx)
+local Music = require(script.Parent.Music)
 local Notifications = require(script.Parent.Notifications)
 local Modals = require(script.Parent.Modals)
 local FeedbackView = require(script.Parent.FeedbackView)
@@ -238,6 +239,7 @@ local function boot()
 	HandbookView.init(canvas)
 	DailyView.init(canvas)
 	OrbitalLobby.init()
+	Music.init()
 
 	-- Boots hidden and reveals itself on the first payload: at this point the
 	-- profile has not arrived, so whether this player has already finished
@@ -346,6 +348,7 @@ local function boot()
 		end
 		settingsApplied = true
 		Sfx.setEnabled(payload.settings.sfx)
+		Music.setEnabled(payload.settings.music)
 		Vfx.setEnabled(payload.settings.vfx)
 		Vfx.setShakeEnabled(payload.settings.shake)
 	end)
@@ -457,6 +460,10 @@ local function boot()
 					inSweetSpot = state.inSweetSpot,
 					overdrive = state.overdriveRemaining,
 					boost = state.boostRemaining,
+					paidBoost = state.paidBoostRemaining,
+					ownedPasses = state.ownedPasses,
+					forgeCosts = state.forgeCosts,
+					settings = state.settings,
 				}
 			elseif command == "vent" then
 				StateStore.send("vent")

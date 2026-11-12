@@ -202,6 +202,13 @@ function ProgressionService.clickYield(state: Types.ProfileState): number
 	return mult
 end
 
+--- Star-Matter per second at the price click rate. A roll is quoted in seconds
+--- of income, not in clicks: a late profile clicks several times a second, so a
+--- per-click floor was a couple of seconds of play and read as free.
+function ProgressionService.clickIncomePerSecond(state: Types.ProfileState): number
+	return ProgressionService.clickYield(state) * ForgeConfig.RollIncomeClickRate
+end
+
 function ProgressionService.passiveYield(state: Types.ProfileState): number
 	-- Drones on a mission are not at the bench. This is the whole cost of an
 	-- expedition and the reason the payout can be generous.
@@ -500,7 +507,7 @@ function ProgressionService.forgeRoll(player: Player, crateId: string?, count: n
 		state.forgeRolls,
 		batch,
 		ProgressionService.rollScale(state),
-		ProgressionService.clickYield(state)
+		ProgressionService.clickIncomePerSecond(state)
 	)
 	if state.starMatter < cost then
 		return false, string.format("Needs %s Star-Matter", NumberUtil.abbreviate(cost))
@@ -811,8 +818,8 @@ function ProgressionService.salvageMany(player: Player, uids: { any }): (boolean
 	return true, nil, total
 end
 
---- Persists a client preference. Only the three known keys are accepted; an
---- unknown key is a no-op rather than a new field in the save.
+--- Persists a client preference. Only the known keys are accepted; an unknown
+--- key is a no-op rather than a new field in the save.
 function ProgressionService.setSetting(player: Player, key: string, value: boolean): (boolean, string?)
 	local state = DataManager.get(player)
 	if not state then
@@ -820,6 +827,8 @@ function ProgressionService.setSetting(player: Player, key: string, value: boole
 	end
 	if key == "sfx" then
 		state.settings.sfx = value
+	elseif key == "music" then
+		state.settings.music = value
 	elseif key == "vfx" then
 		state.settings.vfx = value
 	elseif key == "shake" then
@@ -1393,15 +1402,15 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 	-- because the ramp scale and the income floor are both server facts, and a
 	-- button that quotes a price the server will refuse is worse than no button.
 	local scale = ProgressionService.rollScale(state)
-	local income = ProgressionService.clickYield(state)
+	local incomePerSecond = ProgressionService.clickIncomePerSecond(state)
 	local costs: { [string]: Types.CrateQuote } = {}
 	for _, crate in ForgeConfig.Tiers do
 		if state.runStarMatter >= crate.unlock then
 			local taken = if state.forgeCrate == crate.id then state.forgeRolls else 0
 			costs[crate.id] = {
-				one = ForgeConfig.bulkRollCost(crate, taken, 1, scale, income),
-				three = ForgeConfig.bulkRollCost(crate, taken, 3, scale, income),
-				ten = ForgeConfig.bulkRollCost(crate, taken, 10, scale, income),
+				one = ForgeConfig.bulkRollCost(crate, taken, 1, scale, incomePerSecond),
+				three = ForgeConfig.bulkRollCost(crate, taken, 3, scale, incomePerSecond),
+				ten = ForgeConfig.bulkRollCost(crate, taken, 10, scale, incomePerSecond),
 			}
 		end
 	end
@@ -1518,6 +1527,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		ascendAt = Config.AscendThreshold,
 		--- One bit is enough: the plate prints a badge, it never decides a grant.
 		vip = state.passes.vipAura == true,
+		ownedPasses = state.passes,
 		dailyReady = ProgressionService.dailyReady(state),
 		dailyStreak = state.dailyStreak,
 		starterBoostAt = state.starterBoostAt,
@@ -1531,7 +1541,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 			tier,
 			state.forgeRolls,
 			ProgressionService.rollScale(state),
-			ProgressionService.clickYield(state)
+			ProgressionService.clickIncomePerSecond(state)
 		),
 		--- Priced per unlocked crate, so the crate browser never has to guess the
 		--- account scale or the ramp. A crate that is not the current one starts a
