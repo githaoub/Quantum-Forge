@@ -42,6 +42,9 @@ local CrateReveal = {}
 local ANSWER_TIMEOUT = 8
 local SEALED_HOLD = 0.62
 local RESULT_LOCK = 0.55
+--- One claim per copy. Short enough to tap through a ten-pull, long enough that
+--- a held mouse cannot skip the blade under it.
+local CLAIM_LOCK = 0.3
 
 local STAGE_W = 1080
 local STAGE_H = 596
@@ -60,11 +63,19 @@ local CHIP_MAX_W = 92
 local ACTION_W = 260
 local ACTION_H = 50
 
---- Rays behind the blade. Twelve thin frames rotated around one anchor; cheap
---- enough to keep mounted, hidden until a result needs them.
-local RAY_COUNT = 9
-local RAY_LENGTH = 360
-local RAY_SPREAD = 138
+--- The burst behind the blade: eight stretched sparkle needles around a soft
+--- disc and one four-point star. Soft sprites instead of flat rectangles,
+--- because a hard 2px line reads as a debug drawing no matter how it is tinted.
+local BURST_NEEDLES = 8
+local NEEDLE_LENGTH = 380
+local NEEDLE_SPREAD = 140
+
+--- Proven-present client textures. All three resolve offline with
+--- `ContentProvider:PreloadAsync`, so the ceremony never depends on an upload.
+--- `whiteCircle.png` is a hard flat disc and is not used: a glow needs a
+--- falloff, and `smoke_main` is the only proven-present texture with one.
+local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
+local SOFT = "rbxasset://textures/particles/smoke_main.dds"
 
 local RARITY_COLOR: { [string]: Color3 } = {
 	Scrap = Color3.fromRGB(168, 130, 96),
@@ -109,8 +120,15 @@ local action: TextButton? = nil
 local actionLabel: TextLabel? = nil
 local railHost: Frame? = nil
 local rayHost: Frame? = nil
-local beam: Frame? = nil
-local beamCore: Frame? = nil
+local halo: ImageLabel? = nil
+local star: ImageLabel? = nil
+local beamHost: Frame? = nil
+local beamWash: ImageLabel? = nil
+local beamCore: ImageLabel? = nil
+local beamSource: ImageLabel? = nil
+local beamValue: NumberValue? = nil
+local beamColor = Theme.Color.white
+local floorGlow: ImageLabel? = nil
 local vignetteLeft: Frame? = nil
 local vignetteRight: Frame? = nil
 local vignetteTop: Frame? = nil
@@ -126,7 +144,8 @@ local token = 0
 local currentCrate: ForgeConfig.Tier? = nil
 local currentBatch = 1
 local landed = false
-local opened = 0
+local strikes = 0
+local strikeTotal = 6
 local lastStrike = 0
 local pending: Types.FeedEvent? = nil
 local onExit: (() -> ())? = nil
@@ -134,6 +153,15 @@ local unsubscribe: (() -> ())? = nil
 local resultRank = 1
 local resultReadyAt = 0
 local rayConnection: RBXScriptConnection? = nil
+
+--- The result is a queue now: every copy gets its own claim. `claimQueue` holds
+--- copy indices in claim order (best first), `claimCursor` counts the claimed
+--- ones, and `railChips` dims as they leave.
+local resultCopies: { Types.ForgedCopy } = {}
+local claimQueue: { number } = {}
+local claimCursor = 0
+local railChips: { [number]: Frame } = {}
+local resultEvent: Types.FeedEvent? = nil
 
 local function bladeOf(id: string?): BladeRegistry.Blade?
 	if id == nil then
@@ -181,6 +209,92 @@ local function paintBackdrop(parent: Frame): StageBackdrop.Handle
 end
 
 -- ---------------------------------------------------------------------------
+-- Sprites
+-- ---------------------------------------------------------------------------
+
+--- A soft sprite, centred on `position` inside its parent.
+---
+--- The ceremony used to paint light with bare Frames: hard-edged rectangles
+--- with a one-axis gradient. That is why the column read as "a Roblox part" and
+--- the ray fan as "random lines". These three textures ship with the client, so
+--- they resolve offline and cannot fail the way an unuploaded asset can.
+local function sprite(
+	parent: Instance,
+	name: string,
+	image: string,
+	size: UDim2,
+	position: UDim2,
+	transparency: number,
+	color: Color3?,
+	zIndex: number?
+): ImageLabel
+	local label = UiKit.create("ImageLabel", {
+		Name = name,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = image,
+		ImageColor3 = color or Theme.Color.white,
+		ImageTransparency = transparency,
+		ScaleType = Enum.ScaleType.Stretch,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = position,
+		Size = size,
+		ZIndex = zIndex or 1,
+	}) :: ImageLabel
+	label.Parent = parent
+	return label
+end
+
+--- Paints the light column from one 0..1 strength.
+---
+--- Four sprite layers move together: a wide smoke wash, a tight disc core, a
+--- source halo at the top and the pool of light on the floor. One number drives
+--- all of them so the wind-up cannot desynchronise into four tweens that land on
+--- different frames.
+local function paintBeam(color: Color3, strength: number)
+	local s = math.clamp(strength, 0, 1)
+	local host = beamHost
+	if host then
+		host.Visible = s > 0.01
+	end
+	if beamWash then
+		beamWash.ImageColor3 = color
+		beamWash.ImageTransparency = 1 - s * 0.5
+		beamWash.Size = UDim2.fromOffset(160 + s * 260, beamWash.Size.Y.Offset)
+	end
+	if beamCore then
+		beamCore.ImageColor3 = color
+		beamCore.ImageTransparency = 1 - s * 1.15
+		beamCore.Size = UDim2.fromOffset(10 + s * 34, beamCore.Size.Y.Offset)
+	end
+	if beamSource then
+		local width = 80 + s * 220
+		beamSource.ImageColor3 = color
+		beamSource.ImageTransparency = 1 - s * 0.9
+		beamSource.Size = UDim2.fromOffset(width, width)
+	end
+	if floorGlow then
+		floorGlow.ImageColor3 = color
+		floorGlow.ImageTransparency = 1 - s * 0.45
+	end
+end
+
+--- Tweens the column to a strength. Colour snaps (a hue tween reads as a
+--- colour-shifting bug), alpha and width ease.
+local function beamTo(color: Color3, strength: number, duration: number, style: Enum.EasingStyle?)
+	beamColor = color
+	local value = beamValue
+	if value == nil then
+		return
+	end
+	if duration <= 0 then
+		value.Value = strength
+		return
+	end
+	Theme.tween(value, duration, { Value = strength }, style or Enum.EasingStyle.Quad)
+end
+
+-- ---------------------------------------------------------------------------
 -- Build
 -- ---------------------------------------------------------------------------
 
@@ -188,7 +302,7 @@ end
 --- so the cut from the overlay back to the page is hidden by the same effect that
 --- celebrates the claim. A close that is a hard `Visible = false` is the one
 --- frame every player notices.
-local function claim()
+local function claimOut()
 	if phase ~= "result" then
 		return
 	end
@@ -225,7 +339,7 @@ local function claim()
 	if stageScale then
 		UiKit.tween(stageScale, 0.22, { Scale = 1.05 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	end
-	Sfx.claim()
+	Sfx.claimAll()
 	Haptics.pulse(1, 0.18)
 	local stamp = token
 	task.delay(0.14, function()
@@ -234,6 +348,11 @@ local function claim()
 		end
 	end)
 end
+
+--- Assigned below, once the rail helpers exist. The footer button is built
+--- before them, so it needs a stable upvalue rather than a forward local
+--- function that would shadow the later definition.
+local claimOne: () -> () = function() end
 
 local function buildStage(canvas: Frame)
 	local button = UiKit.create("TextButton", {
@@ -302,47 +421,44 @@ local function buildStage(canvas: Frame)
 	scale.Parent = frame
 	stageScale = scale
 
-	-- The light column. Hidden until the rack is empty; it is the "something is
-	-- about to happen" line that a held beat needs, and it costs one frame.
+	-- The light column. A soft wash, a disc core and a source halo, all driven by
+	-- one strength value. Hidden until the rack is empty.
 	local column = UiKit.create("Frame", {
 		Name = "Beam",
-		BackgroundColor3 = Theme.Color.white,
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromOffset(STAGE_W / 2, 0),
-		Size = UDim2.fromOffset(4, VIEW_H + 80),
+		Size = UDim2.fromOffset(240, VIEW_H + 80),
+		Visible = false,
 		ZIndex = 1,
 	}) :: Frame
-	local columnGradient = UiKit.create("UIGradient", {
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.15),
-			NumberSequenceKeypoint.new(0.72, 0.75),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}) :: UIGradient
-	columnGradient.Parent = column
 	column.Parent = frame
-	beam = column
+	beamHost = column
 
-	local core = UiKit.create("Frame", {
-		Name = "BeamCore",
-		BackgroundColor3 = Theme.Color.white,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromOffset(STAGE_W / 2, 0),
-		Size = UDim2.fromOffset(2, VIEW_H + 80),
-		ZIndex = 1,
-	}) :: Frame
-	core.Parent = frame
-	beamCore = core
+	beamWash = sprite(column, "Wash", SOFT, UDim2.fromOffset(140, VIEW_H + 120), UDim2.fromOffset(120, (VIEW_H + 80) / 2), 1)
+	beamCore = sprite(column, "Core", SOFT, UDim2.fromOffset(8, VIEW_H + 40), UDim2.fromOffset(120, (VIEW_H + 80) / 2), 1)
+	beamCore.ZIndex = 2
+	beamSource = sprite(column, "Source", SOFT, UDim2.fromOffset(70, 70), UDim2.fromOffset(120, 6), 1)
+	beamSource.ZIndex = 2
 
-	-- The ray fan. Twelve thin blades of light behind the result, rotated around
-	-- one zero-size host so a slow spin is one property write per frame.
-	local rays = UiKit.create("Frame", {
-		Name = "Rays",
+	local value = Instance.new("NumberValue")
+	value.Name = "BeamStrength"
+	value.Value = 0
+	value.Parent = button
+	beamValue = value
+	value:GetPropertyChangedSignal("Value"):Connect(function()
+		paintBeam(beamColor, value.Value)
+	end)
+
+	-- The pool of light on the floor. It grounds the crate: without it the model
+	-- floats in a black rectangle.
+	floorGlow = sprite(frame, "FloorGlow", SOFT, UDim2.fromOffset(560, 160), UDim2.fromOffset(STAGE_W / 2, 20 + VIEW_H - 46), 1)
+
+	-- The burst. Eight stretched sparkle needles on zero-size pivots, a soft
+	-- halo and one four-point star. The star is the flare; the needles are the
+	-- shafts; the halo is the light behind them.
+	local burst = UiKit.create("Frame", {
+		Name = "Burst",
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(STAGE_W / 2, 20 + VIEW_H / 2),
@@ -350,16 +466,18 @@ local function buildStage(canvas: Frame)
 		Visible = false,
 		ZIndex = 1,
 	}) :: Frame
-	rays.Parent = frame
-	rayHost = rays
-	for index = 1, RAY_COUNT do
-		local angle = -RAY_SPREAD / 2 + (index - 1) * (RAY_SPREAD / (RAY_COUNT - 1))
-		-- Each ray hangs from a zero-size pivot. A GuiObject rotates around its
-		-- own centre, so rotating the long frame directly swung its base away
-		-- from the origin by half its length; the fan looked like it was lit
-		-- from a different room. The pivot's centre *is* the origin.
+	burst.Parent = frame
+	rayHost = burst
+
+	halo = sprite(burst, "Halo", SOFT, UDim2.fromOffset(520, 520), UDim2.fromOffset(0, 0), 1)
+	star = sprite(burst, "Star", SPARKLE, UDim2.fromOffset(760, 760), UDim2.fromOffset(0, 0), 1)
+	for index = 1, BURST_NEEDLES do
+		local angle = -NEEDLE_SPREAD / 2 + (index - 1) * (NEEDLE_SPREAD / (BURST_NEEDLES - 1))
+		-- Each needle hangs from a zero-size pivot. A GuiObject rotates around
+		-- its own centre, so rotating the long label directly would swing its
+		-- base away from the origin by half its length.
 		local pivot = UiKit.create("Frame", {
-			Name = "RayPivot" .. index,
+			Name = "NeedlePivot" .. index,
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(0, 0),
@@ -367,27 +485,9 @@ local function buildStage(canvas: Frame)
 			Rotation = angle,
 			ZIndex = 1,
 		}) :: Frame
-		local ray = UiKit.create("Frame", {
-			Name = "Ray",
-			BackgroundColor3 = Theme.Color.white,
-			BackgroundTransparency = 0.35,
-			BorderSizePixel = 0,
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.fromOffset(0, 0),
-			Size = UDim2.fromOffset(2, RAY_LENGTH),
-			ZIndex = 1,
-		}) :: Frame
-		local fade = UiKit.create("UIGradient", {
-			Rotation = 90,
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0),
-				NumberSequenceKeypoint.new(0.75, 0.75),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-		}) :: UIGradient
-		fade.Parent = ray
-		ray.Parent = pivot
-		pivot.Parent = rays
+		local needle = sprite(pivot, "Needle", SPARKLE, UDim2.fromOffset(30, NEEDLE_LENGTH), UDim2.fromOffset(0, 0), 1)
+		needle.AnchorPoint = Vector2.new(0.5, 1)
+		pivot.Parent = burst
 	end
 
 	local top = UiKit.label(frame, {
@@ -513,7 +613,7 @@ local function buildStage(canvas: Frame)
 		if phase == "failed" then
 			CrateReveal.close()
 		else
-			claim()
+			claimOne()
 		end
 	end))
 
@@ -584,6 +684,7 @@ local function clearRail()
 			child:Destroy()
 		end
 	end
+	railChips = {}
 	host.Visible = false
 end
 
@@ -592,40 +693,85 @@ local function stopRays()
 		rayConnection:Disconnect()
 		rayConnection = nil
 	end
-	if rayHost then
-		rayHost.Visible = false
-		rayHost.Rotation = 0
+	local host = rayHost
+	if host == nil then
+		return
+	end
+	host.Visible = false
+	host.Rotation = 0
+	if halo then
+		halo.ImageTransparency = 1
+	end
+	if star then
+		star.ImageTransparency = 1
+		star.Rotation = 0
+	end
+	for _, pivot in host:GetChildren() do
+		local needle = pivot:FindFirstChild("Needle")
+		if needle and needle:IsA("ImageLabel") then
+			needle.ImageTransparency = 1
+		end
 	end
 end
 
 local function startRays(color: Color3, rank: number)
 	local host = rayHost
-	if host == nil or Theme.reducedMotion() then
+	if host == nil then
 		return
 	end
 	host.Visible = true
 	host.Rotation = 0
+
+	local bright = rank >= 4
+	local needleAlpha = if bright then 0.46 else 0.62
 	local index = 0
 	for _, pivot in host:GetChildren() do
-		local ray = pivot:FindFirstChild("Ray")
-		if ray and ray:IsA("Frame") then
+		local needle = pivot:FindFirstChild("Needle")
+		if needle and needle:IsA("ImageLabel") then
 			index += 1
-			ray.BackgroundColor3 = if index % 3 == 1 then color else Theme.Color.white
-			ray.BackgroundTransparency = if rank >= 4 then 0.5 else 0.72
+			needle.ImageColor3 = if index % 4 == 0 then Theme.Color.white else color
+			needle.ImageTransparency = needleAlpha + (index % 3) * 0.05
+			-- Different lengths keep the fan from reading as a perfect rake.
+			local scale = 0.68 + ((index * 37) % 5) * 0.09
+			needle.Size = UDim2.fromOffset(32 + (index % 3) * 9, NEEDLE_LENGTH * scale)
 		end
+	end
+	if halo then
+		halo.ImageColor3 = color
+		halo.ImageTransparency = if bright then 0.74 else 0.88
+		local haloSize = if bright then 640 else 520
+		halo.Size = UDim2.fromOffset(haloSize, haloSize)
+	end
+	if star then
+		local starSize = if bright then 880 else 720
+		star.ImageColor3 = color
+		star.ImageTransparency = if bright then 0.32 else 0.5
+		star.Rotation = 0
+		star.Size = UDim2.fromOffset(starSize, starSize)
 	end
 	if rayConnection then
 		rayConnection:Disconnect()
 	end
-	-- A fan that turns a full circle is a pinwheel; a few degrees of sway reads
-	-- as light through a dusty room.
+	if Theme.reducedMotion() then
+		return
+	end
+	-- The star turns slowly, the halo breathes, and the whole fan sways a few
+	-- degrees. A full spin reads as a pinwheel; this reads as light in a room.
 	local clock = 0
+	local haloBase = if bright then 640 else 520
 	rayConnection = RunService.Heartbeat:Connect(function(dt: number)
 		if host.Parent == nil or not host.Visible then
 			return
 		end
 		clock += dt
-		host.Rotation = math.sin(clock * 0.7) * 4
+		host.Rotation = math.sin(clock * 0.5) * 2.5
+		if star then
+			star.Rotation = (clock * 7) % 360
+		end
+		if halo then
+			local size = haloBase * (1 + math.sin(clock * 1.7) * 0.03)
+			halo.Size = UDim2.fromOffset(size, size)
+		end
 	end)
 end
 
@@ -652,11 +798,19 @@ local function layoutStage(batch: number, isResult: boolean)
 	if rayHost then
 		rayHost.Position = UDim2.fromOffset(STAGE_W / 2, 20 + viewH / 2)
 	end
-	if beam then
-		beam.Size = UDim2.fromOffset(beam.Size.X.Offset, viewH + 80)
+	if beamHost then
+		beamHost.Size = UDim2.fromOffset(240, viewH + 80)
+	end
+	if beamWash then
+		beamWash.Size = UDim2.fromOffset(beamWash.Size.X.Offset, viewH + 120)
+		beamWash.Position = UDim2.fromOffset(120, (viewH + 80) / 2)
 	end
 	if beamCore then
-		beamCore.Size = UDim2.fromOffset(beamCore.Size.X.Offset, viewH + 80)
+		beamCore.Size = UDim2.fromOffset(beamCore.Size.X.Offset, viewH + 40)
+		beamCore.Position = UDim2.fromOffset(120, (viewH + 80) / 2)
+	end
+	if floorGlow then
+		floorGlow.Position = UDim2.fromOffset(STAGE_W / 2, 20 + viewH - 46)
 	end
 	if action then
 		action.Position = UDim2.new(0.5, 0, 0, if multi then viewH + 184 else STAGE_H - 68)
@@ -665,7 +819,7 @@ end
 
 --- Lists every copy in a batch result. The winning copy is gold; the rest carry
 --- their rarity. Chips stagger in left to right so the row is read, not just
---- seen, and the last one lands with the collect key.
+--- seen, and each one is the receipt for a copy that still has to be claimed.
 local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
 	clearRail()
 	local host = railHost
@@ -695,6 +849,7 @@ local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
 		UiKit.stroke(chip, color, if isBest then Theme.Stroke.bold else Theme.Stroke.thin, if isBest then 0.1 else 0.5)
 
 		local bar = UiKit.create("Frame", {
+			Name = "Bar",
 			BackgroundColor3 = color,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -713,6 +868,7 @@ local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
 			align = Enum.TextXAlignment.Center,
 			wrap = true,
 		})
+		name.Name = "Blade"
 		name.Position = UDim2.fromOffset(4, 8)
 		name.Size = UDim2.new(1, -8, 0, 30)
 		name.TextYAlignment = Enum.TextYAlignment.Center
@@ -725,11 +881,27 @@ local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
 			color = color,
 			align = Enum.TextXAlignment.Center,
 		})
+		tag.Name = "Tag"
 		tag.Position = UDim2.fromOffset(4, 38)
 		tag.Size = UDim2.new(1, -8, 0, 14)
 		tag.ZIndex = 4
 
+		-- The claim cursor. It marks which copy the key will take next, so the
+		-- player can see the queue without a counter.
+		local cursor = UiKit.create("Frame", {
+			Name = "Cursor",
+			BackgroundColor3 = Theme.Color.white,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(0, CHIP_H - 3),
+			Size = UDim2.new(1, 0, 0, 3),
+			ZIndex = 4,
+		}) :: Frame
+		UiKit.corner(cursor, 2)
+		cursor.Parent = chip
+
 		chip.Parent = host
+		railChips[index] = chip
 		local delay = (index - 1) * 0.035
 		task.delay(delay, function()
 			if chip.Parent == nil then
@@ -741,48 +913,73 @@ local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
 	end
 end
 
-local function paintCrate(crate: ForgeConfig.Tier, batch: number)
-	clearRail()
-	stopRays()
-	layoutStage(batch, false)
-	if beam then
-		beam.BackgroundTransparency = 1
-		beam.Size = UDim2.fromOffset(4, VIEW_H + 80)
+local function markCursor(index: number?)
+	for copyIndex, chip in railChips do
+		local cursor = chip:FindFirstChild("Cursor")
+		if cursor and cursor:IsA("Frame") then
+			cursor.BackgroundTransparency = if copyIndex == index then 0 else 1
+		end
 	end
-	if beamCore then
-		beamCore.BackgroundTransparency = 1
-		beamCore.Size = UDim2.fromOffset(2, VIEW_H + 80)
-	end
-	if topLabel then
-		topLabel.Text = string.format("POOL %02d / %02d  ·  %s", crate.tier, #ForgeConfig.Tiers, string.upper(crate.name))
-	end
-	if mainLabel then
-		mainLabel.Text = "BREACHING"
-		mainLabel.TextColor3 = Theme.Color.text
-	end
-	if subLabel then
-		subLabel.Text = string.format("0 / %d", batch)
-		subLabel.TextColor3 = Theme.Color.textSecondary
-	end
-	paintPips(batch, 0)
 end
 
-local function paintResult(result: Types.FeedEvent, crate: ForgeConfig.Tier)
-	local blade = bladeOf(result.blade)
-	local variant = ForgeConfig.variant(if result.variant and result.variant ~= "" then result.variant else ForgeConfig.StandardVariant)
+--- A claimed chip stays on the rail, greyed, so the player can see what is left
+--- without losing what they already took.
+local function markClaimed(index: number)
+	local chip = railChips[index]
+	if chip == nil then
+		return
+	end
+	UiKit.tween(chip, 0.18, { BackgroundTransparency = 0.55 }, Enum.EasingStyle.Quad)
+	local bar = chip:FindFirstChild("Bar")
+	if bar and bar:IsA("Frame") then
+		bar.BackgroundTransparency = 0.6
+	end
+	local blade = chip:FindFirstChild("Blade")
+	if blade and blade:IsA("TextLabel") then
+		blade.TextColor3 = Theme.Color.textFaint
+	end
+	local tag = chip:FindFirstChild("Tag")
+	if tag and tag:IsA("TextLabel") then
+		tag.Text = "CLAIMED"
+		tag.TextColor3 = Theme.Color.textFaint
+	end
+	local cursor = chip:FindFirstChild("Cursor")
+	if cursor and cursor:IsA("Frame") then
+		cursor.BackgroundTransparency = 1
+	end
+end
+
+--- The hero copy. Every claim swaps this: name, condition line, rarity wash and
+--- the 3D blade. The pick is a queue now, not a summary.
+local function showCopy(position: number)
+	local result = resultEvent
+	local crate = currentCrate
+	if result == nil or crate == nil then
+		return
+	end
+	local copyIndex = claimQueue[position]
+	local copy = if copyIndex then resultCopies[copyIndex] else nil
+	if copy == nil then
+		return
+	end
+
+	local blade = bladeOf(copy.blade)
+	local variant = ForgeConfig.variant(if copy.variant and copy.variant ~= "" then copy.variant else ForgeConfig.StandardVariant)
 	local rarity = if blade then blade.rarity else "Scrap"
 	local rarityColor = rarityColorOf(blade)
-	local batch = math.max(1, math.floor(result.batch or 1))
+	local rank = math.max(
+		VARIANT_RANK[variant.id] or 1,
+		if blade then (RARITY_RANK[blade.rarity] or 1) else 1
+	)
+	resultRank = rank
 
 	if topLabel then
-		topLabel.Text = if batch > 1
-			then string.format("BEST OF %d  ·  %s", batch, string.upper(crate.name))
-			else "JUST FORGED"
-		topLabel.TextColor3 = if batch > 1 then Theme.Color.gold else Theme.Color.textFaint
+		topLabel.Text = string.format("COPY %d OF %d  ·  %s", position, #claimQueue, string.upper(crate.name))
+		topLabel.TextColor3 = if position == 1 then Theme.Color.gold else Theme.Color.textFaint
 	end
 	if mainLabel then
 		local display = if blade
-			then ModifierConfig.displayName(blade.name, result.prefix or "", result.suffix or "")
+			then ModifierConfig.displayName(blade.name, copy.prefix or "", copy.suffix or "")
 			else "A COPY"
 		mainLabel.Text = string.upper(display)
 		mainLabel.TextColor3 = Theme.Color.text
@@ -793,21 +990,88 @@ local function paintResult(result: Types.FeedEvent, crate: ForgeConfig.Tier)
 			string.format('<font color="#%s">%s</font>', rarityColor:ToHex(), string.upper(rarity)),
 			string.upper(variant.name),
 		}
-		if result.power then
-			table.insert(pieces, string.format("%s POWER", NumberUtil.abbreviate(result.power)))
+		if copy.power then
+			table.insert(pieces, string.format("%s POWER", NumberUtil.abbreviate(copy.power)))
 		end
-		if result.equipped == true then
+		if copy.newBlade == true then
+			table.insert(pieces, "NEW BLADE")
+		elseif copy.newVariant == true then
+			table.insert(pieces, "NEW VARIANT")
+		end
+		if position == 1 and result.equipped == true then
 			table.insert(pieces, "EQUIPPED")
 		end
 		subLabel.Text = table.concat(pieces, "  ·  ")
 		subLabel.TextColor3 = Theme.Color.textSecondary
 	end
+	if actionLabel then
+		actionLabel.Text = string.format("CLAIM %d / %d", position, #claimQueue)
+	end
 
-	local copies = result.results
+	local theme = Theme.tierBackdrop(crate.tier)
+	if bloom then
+		bloom.setColors(variant.color, theme.cool, rarityColor)
+	end
+
+	if bladeCleanup then
+		bladeCleanup()
+		bladeCleanup = nil
+	end
+	if viewport then
+		for _, child in viewport:GetChildren() do
+			if child:IsA("Model") or child:IsA("Camera") then
+				child:Destroy()
+			end
+		end
+		if blade then
+			bladeCleanup = BladePreview.mount(viewport, blade, variant.color, {
+				surface = root,
+				frameFill = 0.9,
+				aimBias = 0,
+				spin = 0,
+			})
+		end
+	end
+	markCursor(copyIndex)
+end
+
+local function paintCrate(crate: ForgeConfig.Tier, _batch: number)
+	clearRail()
+	stopRays()
+	layoutStage(currentBatch, false)
+	-- A faint column and a lit floor from the first frame. The crate should read
+	-- as sitting in a room with a light above it, not floating in a black box.
+	beamTo(crate.accent, 0.16, 0)
+	if topLabel then
+		topLabel.Text = string.format("POOL %02d / %02d  ·  %s", crate.tier, #ForgeConfig.Tiers, string.upper(crate.name))
+	end
+	if mainLabel then
+		mainLabel.Text = "BREACHING"
+		mainLabel.TextColor3 = Theme.Color.text
+	end
+	if subLabel then
+		subLabel.Text = string.format("0 / %d", strikeTotal)
+		subLabel.TextColor3 = Theme.Color.textSecondary
+	end
+	paintPips(strikeTotal, 0)
+end
+
+--- Paints everything around the hero: the kicker, the pips and the rail. Returns
+--- the index of the best copy, which becomes the first claim in the queue.
+local function paintResultFrame(result: Types.FeedEvent, crate: ForgeConfig.Tier): number
+	local batch = math.max(1, math.floor(result.batch or 1))
+	if topLabel then
+		topLabel.Text = if batch > 1
+			then string.format("BEST OF %d  ·  %s", batch, string.upper(crate.name))
+			else "JUST FORGED"
+		topLabel.TextColor3 = if batch > 1 then Theme.Color.gold else Theme.Color.textFaint
+	end
+
+	local copies = result.results or {}
 	local colors: { Color3 } = {}
 	local bestMarked = false
 	local bestIndex = 0
-	for index, copy in copies or {} do
+	for index, copy in copies do
 		local copyBlade = bladeOf(copy.blade)
 		local isBest = not bestMarked and copy.blade == result.blade and (result.power == nil or copy.power == result.power)
 		if isBest then
@@ -816,14 +1080,72 @@ local function paintResult(result: Types.FeedEvent, crate: ForgeConfig.Tier)
 		end
 		colors[index] = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
 	end
-	local list = copies or {}
 	layoutStage(batch, true)
-	paintPips(if #list > 0 then #list else batch, batch, colors)
-	paintRail(list, bestIndex)
+	paintPips(if #copies > 0 then #copies else batch, batch, colors)
+	paintRail(copies, bestIndex)
+	return bestIndex
+end
 
-	if actionLabel then
-		actionLabel.Text = if batch > 1 then string.format("COLLECT %d", batch) else "COLLECT"
+--- One copy per press. The queue starts on the best copy, so the payoff is the
+--- first thing the player sees; the rest follow in roll order. Each claim is a
+--- small beat (ring, flash, shake) and the last one is the full exit.
+claimOne = function()
+	if phase ~= "result" then
+		return
 	end
+	if os.clock() < resultReadyAt then
+		return
+	end
+	local position = claimCursor + 1
+	local copyIndex = claimQueue[position]
+	if copyIndex == nil then
+		return
+	end
+	claimCursor = position
+	markClaimed(copyIndex)
+
+	if position >= #claimQueue then
+		claimOut()
+		return
+	end
+
+	local copy = resultCopies[copyIndex]
+	local blade = bladeOf(copy and copy.blade)
+	local color = if blade then rarityColorOf(blade) else Theme.Color.gold
+	if flash then
+		flash.BackgroundColor3 = color
+		flash.BackgroundTransparency = 0.55
+		UiKit.tween(flash, 0.22, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+	end
+	if stage then
+		Vfx.shake(stage, 1.6, 0.14)
+	end
+	if viewport then
+		Vfx.sparks(viewport, color, 6, 0.7)
+	end
+	Sfx.claim()
+	Haptics.pulse(0.55, 0.07)
+
+	-- Hide the key during the swap. The gate alone is not enough: a held mouse
+	-- would claim the next copy the instant the key reappears.
+	if action then
+		action.Visible = false
+	end
+	if actionLabel then
+		actionLabel.Text = string.format("CLAIMED %d / %d", position, #claimQueue)
+	end
+	resultReadyAt = os.clock() + CLAIM_LOCK
+	local stamp = token
+	task.delay(0.14, function()
+		if stamp ~= token or phase ~= "result" then
+			return
+		end
+		showCopy(claimCursor + 1)
+		if action then
+			action.Visible = true
+		end
+		resultReadyAt = os.clock() + CLAIM_LOCK
+	end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -864,17 +1186,52 @@ local function reveal(result: Types.FeedEvent)
 
 	stopRays()
 	clearViewport()
-	local blade = bladeOf(result.blade)
-	local variant = ForgeConfig.variant(if result.variant and result.variant ~= "" then result.variant else ForgeConfig.StandardVariant)
+
+	resultEvent = result
+	local list = result.results
+	if list == nil or #list == 0 then
+		local single: Types.ForgedCopy = {
+			blade = result.blade or "",
+			variant = result.variant or ForgeConfig.StandardVariant,
+			power = result.power,
+			newBlade = result.newBlade,
+			newVariant = result.newVariant,
+		}
+		if result.element then
+			single.element = result.element
+		end
+		if result.grade then
+			single.grade = result.grade
+		end
+		if result.prefix then
+			single.prefix = result.prefix
+		end
+		if result.suffix then
+			single.suffix = result.suffix
+		end
+		list = { single }
+	end
+	resultCopies = list
+	local bestIndex = paintResultFrame(result, crate)
+	claimQueue = {}
+	if bestIndex > 0 then
+		table.insert(claimQueue, bestIndex)
+	end
+	for index = 1, #list do
+		if index ~= bestIndex then
+			table.insert(claimQueue, index)
+		end
+	end
+	claimCursor = 0
+
+	local bestCopy = resultCopies[claimQueue[1]]
+	local blade = bladeOf(bestCopy and bestCopy.blade)
+	local variant = ForgeConfig.variant(if bestCopy and bestCopy.variant and bestCopy.variant ~= ""
+		then bestCopy.variant
+		else ForgeConfig.StandardVariant)
 	local rarityColor = rarityColorOf(blade)
 	local rank = math.max(VARIANT_RANK[variant.id] or 1, if blade then (RARITY_RANK[blade.rarity] or 1) else 1)
 	resultRank = rank
-	local theme = Theme.tierBackdrop(crate.tier)
-
-	if bloom then
-		bloom.setColors(variant.color, theme.cool, rarityColor)
-	end
-	paintResult(result, crate)
 
 	-- The collect key arrives after the reveal has been read, not on the same
 	-- frame as the flash. A key that is already under the thumb when the screen
@@ -899,15 +1256,8 @@ local function reveal(result: Types.FeedEvent)
 		viewport.LightColor = Color3.fromRGB(255, 255, 255)
 		viewport.LightDirection = Vector3.new(-0.55, -0.72, -0.42)
 		viewport.BackgroundTransparency = 1
-		if blade then
-			bladeCleanup = BladePreview.mount(viewport, blade, variant.color, {
-				surface = root,
-				frameFill = 0.9,
-				aimBias = 0,
-				spin = 0,
-			})
-		end
 	end
+	showCopy(1)
 
 	if stageScale then
 		stageScale.Scale = 1.08
@@ -939,18 +1289,13 @@ local function reveal(result: Types.FeedEvent)
 		})
 		Vfx.sparks(viewport, rarityColor, 12 + rank, 1.2)
 	end
-	if beam then
-		beam.BackgroundColor3 = crate.accent
-		beam.BackgroundTransparency = 0.45
-		beam.Size = UDim2.fromOffset(46, beam.Size.Y.Offset)
-		UiKit.tween(beam, 0.55, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-	end
-	if beamCore then
-		beamCore.BackgroundColor3 = Theme.Color.white
-		beamCore.BackgroundTransparency = 0.2
-		beamCore.Size = UDim2.fromOffset(10, beamCore.Size.Y.Offset)
-		UiKit.tween(beamCore, 0.4, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-	end
+	beamTo(rarityColor, 1, 0.1)
+	local beamStamp = token
+	task.delay(0.16, function()
+		if beamStamp == token and phase == "result" then
+			beamTo(rarityColor, 0, 0.55)
+		end
+	end)
 	if vignetteLeft then
 		Theme.tween(vignetteLeft, 0.35, { Size = UDim2.new(0, 170, 1, 0) }, Enum.EasingStyle.Quad)
 	end
@@ -991,43 +1336,57 @@ local function strike()
 		return
 	end
 	lastStrike = now
-	opened += 1
-	local index = opened
-	if crateHandle and not crateHandle.open(index, crate.accent) then
-		opened -= 1
-		return
-	end
-	if crateHandle then
-		crateHandle.knock(index, crate.accent)
-	end
-	local final = opened >= currentBatch
-	Sfx.crateBreak(final)
-	Haptics.pulse(if final then 0.6 else 0.22 + index * 0.05, if final then 0.1 else 0.055)
+	strikes += 1
+	-- Six clicks for a single crate, six for a triple (two shakes each), ten for
+	-- a ten-pull (one per crate). The click budget is the suspense: a single
+	-- press that opens the box is a button, six presses that shake it is a lock.
+	local perCrate = math.max(1, math.floor(strikeTotal / currentBatch))
+	local crateIndex = math.min(currentBatch, math.ceil(strikes / perCrate))
+	local beat = strikes - (crateIndex - 1) * perCrate
+	local opensCrate = beat >= perCrate
+	local final = strikes >= strikeTotal
+	-- Map the beat onto the crate's six-step rattle. A triple's second hit is
+	-- already the big one instead of a half-hearted nudge.
+	local normalized = if perCrate <= 1 then 6 else 1 + math.floor((beat - 1) * 5 / (perCrate - 1))
 
-	-- The same answer the anvil gives: a ring at the cursor, sparks, a burst and
-	-- a body check on the stage. The ziggurat of numbers is gone; this is one hit.
+	if crateHandle then
+		if opensCrate then
+			crateHandle.open(crateIndex, crate.accent)
+		else
+			crateHandle.knock(normalized, crate.accent)
+		end
+	end
+	Sfx.crateBreak(opensCrate)
+	Haptics.pulse(if opensCrate then 0.55 else 0.18 + normalized * 0.045, if opensCrate then 0.09 else 0.05)
+	-- The room brightens as the seal gives. By the last click the column is
+	-- already half-lit, so the held beat has somewhere to go.
+	beamTo(crate.accent, 0.16 + math.min(strikes / strikeTotal, 1) * 0.34, 0.18)
+
+	-- The same answer the anvil gives, scaled by how hard the crate was hit.
 	if viewport then
 		Vfx.shockwave(viewport, crate.accent, {
-			size = 58,
-			spread = 2.4,
-			duration = 0.34,
-			thickness = 3,
+			size = 40 + normalized * 6,
+			spread = 2.0 + normalized * 0.15,
+			duration = 0.3,
+			thickness = 2 + normalized * 0.3,
 			at = Vfx.pointer(root),
 		})
-		Vfx.sparks(viewport, crate.accent, 10, 1.05)
-		Vfx.burst(viewport, crate.accent, 0.8)
+		Vfx.sparks(viewport, crate.accent, 6 + normalized, 0.9)
+		if opensCrate then
+			Vfx.burst(viewport, crate.accent, 0.8)
+		end
 	end
 	if stage then
-		Vfx.shake(stage, 1.2 + index * 0.25, 0.14)
+		Vfx.shake(stage, 1.0 + normalized * 0.22, 0.12)
 	end
-	Sfx.rollTick(index)
+	Sfx.rollTick(normalized)
 
 	if subLabel then
-		subLabel.Text = string.format("%d / %d", opened, currentBatch)
+		subLabel.Text = string.format("%d / %d", strikes, strikeTotal)
 	end
-	paintPips(currentBatch, opened)
+	paintPips(strikeTotal, strikes)
 
-	if opened < currentBatch then
+	if not final then
 		return
 	end
 
@@ -1043,18 +1402,7 @@ local function strike()
 	-- The held beat. Everything converges here: the column lights, the room
 	-- darkens, the pad builds, and two heartbeats carry the silence. The server
 	-- answer is already in hand; this is the pause before the screen admits it.
-	if beam then
-		beam.BackgroundColor3 = crate.accent
-		beam.BackgroundTransparency = 0.7
-		beam.Size = UDim2.fromOffset(8, beam.Size.Y.Offset)
-		UiKit.tween(beam, 0.5, { BackgroundTransparency = 0.45, Size = UDim2.fromOffset(30, beam.Size.Y.Offset) }, Enum.EasingStyle.Quad)
-	end
-	if beamCore then
-		beamCore.BackgroundColor3 = Theme.Color.white
-		beamCore.BackgroundTransparency = 0.55
-		beamCore.Size = UDim2.fromOffset(3, beamCore.Size.Y.Offset)
-		UiKit.tween(beamCore, 0.5, { BackgroundTransparency = 0.2, Size = UDim2.fromOffset(12, beamCore.Size.Y.Offset) }, Enum.EasingStyle.Quad)
-	end
+	beamTo(crate.accent, 0.75, 0.5)
 	if vignetteLeft then
 		Theme.tween(vignetteLeft, SEALED_HOLD, { Size = UDim2.new(0, 230, 1, 0) }, Enum.EasingStyle.Quad)
 	end
@@ -1101,7 +1449,10 @@ local function open(opts: {
 	currentCrate = opts.crate
 	currentBatch = math.clamp(math.floor(opts.batch), 1, 10)
 	landed = false
-	opened = 0
+	-- Six clicks for one or three crates, ten for a ten-pull. The count lives
+	-- here so the label, the pips and the strike ladder can never disagree.
+	strikeTotal = if currentBatch >= 10 then 10 else 6
+	strikes = 0
 	pending = nil
 	onExit = opts.onExit
 
@@ -1318,8 +1669,12 @@ function CrateReveal.close()
 	phase = "closed"
 	pending = nil
 	landed = false
-	opened = 0
+	strikes = 0
 	resultReadyAt = 0
+	resultEvent = nil
+	resultCopies = {}
+	claimQueue = {}
+	claimCursor = 0
 	stopRays()
 	clearRail()
 	if vignetteLeft then
@@ -1334,12 +1689,10 @@ function CrateReveal.close()
 	if vignetteBottom then
 		vignetteBottom.Size = UDim2.new(1, 0, 0, 110)
 	end
-	if beam then
-		beam.BackgroundTransparency = 1
+	if beamHost then
+		beamHost.Visible = false
 	end
-	if beamCore then
-		beamCore.BackgroundTransparency = 1
-	end
+	beamTo(beamColor, 0, 0)
 	root.Visible = false
 	clearViewport()
 	Haptics.stop()

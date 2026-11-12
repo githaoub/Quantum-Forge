@@ -122,6 +122,9 @@ local railPrices: { [string]: TextLabel } = {}
 local railTracks: { [string]: Frame } = {}
 local railFills: { [string]: Frame } = {}
 local selected = "standard"
+--- True while the player is inspecting a pool the run has not opened. The pick
+--- is local only, so the sync loop must not follow the server back.
+local browsingLocked = false
 
 --- Set by `Main`. The roll page does not require `ForgeView`: the anvil card and
 --- the pool page are siblings, and the seam between them is this callback.
@@ -1301,6 +1304,12 @@ local function pick(id: string)
 	if ForgeConfig.crate(id) == nil or id == selected then
 		return
 	end
+	-- A locked pool is a window, not a purchase. Selecting it is a local browse:
+	-- the server refuses to switch the profile's crate to a pool the run has not
+	-- opened, and the next sync would snap the page back to the old one. So the
+	-- pick is only sent when the pool can actually be rolled.
+	local unlocked = quote(id) ~= nil
+	browsingLocked = not unlocked
 	selected = id
 	Sfx.tab()
 	rolling = false
@@ -1317,7 +1326,9 @@ local function pick(id: string)
 	-- ramp of whatever crate the profile is on, so the pick has to land before
 	-- the press. Skipping this made the next sync paint the old pool back over
 	-- the one the player had just chosen.
-	StateStore.send("crate", id)
+	if unlocked then
+		StateStore.send("crate", id)
+	end
 	local callback = CratesView.onSelect
 	if callback then
 		callback(selected)
@@ -2251,12 +2262,20 @@ function CratesView.render(payload: Types.SyncPayload)
 	-- The server is authoritative about which pool the ramp belongs to. Once the
 	-- page is idle, follow it: a stale local pick after a rejected roll would leave
 	-- the page pricing a crate the server is not on.
-	if not rolling and ForgeConfig.crate(payload.forgeCrate) and payload.forgeCrate ~= selected then
-		selected = payload.forgeCrate
-		if not showingResult then
-			unmountCrate()
-			mountCrate(selectedCrate().shape)
-			paintRestTint(selectedCrate())
+	--
+	-- Except while the player is browsing a locked pool. That pick never reached
+	-- the server on purpose, so following `forgeCrate` here would undo the browse
+	-- on the very next tick.
+	local browsingLockedPool = browsingLocked and quote(selected) == nil
+	if not browsingLockedPool then
+		browsingLocked = false
+		if not rolling and ForgeConfig.crate(payload.forgeCrate) and payload.forgeCrate ~= selected then
+			selected = payload.forgeCrate
+			if not showingResult then
+				unmountCrate()
+				mountCrate(selectedCrate().shape)
+				paintRestTint(selectedCrate())
+			end
 		end
 	end
 	-- While the crate is in the air the page is showing its own note, and

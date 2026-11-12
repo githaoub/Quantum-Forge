@@ -201,7 +201,9 @@ export type Tier = {
 ---
 --- The weight columns are the whole balance. A crate earns its price by moving
 --- weight from Scrap and Forged into the top three rarities, not by multiplying
---- the payout: standard is 2.4% Void, singularity is 38%.
+--- the payout: standard is 2.6% Void, singularity is 27% Void-or-better. The
+--- top crate used to hand out a Quantum every six rolls, which made the rarest
+--- blade a routine drop by the time a player could afford the vault.
 ---
 --- Unlocks were widened with the drone nerf. Lifetime Star-Matter is the shared
 --- clock, so stretching these stretches the codex next to it: the last tier used
@@ -217,7 +219,7 @@ ForgeConfig.Tiers = {
 		unlock = 0,
 		pity = 12,
 		scrap = 6,
-		weights = { Scrap = 55, Forged = 29, Astral = 13, Void = 2.4, Quantum = 0.35 },
+		weights = { Scrap = 55, Forged = 29, Astral = 13, Void = 2.6, Quantum = 0.4 },
 		accent = Color3.fromRGB(255, 194, 60),
 		shape = "crate",
 	} :: Tier,
@@ -231,7 +233,7 @@ ForgeConfig.Tiers = {
 		unlock = 6e4,
 		pity = 11,
 		scrap = 14,
-		weights = { Scrap = 30, Forged = 38, Astral = 22, Void = 8.6, Quantum = 1.4 },
+		weights = { Scrap = 33, Forged = 38, Astral = 20.2, Void = 7.6, Quantum = 1.2 },
 		accent = Color3.fromRGB(199, 125, 255),
 		shape = "capsule",
 	} :: Tier,
@@ -245,7 +247,7 @@ ForgeConfig.Tiers = {
 		unlock = 8e6,
 		pity = 10,
 		scrap = 30,
-		weights = { Scrap = 14, Forged = 32, Astral = 36, Void = 15, Quantum = 3 },
+		weights = { Scrap = 18, Forged = 34, Astral = 34, Void = 12.5, Quantum = 1.5 },
 		accent = Color3.fromRGB(0, 210, 255),
 		shape = "relic",
 	} :: Tier,
@@ -259,7 +261,7 @@ ForgeConfig.Tiers = {
 		unlock = 6e8,
 		pity = 9,
 		scrap = 60,
-		weights = { Scrap = 6, Forged = 20, Astral = 40, Void = 26, Quantum = 8 },
+		weights = { Scrap = 9, Forged = 30, Astral = 41, Void = 18, Quantum = 2 },
 		accent = Color3.fromRGB(255, 54, 200),
 		shape = "core",
 	} :: Tier,
@@ -273,7 +275,7 @@ ForgeConfig.Tiers = {
 		unlock = 4e11,
 		pity = 8,
 		scrap = 120,
-		weights = { Scrap = 2, Forged = 10, Astral = 34, Void = 38, Quantum = 16 },
+		weights = { Scrap = 4, Forged = 22, Astral = 47, Void = 25, Quantum = 2 },
 		accent = Color3.fromRGB(255, 236, 180),
 		shape = "vault",
 	} :: Tier,
