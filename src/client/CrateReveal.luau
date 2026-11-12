@@ -156,11 +156,13 @@ local rayConnection: RBXScriptConnection? = nil
 
 --- The result is a queue now: every copy gets its own claim. `claimQueue` holds
 --- copy indices in claim order (best first), `claimCursor` counts the claimed
---- ones, and `railChips` dims as they leave.
+--- ones, and the rail is painted in that same order so the gold outline walks
+--- left to right instead of jumping to whichever copy happened to roll last.
 local resultCopies: { Types.ForgedCopy } = {}
 local claimQueue: { number } = {}
 local claimCursor = 0
 local railChips: { [number]: Frame } = {}
+local railClaimed: { [number]: boolean } = {}
 local resultEvent: Types.FeedEvent? = nil
 
 local function bladeOf(id: string?): BladeRegistry.Blade?
@@ -685,6 +687,7 @@ local function clearRail()
 		end
 	end
 	railChips = {}
+	railClaimed = {}
 	host.Visible = false
 end
 
@@ -817,106 +820,132 @@ local function layoutStage(batch: number, isResult: boolean)
 	end
 end
 
---- Lists every copy in a batch result. The winning copy is gold; the rest carry
---- their rarity. Chips stagger in left to right so the row is read, not just
---- seen, and each one is the receipt for a copy that still has to be claimed.
-local function paintRail(copies: { Types.ForgedCopy }, bestIndex: number)
+--- Lists every copy in claim order: the best first, then the rest in roll
+--- order. The rail and the queue are the same list, so the gold outline can walk
+--- left to right as copies leave instead of sitting on the last roll. The
+--- winning copy keeps a gold tag; the rest carry their rarity.
+local function paintRail(copies: { Types.ForgedCopy }, order: { number }, bestIndex: number)
 	clearRail()
 	local host = railHost
-	if host == nil or #copies <= 1 then
+	if host == nil or #order <= 1 then
 		return
 	end
 	host.Visible = true
-	local count = #copies
+	local count = #order
 	local width = math.min(CHIP_MAX_W, math.floor((RAIL_W - CHIP_GAP * (count - 1)) / count))
 	local total = count * width + CHIP_GAP * (count - 1)
 	local left = (RAIL_W - total) / 2
 
-	for index, copy in copies do
-		local copyBlade = bladeOf(copy.blade)
-		local isBest = index == bestIndex
-		local color = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
-		local chip = UiKit.create("Frame", {
-			Name = "Copy" .. index,
-			BackgroundColor3 = if isBest then Theme.Color.panelRaised else Theme.Color.panelSunken,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Position = UDim2.fromOffset(left + (index - 1) * (width + CHIP_GAP), 0),
-			Size = UDim2.fromOffset(width, CHIP_H),
-			ZIndex = 3,
-		}) :: Frame
-		UiKit.corner(chip, Theme.Radius.sm)
-		UiKit.stroke(chip, color, if isBest then Theme.Stroke.bold else Theme.Stroke.thin, if isBest then 0.1 else 0.5)
+	for position, copyIndex in order do
+		local copy = copies[copyIndex]
+		if copy then
+			local copyBlade = bladeOf(copy.blade)
+			local isBest = copyIndex == bestIndex
+			local color = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
+			local chip = UiKit.create("Frame", {
+				Name = "Copy" .. position,
+				BackgroundColor3 = if isBest then Theme.Color.panelRaised else Theme.Color.panelSunken,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(left + (position - 1) * (width + CHIP_GAP), 0),
+				Size = UDim2.fromOffset(width, CHIP_H),
+				ZIndex = 3,
+			}) :: Frame
+			UiKit.corner(chip, Theme.Radius.sm)
+			local edge = UiKit.stroke(chip, color, if isBest then Theme.Stroke.bold else Theme.Stroke.thin, if isBest then 0.1 else 0.5)
+			edge.Name = "Edge"
 
-		local bar = UiKit.create("Frame", {
-			Name = "Bar",
-			BackgroundColor3 = color,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Size = UDim2.new(1, -8, 0, 3),
-			Position = UDim2.fromOffset(4, 4),
-			ZIndex = 4,
-		}) :: Frame
-		UiKit.corner(bar, 2)
-		bar.Parent = chip
+			local bar = UiKit.create("Frame", {
+				Name = "Bar",
+				BackgroundColor3 = color,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = UDim2.new(1, -8, 0, 3),
+				Position = UDim2.fromOffset(4, 4),
+				ZIndex = 4,
+			}) :: Frame
+			UiKit.corner(bar, 2)
+			bar.Parent = chip
 
-		local name = UiKit.label(chip, {
-			text = string.upper(if copyBlade then copyBlade.name else "A COPY"),
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = if isBest then Theme.Color.text else Theme.Color.textSecondary,
-			align = Enum.TextXAlignment.Center,
-			wrap = true,
-		})
-		name.Name = "Blade"
-		name.Position = UDim2.fromOffset(4, 8)
-		name.Size = UDim2.new(1, -8, 0, 30)
-		name.TextYAlignment = Enum.TextYAlignment.Center
-		name.ZIndex = 4
+			local name = UiKit.label(chip, {
+				text = string.upper(if copyBlade then copyBlade.name else "A COPY"),
+				size = Theme.Text.Tiny,
+				font = Theme.Font.Black,
+				color = if isBest then Theme.Color.text else Theme.Color.textSecondary,
+				align = Enum.TextXAlignment.Center,
+				wrap = true,
+			})
+			name.Name = "Blade"
+			name.Position = UDim2.fromOffset(4, 8)
+			name.Size = UDim2.new(1, -8, 0, 30)
+			name.TextYAlignment = Enum.TextYAlignment.Center
+			name.ZIndex = 4
 
-		local tag = UiKit.label(chip, {
-			text = if isBest then "BEST" else string.upper(if copyBlade then copyBlade.rarity else "SCRAP"),
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
-			color = color,
-			align = Enum.TextXAlignment.Center,
-		})
-		tag.Name = "Tag"
-		tag.Position = UDim2.fromOffset(4, 38)
-		tag.Size = UDim2.new(1, -8, 0, 14)
-		tag.ZIndex = 4
+			local tag = UiKit.label(chip, {
+				text = if isBest then "BEST" else string.upper(if copyBlade then copyBlade.rarity else "SCRAP"),
+				size = Theme.Text.Tiny,
+				font = Theme.Font.Numeric,
+				color = color,
+				align = Enum.TextXAlignment.Center,
+			})
+			tag.Name = "Tag"
+			tag.Position = UDim2.fromOffset(4, 38)
+			tag.Size = UDim2.new(1, -8, 0, 14)
+			tag.ZIndex = 4
 
-		-- The claim cursor. It marks which copy the key will take next, so the
-		-- player can see the queue without a counter.
-		local cursor = UiKit.create("Frame", {
-			Name = "Cursor",
-			BackgroundColor3 = Theme.Color.white,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Position = UDim2.fromOffset(0, CHIP_H - 3),
-			Size = UDim2.new(1, 0, 0, 3),
-			ZIndex = 4,
-		}) :: Frame
-		UiKit.corner(cursor, 2)
-		cursor.Parent = chip
+			-- The claim cursor. One chip carries the gold rail at a time, so the
+			-- player can see which copy the key will take without reading a counter.
+			local cursor = UiKit.create("Frame", {
+				Name = "Cursor",
+				BackgroundColor3 = Theme.Color.gold,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(6, CHIP_H - 4),
+				Size = UDim2.new(1, -12, 0, 3),
+				ZIndex = 4,
+			}) :: Frame
+			UiKit.corner(cursor, 2)
+			cursor.Parent = chip
 
-		chip.Parent = host
-		railChips[index] = chip
-		local delay = (index - 1) * 0.035
-		task.delay(delay, function()
-			if chip.Parent == nil then
-				return
-			end
-			UiKit.tween(chip, 0.16, { BackgroundTransparency = if isBest then 0 else 0.1 }, Enum.EasingStyle.Quad)
-			UiKit.tween(bar, 0.2, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
-		end)
+			chip.Parent = host
+			railChips[copyIndex] = chip
+			local delay = (position - 1) * 0.035
+			task.delay(delay, function()
+				if chip.Parent == nil then
+					return
+				end
+				UiKit.tween(chip, 0.16, { BackgroundTransparency = if isBest then 0 else 0.1 }, Enum.EasingStyle.Quad)
+				UiKit.tween(bar, 0.2, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
+			end)
+		end
 	end
 end
 
+--- Moves the gold outline and the bottom rail to the copy the key will take
+--- next. Inactive copies fall back to their rarity edge; claimed copies stay
+--- grey so the row reads as a receipt.
 local function markCursor(index: number?)
 	for copyIndex, chip in railChips do
+		local edge = chip:FindFirstChild("Edge")
+		if edge and edge:IsA("UIStroke") then
+			if copyIndex == index then
+				edge.Color = Theme.Color.gold
+				edge.Thickness = Theme.Stroke.bold
+				edge.Transparency = 0
+			elseif railClaimed[copyIndex] then
+				edge.Color = Theme.Color.textFaint
+				edge.Thickness = Theme.Stroke.thin
+				edge.Transparency = 0.7
+			else
+				local bar = chip:FindFirstChild("Bar")
+				edge.Color = if bar and bar:IsA("Frame") then bar.BackgroundColor3 else Theme.Color.outline
+				edge.Thickness = Theme.Stroke.thin
+				edge.Transparency = 0.5
+			end
+		end
 		local cursor = chip:FindFirstChild("Cursor")
 		if cursor and cursor:IsA("Frame") then
+			cursor.BackgroundColor3 = Theme.Color.gold
 			cursor.BackgroundTransparency = if copyIndex == index then 0 else 1
 		end
 	end
@@ -929,6 +958,7 @@ local function markClaimed(index: number)
 	if chip == nil then
 		return
 	end
+	railClaimed[index] = true
 	UiKit.tween(chip, 0.18, { BackgroundTransparency = 0.55 }, Enum.EasingStyle.Quad)
 	local bar = chip:FindFirstChild("Bar")
 	if bar and bar:IsA("Frame") then
@@ -942,6 +972,12 @@ local function markClaimed(index: number)
 	if tag and tag:IsA("TextLabel") then
 		tag.Text = "CLAIMED"
 		tag.TextColor3 = Theme.Color.textFaint
+	end
+	local edge = chip:FindFirstChild("Edge")
+	if edge and edge:IsA("UIStroke") then
+		edge.Color = Theme.Color.textFaint
+		edge.Thickness = Theme.Stroke.thin
+		edge.Transparency = 0.7
 	end
 	local cursor = chip:FindFirstChild("Cursor")
 	if cursor and cursor:IsA("Frame") then
@@ -1056,9 +1092,14 @@ local function paintCrate(crate: ForgeConfig.Tier, _batch: number)
 	paintPips(strikeTotal, 0)
 end
 
---- Paints everything around the hero: the kicker, the pips and the rail. Returns
---- the index of the best copy, which becomes the first claim in the queue.
-local function paintResultFrame(result: Types.FeedEvent, crate: ForgeConfig.Tier): number
+--- Paints everything around the hero: the kicker, the pips and the rail. The
+--- rail is built in claim order, so the best copy is the first chip and the
+--- gold outline can walk left to right. Returns the best index and that order.
+local function paintResultFrame(
+	result: Types.FeedEvent,
+	crate: ForgeConfig.Tier,
+	copies: { Types.ForgedCopy }
+): (number, { number })
 	local batch = math.max(1, math.floor(result.batch or 1))
 	if topLabel then
 		topLabel.Text = if batch > 1
@@ -1067,7 +1108,6 @@ local function paintResultFrame(result: Types.FeedEvent, crate: ForgeConfig.Tier
 		topLabel.TextColor3 = if batch > 1 then Theme.Color.gold else Theme.Color.textFaint
 	end
 
-	local copies = result.results or {}
 	local colors: { Color3 } = {}
 	local bestMarked = false
 	local bestIndex = 0
@@ -1080,15 +1120,25 @@ local function paintResultFrame(result: Types.FeedEvent, crate: ForgeConfig.Tier
 		end
 		colors[index] = if isBest then Theme.Color.gold else rarityColorOf(copyBlade)
 	end
+	local order: { number } = {}
+	if bestIndex > 0 then
+		table.insert(order, bestIndex)
+	end
+	for index = 1, #copies do
+		if index ~= bestIndex then
+			table.insert(order, index)
+		end
+	end
 	layoutStage(batch, true)
 	paintPips(if #copies > 0 then #copies else batch, batch, colors)
-	paintRail(copies, bestIndex)
-	return bestIndex
+	paintRail(copies, order, bestIndex)
+	return bestIndex, order
 end
 
 --- One copy per press. The queue starts on the best copy, so the payoff is the
---- first thing the player sees; the rest follow in roll order. Each claim is a
---- small beat (ring, flash, shake) and the last one is the full exit.
+--- first thing the player sees; the rest follow in roll order and the rail is
+--- painted in that same order, so the gold cursor walks left to right. Each
+--- claim is a small beat (ring, flash, shake) and the last one is the full exit.
 claimOne = function()
 	if phase ~= "result" then
 		return
@@ -1212,16 +1262,8 @@ local function reveal(result: Types.FeedEvent)
 		list = { single }
 	end
 	resultCopies = list
-	local bestIndex = paintResultFrame(result, crate)
-	claimQueue = {}
-	if bestIndex > 0 then
-		table.insert(claimQueue, bestIndex)
-	end
-	for index = 1, #list do
-		if index ~= bestIndex then
-			table.insert(claimQueue, index)
-		end
-	end
+	local _, order = paintResultFrame(result, crate, list)
+	claimQueue = order
 	claimCursor = 0
 
 	local bestCopy = resultCopies[claimQueue[1]]
@@ -1379,7 +1421,7 @@ local function strike()
 	if stage then
 		Vfx.shake(stage, 1.0 + normalized * 0.22, 0.12)
 	end
-	Sfx.rollTick(normalized)
+	Sfx.crateTick(strikes, strikeTotal)
 
 	if subLabel then
 		subLabel.Text = string.format("%d / %d", strikes, strikeTotal)
@@ -1398,7 +1440,6 @@ local function strike()
 	if crateHandle then
 		crateHandle.hover(crate.accent)
 	end
-	Sfx.rollTick(8)
 	-- The held beat. Everything converges here: the column lights, the room
 	-- darkens, the pad builds, and two heartbeats carry the silence. The server
 	-- answer is already in hand; this is the pause before the screen admits it.

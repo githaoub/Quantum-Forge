@@ -92,6 +92,18 @@ local function note(step: number): number
 	return 2 ^ (PENTATONIC[index] / 12)
 end
 
+-- The do-re-mi ladder: a full major scale in semitones above the tonic. The
+-- crate sequence walks it one note per click, so a pull is a phrase the player
+-- is playing rather than a timer they are waiting out. The pentatonic above
+-- stays for the anvil, where the strike is a texture and not a melody.
+local MAJOR = { 0, 2, 4, 5, 7, 9, 11, 12 }
+
+--- Playback speed for a scale degree, 1 = do (the tonic).
+local function degree(step: number): number
+	local index = math.clamp(step, 1, #MAJOR)
+	return 2 ^ (MAJOR[index] / 12)
+end
+
 --- Plays one layer on a pooled slot. `delay` staggers a chord without spawning
 --- a task for the zero case.
 local function play(asset: string, speed: number, volume: number, delay: number?)
@@ -320,6 +332,37 @@ function Sfx.rollTick(index: number)
 	end
 end
 
+--- One note of the crate's do-re-mi ladder.
+---
+--- `index` is the click within the whole pull and `total` is the click budget,
+--- so a triple and a ten-pull hear the same phrase instead of the triple
+--- restarting the scale on every crate. Six clicks are do re mi fa sol do; ten
+--- are do re mi fa sol la ti do sol do. The last click is always the tonic,
+--- because the sealed hold is the resolution and the reveal starts the next
+--- phrase.
+---
+--- The ping carries the melody and is left almost unjittered (0.5%), because a
+--- scale with a humanized pitch is a scale that is out of tune. The click keeps
+--- the mechanical texture underneath it.
+function Sfx.crateTick(index: number, total: number)
+	local six = { 1, 2, 3, 4, 5, 8 }
+	local ten = { 1, 2, 3, 4, 5, 6, 7, 8, 5, 8 }
+	local ladder = if total >= 10 then ten else six
+	local step = ladder[math.clamp(index, 1, #ladder)]
+	local weight = 0.06 + math.min(index, 10) * 0.01
+	play(CLICK, jitter(1.05, 0.02), weight * 0.8)
+	play(PING, jitter(degree(step), 0.005), weight + 0.06, 0.005)
+	-- The last note lands on the tonic an octave up; give it a low octave so the
+	-- click has a floor instead of only a ceiling. The first tonic in a ten-pull
+	-- is the top of the scale, not the end, so only the actual last click gets it.
+	if step == 8 and index >= total then
+		play(PING, 0.5, 0.09, 0.01)
+	end
+	if index >= 5 then
+		play(SMACK, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.1, 0)
+	end
+end
+
 --- A single heartbeat under the sealed hold. Low, soft and deliberately not a
 --- tick: the rattle is over, and what is left is the player waiting.
 function Sfx.heartbeat()
@@ -327,13 +370,16 @@ function Sfx.heartbeat()
 	play(PING, jitter(0.55, 0.02), 0.055, 0.03)
 end
 
---- The last half-second before a reveal. Six notes climb the same pentatonic
---- ladder the strike uses, under a low air layer, so the ear knows the answer is
---- coming before the eye does.
+--- The last half-second before a reveal. The top of the do-re-mi ladder, ending
+--- on ti: the leading tone is the one note that cannot resolve by itself, so the
+--- reveal's do is the answer. The old pentatonic climb ended on sol, which
+--- sounds finished; the hold should not sound finished.
 function Sfx.riser(steps: number?)
-	local count = math.clamp(steps or 5, 1, 8)
-	for index = 1, count do
-		play(PING, jitter(1.15 * note(index + 3), 0.012), 0.055 + index * 0.006, (index - 1) * 0.06)
+	local count = math.clamp(steps or 5, 1, 7)
+	local last = 7
+	local first = math.max(1, last - count + 1)
+	for index = first, last do
+		play(PING, jitter(degree(index), 0.005), 0.055 + (index - first) * 0.006, (index - first) * 0.06)
 	end
 	play(WATER, jitter(0.88, 0.04), 0.07, 0.02)
 	play(SMACK, jitter(0.5, 0.03), 0.1, count * 0.06)
@@ -341,58 +387,58 @@ end
 
 --- One copy leaving the ceremony. Deliberately smaller than the reveal: a claim
 --- happens once per sword now, so it has to be repeatable without becoming a
---- second fanfare. A rising ping pair and the ring of the blade.
+--- second fanfare. A rising sol-do fourth and the ring of the blade.
 function Sfx.claim()
-	play(PING, jitter(2.4, 0.02), 0.1)
-	play(PING, jitter(3.05, 0.02), 0.085, 0.05)
-	play(RING, jitter(1.4, 0.03), 0.08, 0.015)
+	play(PING, jitter(1.498, 0.005), 0.1)
+	play(PING, jitter(2.0, 0.005), 0.085, 0.05)
+	play(RING, jitter(1.0, 0.02), 0.08, 0.015)
 	play(CLICK, jitter(1.0, 0.04), 0.06, 0.02)
 end
 
---- The last copy leaving. The claim beat plus a low body, so the ceremony has a
+--- The last copy leaving. The claim beat plus a low do, so the ceremony has a
 --- downbeat instead of stopping on the same note as every individual claim.
 function Sfx.claimAll()
 	Sfx.claim()
-	play(SMACK, 0.62, 0.14, 0.02)
-	play(PING, jitter(1.5, 0.02), 0.09, 0.08)
+	play(SMACK, 0.5, 0.14, 0.02)
+	play(PING, 0.5, 0.1, 0.08)
+	play(PING, 1.0, 0.09, 0.14)
 end
 
---- Forge celebration: a legendary blade drawn from the quench. Heavy low thud,
---- metallic clang, then a bright chime an octave up.
----
---- The fanfare is left at five layers. A `hit` knock and a second `metal` ring
---- were tried in the same pass that broke the strike, and they pushed the low
---- thud forward until the reveal read as a door closing. The result stinger below
---- adds its own layers by rank; this one stays the phrase it always was.
+--- Forge celebration: a legendary blade drawn from the quench. The phrase is a
+--- C-major arpeggio (do sol do mi sol do), so it resolves the do-re-mi ladder
+--- the crate clicks climbed instead of landing on an arbitrary pitch.
 function Sfx.forge()
 	play(SMACK, 0.5, 0.34)
-	play(PING, 0.78, 0.22, 0.05)
-	play(PING, 1.56, 0.2, 0.11)
-	play(SNAP, 2.1, 0.11, 0.12)
-	play(PING, 2.34, 0.14, 0.2)
+	play(PING, 0.5, 0.2, 0.03)
+	play(PING, 0.749, 0.18, 0.09)
+	play(PING, 1.0, 0.18, 0.15)
+	play(PING, 1.26, 0.16, 0.21)
+	play(PING, 1.498, 0.14, 0.27)
+	play(PING, 2.0, 0.12, 0.33)
 end
 
 --- Result stinger, scaled by variant rank. 1 Standard, 2 Tempered, 3
---- Overclocked, 4 Void-Touched, 5 Prismatic.
+--- Overclocked, 4 Void-Touched, 5 Prismatic. Every extra layer is another
+--- degree of the same C-major chord, so a high rank is louder harmony rather
+--- than a different key.
 function Sfx.result(variantIndex: number)
 	local rank = math.clamp(variantIndex, 1, 5)
 	Sfx.forge()
 	if rank <= 1 then
 		return
 	end
-	play(PING, jitter(2.9, 0.02), 0.12, 0.18)
+	play(PING, jitter(2.52, 0.005), 0.12, 0.36)
 	if rank >= 3 then
-		play(PING, jitter(3.4, 0.02), 0.12, 0.26)
-		play(SNAP, jitter(1.7, 0.03), 0.1, 0.24)
+		play(PING, jitter(2.997, 0.005), 0.1, 0.42)
+		play(SNAP, jitter(1.7, 0.03), 0.08, 0.4)
 	end
 	if rank >= 4 then
-		play(SMACK, jitter(0.42, 0.02), 0.24, 0.3)
-		play(PING, jitter(0.62, 0.02), 0.14, 0.34)
+		play(SMACK, jitter(0.42, 0.02), 0.22, 0.38)
+		play(PING, jitter(4.0, 0.005), 0.1, 0.48)
 	end
 	if rank >= 5 then
-		play(PING, jitter(1.16, 0.01), 0.18, 0.4)
-		play(PING, jitter(1.74, 0.01), 0.16, 0.48)
-		play(PING, jitter(2.6, 0.01), 0.14, 0.56)
+		play(PING, jitter(3.364, 0.005), 0.09, 0.54)
+		play(PING, jitter(4.0, 0.005), 0.11, 0.6)
 	end
 end
 

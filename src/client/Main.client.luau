@@ -40,6 +40,7 @@ local LeaderboardView = require(script.Parent.LeaderboardView)
 local TradeView = require(script.Parent.TradeView)
 local HandbookView = require(script.Parent.HandbookView)
 local CratesView = require(script.Parent.CratesView)
+local CrateReveal = require(script.Parent.CrateReveal)
 local DailyView = require(script.Parent.DailyView)
 local OrbitalLobby = require(script.Parent.OrbitalLobby)
 local TutorialController = require(script.Parent.TutorialController)
@@ -139,7 +140,12 @@ local function onFeedEvent(event: Types.FeedEvent)
 			end
 		end
 		ForgeView.celebrate(event.blade, event.variant, batch)
-		Sfx.result(rank)
+		-- The ceremony holds its answer until the last click, so the result
+		-- fanfare has to wait too. Playing it here would resolve the do-re-mi
+		-- ladder while the crate is still shaking.
+		if not CrateReveal.isOpen() then
+			Sfx.result(rank)
+		end
 		return
 
 	elseif event.kind == "vent" then
