@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
 local Config = require(Shared:WaitForChild("Config"))
+local Types = require(Shared:WaitForChild("Types"))
 
 local DataManager = require(script.Parent.DataManager)
 
@@ -25,6 +26,11 @@ local LobbyService = {}
 
 local PLATFORM_Y = 0
 local PLATFORM_RADIUS = 34
+
+--- The VIP pass is the only purchase with a body. Gold because the HUD's VIP
+--- ribbon is gold; the second ring sits outside the blade ring so the two read
+--- as layers rather than as one recoloured aura.
+local VIP_COLOR = Color3.fromRGB(255, 200, 78)
 
 local auraConnections: { [Player]: { RBXScriptConnection } } = {}
 local lastApplied: { [Player]: string } = {}
@@ -345,6 +351,9 @@ local function attachAura(player: Player, character: Model)
 		Color = Color3.fromRGB(120, 200, 255),
 		Material = Enum.Material.Neon,
 		Transparency = 0.45,
+		-- Welded, so it must not be anchored: an anchored Part1 ignores the weld
+		-- and the ring stays at the spawn point while the player walks away.
+		Anchored = false,
 	})
 	ring.Parent = character
 
@@ -353,6 +362,49 @@ local function attachAura(player: Player, character: Model)
 	weld.Part1 = ring
 	weld.Parent = ring
 	ring.CFrame = root.CFrame * CFrame.new(0, -2.4, 0) * CFrame.Angles(0, 0, math.rad(90))
+
+	-- VIP layer: a wider gold ring and a floating tag, both hidden until the
+	-- 1Hz repaint reads the pass. Additive on purpose so a Quantum blade still
+	-- reads as Quantum first and VIP second.
+	local vipRing = part({
+		Name = "VipRing",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.1, 10, 10),
+		Color = VIP_COLOR,
+		Material = Enum.Material.Neon,
+		Transparency = 0.55,
+		Anchored = false,
+	})
+	vipRing.Parent = character
+
+	local vipWeld = Instance.new("WeldConstraint")
+	vipWeld.Part0 = root
+	vipWeld.Part1 = vipRing
+	vipWeld.Parent = vipRing
+	vipRing.CFrame = root.CFrame * CFrame.new(0, -2.7, 0) * CFrame.Angles(0, 0, math.rad(90))
+
+	local head = character:FindFirstChild("Head")
+	local tag = Instance.new("BillboardGui")
+	tag.Name = "VipTag"
+	tag.Adornee = if head and head:IsA("BasePart") then head else root
+	tag.Size = UDim2.fromOffset(54, 22)
+	tag.StudsOffset = Vector3.new(0, 2.4, 0)
+	tag.AlwaysOnTop = true
+	tag.MaxDistance = 80
+	tag.Enabled = false
+	tag.Parent = character
+
+	local plate = Instance.new("TextLabel")
+	plate.Name = "Plate"
+	plate.Size = UDim2.fromScale(1, 1)
+	plate.BackgroundTransparency = 1
+	plate.Text = "VIP"
+	plate.TextColor3 = VIP_COLOR
+	plate.TextStrokeColor3 = Color3.new(0, 0, 0)
+	plate.TextStrokeTransparency = 0.2
+	plate.Font = Enum.Font.GothamBlack
+	plate.TextSize = 18
+	plate.Parent = tag
 
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "AuraMotes"
@@ -382,6 +434,25 @@ local function attachAura(player: Player, character: Model)
 	auraConnections[player] = connections
 end
 
+--- Paints the VIP layer. Separate from the blade paint because a player can own
+--- VIP with no blade equipped, and because the cache key has to invalidate on a
+--- purchase as well as on a blade swap.
+local function paintVip(state: Types.ProfileState, character: Model): boolean
+	local vip = state.passes.vipAura == true
+
+	local tag = character:FindFirstChild("VipTag")
+	if tag and tag:IsA("BillboardGui") then
+		tag.Enabled = vip
+	end
+
+	local ring = character:FindFirstChild("VipRing")
+	if ring and ring:IsA("BasePart") then
+		ring.Transparency = if vip then 0.55 else 1
+	end
+
+	return vip
+end
+
 --- Repaints the aura from the player's equipped blade. Cheap enough to run at
 -- 1Hz for everyone; only writes when the blade actually changed.
 function LobbyService.refreshAura(player: Player)
@@ -391,10 +462,12 @@ function LobbyService.refreshAura(player: Player)
 		return
 	end
 
-	if lastApplied[player] == state.equippedBlade then
+	local vip = paintVip(state, character)
+	local key = state.equippedBlade .. if vip then "|vip" else ""
+	if lastApplied[player] == key then
 		return
 	end
-	lastApplied[player] = state.equippedBlade
+	lastApplied[player] = key
 
 	local blade = BladeRegistry.get(state.equippedBlade)
 	if blade == nil then

@@ -150,9 +150,30 @@ function ProfilePlate.build(parent: Instance): Handle
 	})
 	handle.Name = "Handle"
 	handle.Position = UDim2.fromOffset(58, 23)
-	handle.Size = UDim2.fromOffset(174, 14)
+	handle.Size = UDim2.fromOffset(130, 14)
 	handle.TextTruncate = Enum.TextTruncate.AtEnd
 	handle.ZIndex = 3
+
+	-- The badge for the one purchase that is otherwise invisible. VIP grants four
+	-- passes and a multiplier, none of which change a number the player can point
+	-- at; the plate is where a bundle says its name.
+	local vip = UiKit.create("TextLabel", {
+		Name = "VipChip",
+		BackgroundColor3 = Theme.Color.gold,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(194, 23),
+		Size = UDim2.fromOffset(38, 14),
+		Text = "VIP",
+		TextColor3 = Theme.Color.ink,
+		TextSize = Theme.Text.Tiny,
+		Font = Theme.Font.Black,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		Visible = false,
+		ZIndex = 4,
+	}) :: TextLabel
+	UiKit.corner(vip, Theme.Radius.sm)
+	UiKit.gradient(vip, { Theme.Color.gold, Theme.Color.goldDeep }, 90)
+	vip.Parent = root
 
 	-- Run to the next ascension. The same threshold the ASCEND button reads, so
 	-- the bar and the button can never disagree about how close the player is.
@@ -201,6 +222,9 @@ function ProfilePlate.build(parent: Instance): Handle
 		local rankNumber = math.max(1, payload.ascensions + 1)
 		rank.Text = tostring(rankNumber)
 
+		local hasVip = payload.vip == true
+		vip.Visible = hasVip
+
 		local threshold = math.max(Config.AscendThreshold, 1)
 		local progress = math.clamp(payload.sm / threshold, 0, 1)
 		fill.Size = UDim2.fromScale(progress, 1)
@@ -208,6 +232,7 @@ function ProfilePlate.build(parent: Instance): Handle
 		-- Two attributes, read by the Studio seam and by reviews that need the
 		-- exact figure. Cheaper than a tooltip system nobody asked for.
 		root:SetAttribute("Rank", rankNumber)
+		root:SetAttribute("Vip", hasVip)
 		root:SetAttribute("AscendProgress", progress)
 		root:SetAttribute(
 			"Summary",

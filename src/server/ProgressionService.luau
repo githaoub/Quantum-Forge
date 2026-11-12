@@ -1515,6 +1515,8 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		codexSets = SalvageConfig.bonus(state.sigils).sets,
 		runSm = state.runStarMatter,
 		ascendAt = Config.AscendThreshold,
+		--- One bit is enough: the plate prints a badge, it never decides a grant.
+		vip = state.passes.vipAura == true,
 		dailyReady = ProgressionService.dailyReady(state),
 		dailyStreak = state.dailyStreak,
 		starterBoostAt = state.starterBoostAt,

@@ -256,6 +256,9 @@ export type SyncPayload = {
 	forgeRolls: number,
 	tech: { [string]: number },
 	ascensions: number,
+	--- True when the account owns the VIP pass. Drives the plate badge; the
+	--- bundle's actual passes are granted server-side and never read here.
+	vip: boolean,
 	clickYield: number,
 	passiveYield: number,
 	mult: number,
