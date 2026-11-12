@@ -141,7 +141,9 @@ ten-pull takes ten, and the result is claimed one sword at a time. The flat
 column and the 2px ray fan were replaced by sprite light from three
 client-shipped textures, the gunshot and sword-whip samples were removed from
 the whole sound kit, a locked pool is finally browsable, and the top crate pays
-a Quantum once in fifty rolls instead of once in six.
+a Quantum once in fifty rolls instead of once in six. The follow-up paints the
+rail in claim order so the gold outline walks left to right, and turns the click
+ladder into a do-re-mi major scale that resolves on the reveal.
 
 ## Reading order for a fresh session
 

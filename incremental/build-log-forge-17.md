@@ -114,6 +114,39 @@ without handing out the top rarity:
 The expected rarity rank still climbs every rung (1.63 to 2.99); the top crate
 now pays a Quantum once in fifty rolls, not once in six.
 
+## Round 2 - the rail walks and the crate sings
+
+The first pass ordered the claim queue best-first but painted the rail in roll
+order. On a ten-pull the best copy was often the last chip, so the gold outline
+sat on the last sword while the hero read `COPY 1 OF 10`. The first claim looked
+arbitrary. The rail is now painted in the same order as the queue: best first,
+then roll order. The gold edge and the bottom rail are a cursor, not a
+permanent badge, so they move to the next chip on every claim; claimed chips
+grey to `CLAIMED` and the best keeps its gold tag until it is taken.
+
+The clicks are a do-re-mi ladder now. Six clicks play do re mi fa sol do; ten
+play do re mi fa sol la ti do sol do. `index` is the click within the whole
+pull, so a triple's two clicks per crate continue the phrase instead of
+restarting it. The sealed hold's riser climbs the top of the scale and stops on
+ti, and the reveal resolves to a C-major arpeggio (do sol do mi sol do). The
+claim is a sol-do fourth; the final claim adds a low do. The anvil keeps its
+pentatonic ladder on purpose: it is a different instrument.
+
+`Main.client` no longer fires the result fanfare while `CrateReveal.isOpen()`,
+so the ceremony owns the resolution. Before this, the server answer played the
+fanfare during the shake, before the reveal.
+
+### Round 2 verification
+
+| Thing | State |
+| --- | --- |
+| Rail order | x10: first chip is the best copy, hero matches it, the rest follow in roll order |
+| Outline | After one claim, chip 1 is `CLAIMED` and grey, chip 2 carries the 3px gold edge and gold rail, hero and `CLAIM 2 / 10` match |
+| Full claim | Nine remaining presses close the overlay on the tenth; the rail clears with the scrim |
+| Scale | `Sfx.crateTick` probe: click 1 = 1.000 (do), click 2 = 1.122 (re); click 6 of six = 2.007 (do) with a 0.500 low do |
+| Riser | `Sfx.riser(5)` sets 1.260 / 1.340 / 1.494 / 1.676 / 1.886 (mi fa sol la ti) |
+| Fanfare | `Sfx.forge` sets 0.500 / 0.749 / 1.260 / 1.498 / 2.000 (do sol mi sol do) |
+
 ## Verification
 
 | Thing | State |

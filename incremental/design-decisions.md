@@ -4124,3 +4124,45 @@ crate's own column, so a bad streak has a floor without making Quantum common.
 **What it costs.** A top-tier ten-pull now has roughly an 18% chance of one
 Quantum instead of a near-certain one. That is the point: the codex is a chase
 again, and the lower pools keep a reason to exist.
+
+## ADR-096 - The rail is the claim queue
+
+**Context.** The claim queue was best-first, but the rail was painted in roll
+order. On a ten-pull the best copy was often the last roll, so the first claim
+put the gold outline on the last chip while the hero read COPY 1 OF 10. The
+player read that as the order being random, and the outline looked stuck on the
+last sword instead of tracking the claim.
+
+**Decision.** The rail is painted in claim order. The best copy is the first
+chip, the rest follow in roll order, and `claimQueue` is that same list.
+`paintRail` takes an explicit `order` and stores each chip by copy index. The
+gold edge and the bottom rail are a cursor: `showCopy` moves them with every
+claim, claimed chips grey to `CLAIMED`, and the best chip keeps its gold tag
+until it is taken. The active chip gets a 3px gold outline and a gold rail;
+inactive chips fall back to their rarity edge.
+
+**What it costs.** The rail is no longer a literal roll receipt; it is a claim
+queue. The chip names are display positions, not roll indices, so any future
+code that maps a chip back to a roll must go through `claimQueue`.
+
+## ADR-097 - The crate is a major scale
+
+**Context.** The crate clicks were a pentatonic tick, the sealed hold climbed a
+pentatonic riser, and the reveal landed on arbitrary pitches. The sequence had
+no key, so the clicks read as a timer rather than as a phrase. The request was
+to study the do-re-mi method and apply it to the chest opening.
+
+**Decision.** The crate click ladder is the major scale. A six-click pull plays
+do re mi fa sol do; a ten-click pull plays do re mi fa sol la ti do sol do.
+`index` is the click within the whole pull, so a triple's two clicks per crate
+continue the phrase instead of restarting it on every crate. The sealed hold's
+riser is the top of the scale ending on ti, the leading tone that cannot resolve
+by itself. The reveal fanfare is a C-major arpeggio (do sol do mi sol do), the
+claim is a sol-do fourth, and the final claim adds a low do. Every note is the
+same `electronicpingshort` sample pitched by playback speed, so the sequence
+adds no asset and cannot fail an upload.
+
+**What it costs.** The melody is only as expressive as one short ping, and the
+key is relative: playback speed 1.0 is "do", so the scale is consistent inside
+the game but not with an external track. The anvil keeps its pentatonic ladder;
+the crate and the anvil are deliberately different instruments.
