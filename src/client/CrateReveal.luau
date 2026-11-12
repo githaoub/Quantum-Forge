@@ -50,6 +50,11 @@ local STAGE_W = 1080
 local STAGE_H = 596
 local STAGE_Y = 0.5306
 local VIEW_H = 420
+--- Extra scrim on every edge, in canvas units. The screen shake moves the
+--- canvas, and the scrim is the only thing covering the game behind the
+--- ceremony. Without this bleed a 12px shake exposes a bright strip of page on
+--- one side for eight frames.
+local SHAKE_BLEED = 28
 --- A batch result trades 64px of blade viewport for the copy rail. The single
 --- result keeps the taller stage because there is nothing to list.
 local RESULT_VIEW_H = 356
@@ -139,6 +144,13 @@ local crateHandle: CratePreview.Handle? = nil
 local bladeCleanup: (() -> ())? = nil
 local dustCleanup: (() -> ())? = nil
 local orbit: any = nil
+--- The guide sits at ZIndex 80 so it can float over the vault and the codex.
+--- That also puts it over the ceremony, where its card and its ring compete with
+--- the reveal. The ceremony hides it for its lifetime and puts it back on the
+--- way out; a guide that was already dismissed stays dismissed.
+local guideLayer: GuiObject? = nil
+local guideWasVisible = false
+local guideGuard: RBXScriptConnection? = nil
 
 local phase = "closed"
 local token = 0
@@ -314,6 +326,48 @@ local function screenFlash(color: Color3, peak: number, hold: number)
 end
 
 -- ---------------------------------------------------------------------------
+-- Guide
+-- ---------------------------------------------------------------------------
+
+--- Parks the onboarding card for the length of the ceremony. The guide is
+--- deliberately above the vault and the codex, so without this it also paints
+--- over the crate reveal and its ring points at a control the scrim has hidden.
+local function hideGuide()
+	local parent = root and root.Parent
+	local guide = parent and parent:FindFirstChild("GuideLayer")
+	if guide and guide:IsA("GuiObject") then
+		guideLayer = guide
+		guideWasVisible = guide.Visible
+		guide.Visible = false
+		-- The guide can start while the ceremony is open: the welcome card is
+		-- dismissed by a press, and the first note lands on whatever screen is up.
+		-- A one-shot hide would be undone by that start, so the layer is held
+		-- down for as long as the ceremony is not closed.
+		if guideGuard then
+			guideGuard:Disconnect()
+		end
+		guideGuard = guide:GetPropertyChangedSignal("Visible"):Connect(function()
+			if guideLayer == guide and phase ~= "closed" and guide.Visible then
+				guide.Visible = false
+			end
+		end)
+	end
+end
+
+local function restoreGuide()
+	if guideGuard then
+		guideGuard:Disconnect()
+		guideGuard = nil
+	end
+	local guide = guideLayer
+	if guide and guide.Parent then
+		guide.Visible = guideWasVisible
+	end
+	guideLayer = nil
+	guideWasVisible = false
+end
+
+-- ---------------------------------------------------------------------------
 -- Build
 -- ---------------------------------------------------------------------------
 
@@ -336,6 +390,7 @@ local function claimOut()
 	if stage then
 		Vfx.shake(stage, 7, 0.3)
 	end
+	Vfx.shakeScreen(7, 0.26)
 	if viewport then
 		local color = if crate then crate.accent else Theme.Color.gold
 		Vfx.shockwave(viewport, color, {
@@ -1194,8 +1249,9 @@ claimOne = function()
 		screenFlash(color, 0.45, 0.22)
 	end
 	if stage then
-		Vfx.shake(stage, 1.5, 0.16)
+		Vfx.shake(stage, 3.2, 0.18)
 	end
+	Vfx.shakeScreen(2.6, 0.16)
 	if viewport then
 		Vfx.sparks(viewport, color, 6, 0.7)
 	end
@@ -1336,14 +1392,19 @@ local function reveal(result: Types.FeedEvent)
 	-- this the wash peaked at 16%, which is why the crate read as a model swap
 	-- rather than as the screen reacting.
 	screenFlash(rarityColor, 0.86, 0.45)
-	task.delay(0.07, function()
+	task.delay(0.06, function()
 		if stamp == token and phase == "result" then
-			Vfx.flash(Theme.Color.white, 0.18 + rank * 0.02)
+			Vfx.flash(Theme.Color.white, 0.32 + rank * 0.045, 0.24)
 		end
 	end)
 	if stage then
-		Vfx.shake(stage, 6 + rank * 1.2, 0.38 + rank * 0.02)
+		Vfx.shake(stage, 7 + rank, 0.3 + rank * 0.02)
 	end
+	-- The forge reveal shakes the card by 7 + rank and the screen by
+	-- 5 + rank * 1.2. The crate uses the same pair on its stage, so the two
+	-- sections land with the same weight instead of the crate being the quieter
+	-- one.
+	Vfx.shakeScreen(5 + rank * 1.2, 0.3 + rank * 0.02)
 	if viewport then
 		Vfx.shockwave(viewport, rarityColor, {
 			size = 190,
@@ -1382,7 +1443,7 @@ local function reveal(result: Types.FeedEvent)
 
 	Sfx.crateShatter(1.4)
 	Sfx.result(rank)
-	Haptics.pulse(0.85, 0.22)
+	Haptics.pulse(1, 0.28)
 end
 
 local function tryReveal()
@@ -1435,10 +1496,10 @@ local function strike()
 			crateHandle.knock(normalized, crate.accent)
 		end
 	end
-	Sfx.crateBreak(opensCrate)
+	Sfx.crateBreak(opensCrate, final)
 	Haptics.pulse(
-		if final then 0.9 elseif opensCrate then 0.65 else 0.28 + normalized * 0.06,
-		if final then 0.14 elseif opensCrate then 0.1 else 0.055
+		if final then 1 else if opensCrate then 0.7 else 0.3 + normalized * 0.07,
+		if final then 0.16 elseif opensCrate then 0.11 else 0.06
 	)
 
 	-- The room brightens as the seal gives. By the last click the column is
@@ -1474,10 +1535,17 @@ local function strike()
 	if stage then
 		Vfx.shake(
 			stage,
-			if final then 4.5 else (1.3 + normalized * 0.3) * (if opensCrate then 1.15 else 1),
-			0.16
+			if final then 7 else (1.6 + normalized * 0.55) * (if opensCrate then 1.18 else 1),
+			0.16 + normalized * 0.008
 		)
 	end
+	-- Screen shake climbs with the rattle and lands on the forge's 8px slam at
+	-- the seal. The crate had no screen shake at all before this pass, so even
+	-- its 4.5px stage shake was a quarter of what an anvil click does.
+	Vfx.shakeScreen(
+		if final then 8 else 2.4 + normalized * 0.6 + (if opensCrate then 1.2 else 0),
+		if final then 0.3 else 0.14 + normalized * 0.012
+	)
 	Sfx.crateTick(strikes, strikeTotal)
 
 	if subLabel then
@@ -1595,6 +1663,7 @@ local function open(opts: {
 	end
 
 	root.Visible = true
+	hideGuide()
 	root.BackgroundTransparency = 1
 	-- Total black. The ceremony is not a dialog over the page; it is the whole
 	-- screen for as long as it lasts, and the only way back is to open the crates.
@@ -1623,6 +1692,24 @@ local function open(opts: {
 						mainLabel.Text = "CLICK TO OPEN"
 						mainLabel.TextColor3 = Theme.Color.text
 					end
+					-- The forge lands with a 16px viewport shake and an 8px screen
+					-- shake. The crate is the same object and gets the same number;
+					-- before this it arrived silently and still, which is the single
+					-- biggest reason the crate read lighter than the anvil.
+					if viewport then
+						Vfx.shake(viewport, 16, 0.2)
+					end
+					Vfx.shakeScreen(8, 0.26)
+					if viewport then
+						Vfx.shockwave(viewport, opts.crate.accent, {
+							size = 72,
+							spread = 3.4,
+							duration = 0.4,
+							thickness = 4,
+						})
+						Vfx.sparks(viewport, opts.crate.accent, 12, 1.1)
+					end
+					Haptics.pulse(0.7, 0.12)
 					Sfx.crateLand(1.35)
 				end,
 			}, true)
@@ -1668,10 +1755,10 @@ function CrateReveal.fitScreen()
 	local scale = if canvasScale and canvasScale.Scale > 0 then canvasScale.Scale else 1
 	local size = camera.ViewportSize
 	local inset = GuiService:GetGuiInset()
-	button.Position = UDim2.fromOffset(-inset.X / scale, -inset.Y / scale)
+	button.Position = UDim2.fromOffset(-inset.X / scale - SHAKE_BLEED, -inset.Y / scale - SHAKE_BLEED)
 	button.Size = UDim2.fromOffset(
-		math.ceil((size.X + inset.X) / scale),
-		math.ceil((size.Y + inset.Y) / scale)
+		math.ceil((size.X + inset.X) / scale) + SHAKE_BLEED * 2,
+		math.ceil((size.Y + inset.Y) / scale) + SHAKE_BLEED * 2
 	)
 end
 
@@ -1802,6 +1889,7 @@ function CrateReveal.close()
 	end
 	beamTo(beamColor, 0, 0)
 	root.Visible = false
+	restoreGuide()
 	clearViewport()
 	Haptics.stop()
 	local callback = onExit

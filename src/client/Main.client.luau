@@ -503,6 +503,11 @@ local function boot()
 				-- heat run can be driven without pointer synthesis.
 				ForgeView.strike()
 				return true
+			elseif command == "shakeTest" and type(argument) == "number" then
+				-- Studio seam: prove the ceiling on the screen shake without
+				-- waiting for a top-rarity reveal.
+				Vfx.shakeScreen(argument, 1)
+				return true
 			elseif command == "stats" then
 				local state = StateStore.current
 				if state == nil then
@@ -527,6 +532,7 @@ local function boot()
 					ownedPasses = state.ownedPasses,
 					forgeCosts = state.forgeCosts,
 					settings = state.settings,
+					reducedMotion = Theme.reducedMotion(),
 				}
 			elseif command == "vent" then
 				StateStore.send("vent")

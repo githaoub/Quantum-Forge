@@ -1161,9 +1161,15 @@ local function revealNow()
 			end)
 		end
 	end
+	-- The page reveal is the forge's reveal with a crate in front of it: a
+	-- full-screen wash, the card shake, the screen shake and the panel flash.
+	-- The crate used to shake the hero by 2 + rank * 1.6 and never leave the
+	-- card, which is why the same rarity felt smaller here than on the anvil.
+	Vfx.flash(tint, 0.45, 0.4)
 	if hero then
-		Vfx.shake(hero, 2 + rank * 1.6, 0.32)
+		Vfx.shake(hero, 7 + rank, 0.3 + rank * 0.02)
 	end
+	Vfx.shakeScreen(5 + rank * 1.2, 0.3 + rank * 0.02)
 	if stageFlash then
 		stageFlash.BackgroundColor3 = rarityColor
 		stageFlash.BackgroundTransparency = 0.18

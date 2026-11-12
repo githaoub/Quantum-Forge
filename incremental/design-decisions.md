@@ -4836,3 +4836,101 @@ y=365; every `TextLabel.TextFits` is true; no badge/description overlap. The
 dev account owns all five passes, so the shelf paints `BOUGHT` and `5 / 5 OWNED`.
 Switching to fleet hides the store card and switching back restores it.
 `selene src` is clean and `rojo build` succeeds.
+
+## ADR-121 - The crate is its own instrument, and it shakes like the forge
+
+**Context.** The crate ceremony borrowed the forge's layers: `crateLand` was
+`ANVIL` plus a click and two pings, `crateBreak` was a click over an anvil body,
+and `crateShatter` was the same stack louder. The result was a crate that
+sounded like a metal anvil being hit through a wooden prop. The visual half had
+the same gap. The forge landed with a 16px viewport shake, an 8px screen shake
+and a `Vfx.flash`; the crate landed with no shake at all, clicked at 1.3 to 4.5px
+on the stage, and revealed with a 6 + rank * 1.2 stage shake and no screen shake.
+Measured against the anvil, the crate was the quieter section even though it is
+the one the player pays for.
+
+**Decision.**
+
+1. The crate gets a sound family, not another forge layer. Eight purpose-built
+   samples are uploaded to the same account and fixed in `Sfx`:
+
+   | Cue | Id | Shape |
+   | --- | --- | --- |
+   | `CRATE_LAND` | 71087127981046 | 125 to 38 Hz saturated sub, 78 Hz cavity, plank rings, iron bands arriving late |
+   | `CRATE_HITS` | 112903040076273, 101485910396327, 125593282218554 | three knuckles, 146 to 224 Hz bodies, different iron ticks |
+   | `CRATE_CRACK` | 124020777399189 | one crate giving way: air sweep down, plank snap, 18 splinters |
+   | `CRATE_SHATTER` | 125700571754654 | the breach: 11k to 620 Hz air sweep, 26 plank grains, 22 iron shards, 40 splinters, 0.85 s sub |
+   | `CRATE_RISE` | 75379241961315 | 0.6 s noise and 42 to 96 Hz pressure swell for the sealed hold |
+   | `CRATE_SEAL` | 130549066084047 | bolt slide, iron clank, sub thud |
+
+   The three knuckles exist because a ten-pull is ten presses. With one sample
+   and pitch jitter, ten presses in two seconds is a machine gun. The samples
+   are mono 48 kHz PCM, peak normalised to 0.89, with the top tamed at 12 to
+   13 kHz so a phone speaker hears wood instead of hiss.
+
+2. `crateBreak(opens, last)` separates the two events. `opens` is a crate giving
+   way and plays `CRATE_CRACK` plus a knuckle. `last` is the final press of the
+   pull and plays `CRATE_SEAL`. A ten-pull opens on every press, so tying the
+   seal to `opens` would bite the lock ten times. `crateTick` keeps the do-re-mi
+   ladder on `PING` but replaces the mechanical click with a knuckle that
+   tightens 1.8% per scale step, so the box is the same object from the first
+   press to the last.
+
+3. The riser is a 0.6 s swell under the top of the ladder. The old hold was
+   pings and an anvil, which left the last third of the hold quiet. The swell
+   ends where `CRATE_SHATTER` begins.
+
+4. The crate shakes at the forge's numbers. The forge is the reference, not a
+   direction to exceed:
+
+   | Beat | Forge | Crate before | Crate now |
+   | --- | --- | --- | --- |
+   | Landing | 16 viewport, 8 screen | none | 16 viewport, 8 screen, plus a ring and sparks |
+   | Click | 6 * amount viewport, 3.5 + 3.5 * amount screen | 1.3 to 4.5 stage | 1.6 + 0.55 * beat stage, 2.4 + 0.6 * beat (+1.2 open) screen |
+   | Seal | n/a | 4.5 stage | 7 stage, 8 screen |
+   | Reveal | 7 + rank card, 5 + rank * 1.2 screen | 6 + rank * 1.2 stage | 7 + rank stage, 5 + rank * 1.2 screen |
+   | Claim | n/a | 1.5 stage | 3.2 stage, 2.6 screen |
+   | Exit | n/a | 7 stage | 7 stage, 7 screen |
+
+   The white pop on the reveal moved from `0.18 + rank * 0.02` to
+   `0.32 + rank * 0.045` over 0.24 s, on top of the 0.86 rarity wash. The exit
+   also keeps the full-screen `Vfx.flash` that hides the cut back to the page.
+
+5. The scrim grew 28 design px on every edge. `Vfx.shakeScreen` moves the canvas,
+   and the ceremony scrim was sized to the viewport exactly, so an 11px shake
+   exposed the page on one side. The bleed is invisible at rest and the shake
+   now has somewhere to travel.
+
+6. The guide parks while the ceremony is open. Its layer sits at ZIndex 80 so it
+   can float over the vault and the codex, which also put its card and its ring
+   over the reveal. A one-shot hide is not enough, because the guide can start
+   when the welcome card is dismissed; `hideGuide` listens to the layer's
+   `Visible` property and holds it down until `close`. A guide that was already
+   dismissed stays dismissed.
+
+**What it costs.** The crate is now 33 more `Sound` instances at boot, 69 slots
+in total. The kit needs moderation, and a failed review is a silent asset in a
+published place, so the ids are fixed only after the upload reports `Approved`.
+The crate family is also a second sound design to maintain: the forge cannot
+borrow the knuckles, and the crate cannot borrow the crit ring. The shake budget
+is now shared with the forge, so a future increase on one side has to be matched
+on the other or the sections drift apart again. Hiding the guide adds a
+visibility subscription for the length of the ceremony and a restore on close.
+
+**Verification.** The eight uploads report `Active / Approved`. Studio, Client:
+a full three-crate pull logged `CRATE_LAND` at 0.59, all three knuckles, `CRATE_CRACK`
+at 0.27, `CRATE_SEAL` at 0.32, `CRATE_RISE` at 0.24 and `CRATE_SHATTER` at 0.62,
+then the forge chord. The canvas moved on the landing, on every press, on the
+seal and on the reveal; a 30px test shake reached 26px on a 15fps Studio frame
+and a 1 s test shake ran for 14 frames, which is the duration at that frame rate.
+The guide layer read `false` during the reveal and restored to `true` on
+`crateDismiss`. `selene src` is clean and `rojo build` succeeds.
+
+**Not verified by ear.** No tool in this environment can hear the mix. The
+samples are designed, measured and classifier checked (`a person knocking on a
+wooden crate` at 0.78 to 0.88 for the knuckles, `a heavy wooden crate crashing
+onto a floor` at 0.68 for the landing, `a cinematic riser` at 0.60 for the
+rise), and the audition montage lives at
+`%TEMP%\opencode\audio-lab\crate_kit\audition.wav`. Whether the shatter is the
+right kind of exciting is a human judgement. The public ids make a swap a
+one-line change per cue.

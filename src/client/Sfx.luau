@@ -1,13 +1,13 @@
 --!strict
--- The sound kit: layered, pitch-jittered, and built only from assets that are
--- provably present.
+-- The sound kit: layered, pitch-jittered, and built only from assets that
+-- provably load.
 --
--- Every id here resolves offline in Studio because the files ship inside the
--- Roblox client's own `content/sounds` directory (`rbxasset://`). That is the
--- whole reason for the restriction: a marketplace id that has not been uploaded
--- yet is a silent failure in a published place, and a guessed id is worse than
--- no sound at all. The 22 generated VFX/sound sheets are still pending upload;
--- when they land, this module is the single place they get swapped in.
+-- The interface layer is two client assets that ship with the Roblox client
+-- (`rbxasset://`), so they cannot fail in a published place. The metal family
+-- and the crate family are purpose-built samples uploaded to the account that
+-- owns the place. Their ids are fixed here, every pool is created at boot and
+-- preloaded, so a cue never waits on a decode. A guessed marketplace id is still
+-- worse than no sound at all, which is why nothing here is a placeholder.
 --
 -- Layering is the point. A single ping reads as a UI blip. A sharp high transient
 -- over a low body, both pitch-jittered 0.95-1.08, reads as a hammer hitting
@@ -23,7 +23,7 @@ local ContentProvider = game:GetService("ContentProvider")
 
 local Sfx = {}
 
--- The kit, in two families.
+-- The kit, in three families.
 --
 -- `PING` and `CLICK` are client assets, so they resolve offline in Studio and in
 -- a published place with no upload step. They carry melody and interface.
@@ -39,12 +39,29 @@ local Sfx = {}
 -- good. The explosion was the last one standing and it was the wrong texture
 -- under a hammer: a broadband blast over a click reads as a thud, and it buried
 -- the ping the click is supposed to be.
+--
+-- The crate is its own family, not a second forge. A crate is a hollow wooden
+-- box with iron banding, so it needs a cavity thump, a plank snap and a latch.
+-- `CRATE_LAND`, three `CRATE_HITS`, `CRATE_CRACK`, `CRATE_SHATTER`, `CRATE_RISE`
+-- and `CRATE_SEAL` are rendered from damped wood modes, filtered noise grains
+-- and a saturated sub. The three hits exist so ten presses are ten knocks, not
+-- one sample machine-gunned.
 local PING = "rbxasset://sounds/electronicpingshort.wav"
 local CLICK = "rbxasset://sounds/clickfast.wav"
 local STRIKE = "rbxassetid://71886932584271"
 local SWEET = "rbxassetid://97522852807133"
 local CRIT = "rbxassetid://121142281920008"
 local ANVIL = "rbxassetid://95191181057410"
+local CRATE_LAND = "rbxassetid://71087127981046"
+local CRATE_HITS = {
+	"rbxassetid://112903040076273",
+	"rbxassetid://101485910396327",
+	"rbxassetid://125593282218554",
+}
+local CRATE_CRACK = "rbxassetid://124020777399189"
+local CRATE_SHATTER = "rbxassetid://125700571754654"
+local CRATE_RISE = "rbxassetid://75379241961315"
+local CRATE_SEAL = "rbxassetid://130549066084047"
 
 local BASE_VOLUME = 0.2
 
@@ -65,6 +82,14 @@ local POOL_SIZES: { [string]: number } = {
 	[ANVIL] = 6,
 	[PING] = 6,
 	[CLICK] = 6,
+	[CRATE_LAND] = 4,
+	[CRATE_HITS[1]] = 5,
+	[CRATE_HITS[2]] = 5,
+	[CRATE_HITS[3]] = 5,
+	[CRATE_CRACK] = 5,
+	[CRATE_SHATTER] = 3,
+	[CRATE_RISE] = 2,
+	[CRATE_SEAL] = 4,
 }
 
 local pools: { [string]: { Sound } } = {}
@@ -122,6 +147,13 @@ end
 --- Random spread for a hammer: never the same pitch twice in a row.
 local function jitter(scale: number, spread: number): number
 	return scale * (1 - spread + math.random() * spread * 2)
+end
+
+--- One of a family of samples. The three knuckle hits differ in body and
+--- panel, so a pull picks a different object every press instead of pitching
+--- one sample into a machine gun.
+local function pick(list: { string }): string
+	return list[math.random(1, #list)]
 end
 
 -- Major pentatonic, one octave plus the octave above it, in semitones.
@@ -346,44 +378,48 @@ function Sfx.roll()
 	play(PING, jitter(1.0, 0.04), 0.09, 0.04)
 end
 
---- The crate hitting the stage. The heaviest thing in the kit: a low body, a
---- wooden knock, and the ring of the iron bands. This is phase one of the roll,
---- and it used to be a single `rollTick`, which is why the crate read as a
---- graphic arriving rather than as an object landing.
+--- The crate hitting the stage. The landing is one purpose-built slam: a
+--- saturated sub drop, the cavity of the box, the plank rings and the iron
+--- bands arriving a few milliseconds apart. A knuckle hit on top of it is the
+--- second knock of a crate touching down rather than one clean drop, and the low
+--- `ANVIL` body is the chest of the thing. The forge lands on the same beat
+--- (a 16px viewport shake and an 8px screen shake); the ceremony adds those in
+--- `CrateReveal`, not here.
 function Sfx.crateLand(gain: number?)
 	local g = gain or 1
-	-- Four layers, not three. The second low body at 0.30 is the chest hitting
-	-- the bench; without it the crate sounds like a box of cutlery being set
-	-- down.
-	play(ANVIL, jitter(0.44, 0.03), 0.42 * g)
-	play(CLICK, jitter(0.72, 0.04), 0.18 * g, 0.005)
-	play(PING, jitter(0.66, 0.02), 0.13 * g, 0.03)
-	play(ANVIL, jitter(0.30, 0.02), 0.12 * g, 0.012)
+	play(CRATE_LAND, jitter(1.0, 0.035), 0.55 * g)
+	play(pick(CRATE_HITS), jitter(1.0, 0.03), 0.15 * g, 0.002)
+	play(ANVIL, jitter(0.38, 0.02), 0.12 * g, 0.012)
 end
 
---- One crate taking the hit. This is the per-click payoff, not the reveal: a
---- short crack and a wooden knock, with a heavier body only on the crate that
---- actually opens.
-function Sfx.crateBreak(final: boolean?)
-	play(CLICK, jitter(if final then 0.86 else 1.16, 0.03), if final then 0.42 else 0.26)
-	play(ANVIL, jitter(0.82, 0.05), if final then 0.30 else 0.19, 0.005)
-	if final then
-		play(ANVIL, jitter(0.55, 0.03), 0.22, 0.03)
-		play(PING, jitter(0.92, 0.02), 0.22, 0.05)
+--- One crate taking the hit.
+---
+--- `opens` is a crate giving way; `last` is the final press of the whole pull.
+--- A ten-pull opens on every press, so the seal cannot be part of `opens` or the
+--- lock would bite ten times. The knuckle is the per-press payoff; the crack is
+--- one crate breaking; the seal is the end of the sequence and the start of the
+--- hold. Layering them this way keeps ten presses as ten knocks with one lock.
+function Sfx.crateBreak(opens: boolean?, last: boolean?)
+	if opens then
+		play(CRATE_CRACK, jitter(1.0, 0.025), 0.34)
+		play(pick(CRATE_HITS), jitter(0.94, 0.03), 0.18)
+	else
+		play(pick(CRATE_HITS), jitter(1.0, 0.045), 0.28)
+	end
+	if last then
+		play(CRATE_SEAL, jitter(1.0, 0.02), 0.40)
 	end
 end
 
---- The crate splitting. A hard crack over the same body as the landing, so the
---- two read as the same object at two moments. `gain` lets the ceremony be
---- louder than the anvil without changing the anvil's mix.
+--- The crate splitting. A whole sample, because a reveal is not a loud crack
+--- with a few layers on top: it is the box breaching, the planks coming apart
+--- and the iron banding tearing off, in that order. `ANVIL` is the chest under
+--- it; the forge chord that `Sfx.result` plays next owns the harmony.
 function Sfx.crateShatter(gain: number?)
 	local g = gain or 1
-	-- The reveal downbeat. The low body is what makes the tick read as wood
-	-- giving way instead of a firecracker in a cupboard.
-	play(CLICK, jitter(0.95, 0.03), 0.34 * g)
-	play(ANVIL, jitter(0.6, 0.03), 0.28 * g, 0.02)
-	play(PING, jitter(1.2, 0.02), 0.18 * g, 0.04)
-	play(ANVIL, jitter(0.40, 0.02), 0.12 * g, 0.01)
+	play(CRATE_SHATTER, jitter(1.0, 0.015), 0.55 * g)
+	play(ANVIL, jitter(0.40, 0.02), 0.16 * g, 0.01)
+	play(PING, jitter(1.0, 0.005), 0.08 * g, 0.05)
 end
 
 --- One tick of the roll cadence, climbing the same ladder as the strike band so
@@ -410,15 +446,16 @@ end
 --- phrase.
 ---
 --- The ping carries the melody and is left almost unjittered (0.5%), because a
---- scale with a humanized pitch is a scale that is out of tune. The click keeps
---- the mechanical texture underneath it.
+--- scale with a humanized pitch is a scale that is out of tune. Under it, a
+--- knuckle hit tightens the box a little on every step without climbing a full
+--- octave: the wood is the same object, the lock is coming loose.
 function Sfx.crateTick(index: number, total: number)
 	local six = { 1, 2, 3, 4, 5, 8 }
 	local ten = { 1, 2, 3, 4, 5, 6, 7, 8, 5, 8 }
 	local ladder = if total >= 10 then ten else six
 	local step = ladder[math.clamp(index, 1, #ladder)]
 	local weight = 0.11 + math.min(index, 10) * 0.016
-	play(CLICK, jitter(1.05, 0.02), weight * 0.8)
+	play(pick(CRATE_HITS), jitter(1.0 + step * 0.018, 0.02), weight + 0.03)
 	play(PING, jitter(degree(step), 0.005), weight + 0.10, 0.005)
 	-- The last note lands on the tonic an octave up; give it a low octave so the
 	-- click has a floor instead of only a ceiling. The first tonic in a ten-pull
@@ -427,7 +464,7 @@ function Sfx.crateTick(index: number, total: number)
 		play(PING, 0.5, 0.18, 0.01)
 	end
 	if index >= 5 then
-		play(ANVIL, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.20, 0)
+		play(ANVIL, jitter(0.6 + math.min(index, 10) * 0.03, 0.03), 0.16, 0)
 	end
 end
 
@@ -438,18 +475,21 @@ function Sfx.heartbeat()
 	play(PING, jitter(0.55, 0.02), 0.12, 0.03)
 end
 
---- The last half-second before a reveal. The top of the do-re-mi ladder, ending
---- on ti: the leading tone is the one note that cannot resolve by itself, so the
---- reveal's do is the answer. The old pentatonic climb ended on sol, which
---- sounds finished; the hold should not sound finished.
+--- The last half-second before a reveal. A rising noise and pressure swell
+--- under the top of the do-re-mi ladder, ending on ti: the leading tone is the
+--- one note that cannot resolve by itself, so the reveal's do is the answer. The
+--- old pentatonic climb ended on sol, which sounds finished; the hold should not
+--- sound finished. The swell is the whole 0.6s hold, so the quiet between the
+--- last click and the reveal is pressure instead of silence.
 function Sfx.riser(steps: number?)
 	local count = math.clamp(steps or 5, 1, 7)
 	local last = 7
 	local first = math.max(1, last - count + 1)
+	play(CRATE_RISE, 1.0, 0.30)
 	for index = first, last do
 		play(PING, jitter(degree(index), 0.005), 0.12 + (index - first) * 0.012, (index - first) * 0.06)
 	end
-	play(ANVIL, jitter(0.5, 0.03), 0.2, count * 0.06)
+	play(ANVIL, jitter(0.5, 0.03), 0.16, count * 0.06)
 end
 
 --- One copy leaving the ceremony. Deliberately smaller than the reveal: a claim

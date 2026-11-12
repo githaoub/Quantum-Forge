@@ -136,7 +136,7 @@ src/
     Notifications.luau    Toasts
     Vfx.luau              Floaters, sparks, rings, lightning, embers, shake, flash
     SpriteFx.luau         Layered sprite-sheet playback (tinted flipbooks)
-    Sfx.luau              24-slot layered kit: UI, strike, heat, forge, cache, ascend
+    Sfx.luau              Layered kit: UI, strike, heat, forge, cache, crate, ascend
     Music.luau            Looped Creator Store room tone, own persisted switch
 
 scripts/
@@ -257,19 +257,23 @@ scored by variant) and showcases the new blade for 2.6s even when it is not the 
 that got equipped. The stage carries a pool of twelve ambient embers, recycled
 rather than spawned per frame.
 
-The sound kit is 24 pooled slots over two families: the client `electronicpingshort`
-and `clickfast` samples for melody and interface, and four purpose-built metal pings
+The sound kit is 69 pooled slots over three families: the client `electronicpingshort`
+and `clickfast` samples for melody and interface, four purpose-built metal pings
 uploaded to the account for the strike, the green-bar chord, the crit and the heavy
-body. Nothing in the kit is a broadband blast; `impact_explosion_03` was retired
-along with `snap`, `hit`, `metal` and `impact_water`. Each sample keeps its own pool
-of `Sound` instances created at boot and preloaded, so a click never waits on a
-decoder. A looped 144-second Creator
-Store track (`Dark Pulsing Synth`) sits at 0.16 underneath.
+body, and eight purpose-built crate samples for the landing, three knuckles, the
+crack, the seal, the riser and the shatter. Nothing in the kit is a broadband
+blast; `impact_explosion_03` was retired along with `snap`, `hit`, `metal` and
+`impact_water`. Each sample keeps its own pool of `Sound` instances created at
+boot and preloaded, so a click never waits on a decoder. A looped 144-second
+Creator Store track (`Dark Pulsing Synth`) sits at 0.16 underneath.
 Every button, tab, modal, roll, melt, reroll, cache, dispatch and ascension has a cue;
 the forge click is one bright metal ping, the green bar replaces it with a
 fifth-stacked chord, and the crit answers an octave above. A strike also shakes the
 whole HUD: 7 design pixels on a normal click, 9 in the band, 11 on a crit, 15 on a
-forge result. The side-panel header holds a backpack and a gear; sound effects, music,
+forge result. The crate uses the forge's numbers: 8 on the landing, 2.4 to 7.2
+across the press ladder, 8 on the seal, 6.2 to 11 on the reveal and 7 on the exit,
+with a 28px scrim bleed so the canvas shake cannot expose the page. The
+side-panel header holds a backpack and a gear; sound effects, music,
 screen effects, shake and trade requests are five rows in the settings sheet,
 persisted to the profile. Sound effects and music are 0..100 sliders: the row
 shows the percentage, the whole 26px strip is draggable, and 0 is the mute. The
@@ -1069,7 +1073,7 @@ tables if changed.
 | Icons | `rbxassetid://0` | UI falls back to vector glyphs. |
 | VFX sheets | `rbxassetid://0` | 22 sheets are generated and margin-checked; effects fall back to the procedural burst in `Vfx.luau`. |
 | Leaderboards | Absent | `lifetimeStarMatter` is already tracked, ready to sync. |
-| Sound | Engine samples plus one Creator Store loop | Every cue is layered from five proven `rbxasset://` samples across a 24-slot pool. `ForgeMusic` is APMOfficial's free "Dark Pulsing Synth" at `0.16 * musicVolume`. The kit and the loop have separate persisted 0..100 sliders in the settings sheet; 0 is the mute. The crate ceremony is mixed hotter than the anvil (ADR-103). |
+| Sound | Engine samples plus purpose-built uploads | The interface uses two proven `rbxasset://` samples; the metal family is four uploads and the crate family is eight uploads, each in its own boot-time pool (69 slots total). `ForgeMusic` is APMOfficial's free "Dark Pulsing Synth" at `0.16 * musicVolume`. The kit and the loop have separate persisted 0..100 sliders in the settings sheet; 0 is the mute. The crate is wood, iron and a saturated sub, not a second anvil (ADR-121). |
 
 ---
 

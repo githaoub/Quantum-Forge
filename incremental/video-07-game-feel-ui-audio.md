@@ -94,7 +94,7 @@ the click lost its metal edge and gained a wooden thump, and the sustained tail 
 strike went back to two clips, then to one blast, and finally off the blast
 entirely: the click is now one purpose-built metal ping.
 
-The kit ships two families. `hit.wav`, `snap.mp3`, `metal.ogg`,
+The kit ships three families. `hit.wav`, `snap.mp3`, `metal.ogg`,
 `impact_water.mp3` and `impact_explosion_03.mp3` were removed entirely (ADR-113,
 ADR-115):
 
@@ -106,6 +106,12 @@ ADR-115):
 | sweet | uploaded metal chord `97522852807133` | green bar |
 | crit | uploaded metal ping `121142281920008` | crit |
 | body | uploaded metal ping `95191181057410` | crates, forge, ascent |
+| crate land | uploaded slam `71087127981046` | ceremony drop |
+| crate knuckles | uploaded hits `112903040076273`, `101485910396327`, `125593282218554` | ceremony presses |
+| crate crack | uploaded break `124020777399189` | one crate opening |
+| crate seal | uploaded latch `130549066084047` | last press |
+| crate rise | uploaded swell `75379241961315` | sealed hold |
+| crate shatter | uploaded breach `125700571754654` | reveal |
 
 The four uploaded samples are rendered from inharmonic plate modes and a 10ms
 hammer transient, so the strike is a ping with a metal edge rather than a
@@ -113,6 +119,17 @@ broadband boom. Each sample owns a small pool of `Sound` instances created at bo
 and warmed with `ContentProvider:PreloadAsync`; the old shared pool rewrote
 `SoundId` on every cue, which invalidated the decoder and put the click behind the
 press.
+
+The crate family is the other side of the room: damped wood modes for the box,
+filtered noise grains for the break, inharmonic metal for the bands and a
+saturated sub for weight. It is not a second metal ping. The three knuckles
+exist so a ten-pull is ten different knocks, and the seal only plays on the last
+press of the pull, so a ten-pull bites the lock once. The ceremony now uses the
+forge's shake numbers: a 16px viewport and 8px screen shake on the landing, a
+`7 + rank` stage and `5 + rank * 1.2` screen shake on the reveal, and a 7px
+screen shake on the exit. The scrim carries 28px of bleed on every edge so the
+canvas shake cannot expose the page behind it. The guide layer is parked for the
+length of the ceremony and restored on close.
 
 `rollTick` climbs a major pentatonic ladder in semitones instead of the old
 `1.15 + 0.09 * n` ramp, so the wind-up and the band climb share a key.
