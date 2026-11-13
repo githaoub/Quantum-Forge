@@ -103,15 +103,17 @@ local function onFeedEvent(event: Types.FeedEvent)
 		Sfx.coin()
 		return
 	elseif event.kind == "crit" then
-		-- The local prediction already floated a normal number; this adds the
-		-- crit flourish on top of it, anchored on the anvil.
+		-- The local prediction already floated a normal number at the cursor;
+		-- this adds the crit flourish on top of it, anchored on the sword. The
+		-- sword is the thing the player is watching, so the crit arrives where
+		-- their eyes already are instead of on the plate under the bar.
 		-- The wash is the whole screen now: `Vfx.flash` paints on a layer above
 		-- every panel, including the top bar inset. The peak is deliberately
 		-- higher than the old 0.14, because that value was tuned for a wash that
 		-- only covered the canvas and still read as a local tint.
 		Vfx.flash(Theme.Color.starMatter, 0.34, 0.22)
 		Sfx.crit()
-		local anchor = ForgeView.strikeAnchor()
+		local anchor = ForgeView.swordAnchor() or ForgeView.strikeAnchor()
 		if anchor then
 			Vfx.float(anchor, string.format("CRIT  +%s", NumberUtil.abbreviate(event.amount or 0)), {
 				color = Theme.Color.starMatter,

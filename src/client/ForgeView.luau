@@ -759,7 +759,7 @@ local function buildHud(parent: Frame)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
 		then
-			ForgeView.strike()
+			ForgeView.strike(input.Position)
 		end
 	end)
 end
@@ -830,7 +830,7 @@ end
 -- Strike
 -- ---------------------------------------------------------------------------
 
-function ForgeView.strike()
+function ForgeView.strike(screenPoint: Vector2?)
 	if not unlocked then
 		return
 	end
@@ -865,17 +865,26 @@ function ForgeView.strike()
 
 	if viewport then
 		ForgeView.punch(if current.inSweetSpot then 1.7 else 1)
+		-- The payout follows the pointer, not the anvil. A player clicking ten
+		-- times a second is looking at the cursor, and a number that stays on the
+		-- render is easy to miss. `screenPoint` comes from the input event, so
+		-- touch lands under the finger too; Space and gamepad fall back to the
+		-- pointer, then to the stage.
+		local at = if screenPoint then Vfx.screenPoint(screenPoint) else Vfx.pointer(root)
 		Vfx.float(viewport, "+" .. NumberUtil.abbreviate(predicted), {
 			color = if current.inSweetSpot then Theme.Color.heatSweet else Theme.Color.starMatter,
 			crit = false,
+			size = Theme.Text.Heading,
+			at = at,
 		})
 		-- Second marker in the band: "+12.5" alone does not say *why* it was
-		-- bigger, and the player is looking at the render, not the gauge.
+		-- bigger, and the player is looking at the cursor, not the gauge.
 		if current.inSweetSpot then
 			Vfx.float(viewport, string.format("x%.2g", current.bandMult), {
 				color = Theme.Color.aether,
 				size = Theme.Text.Body,
 				drift = 118,
+				at = at and (at + Vector2.new(0, 20)),
 			})
 		end
 		-- The blade leaves a trail in its own rarity colour. The flipbook is the
@@ -1733,6 +1742,13 @@ end
 --- this module (crit flourishes, overheat flashes). Returns nil before init.
 function ForgeView.strikeAnchor(): TextButton?
 	return strikeButton
+end
+
+--- The blade stage, for a crit that has to read on the sword rather than on the
+--- plate or the pointer. The viewport is centred on the model the camera is
+--- framing, so its centre is the sword.
+function ForgeView.swordAnchor(): ViewportFrame?
+	return viewport
 end
 
 --- Freezes the local heat prediction at the vent line while the coach notes

@@ -5289,3 +5289,52 @@ page scrolls in its own body. iPhone 16 Pro Max sim, 830x439: compact bar
 place file. A human visual pass and a gamepad selection pass are still open.
 
 
+
+## ADR-126 - Feedback lands where the player is looking
+
+**Context.** The verb keys announced a ready ASCEND or DAILY with a 2px stroke
+that shifted transparency and a 3% plate scale. The owner read it as a rendering
+wobble, not as a signal, and said so after a playtest. The strike payout and the
+crit were anchored on the anvil plate and the forge card, while a player who is
+clicking is looking at the cursor, and a player who is watching their blade is
+looking at the render. Seventeen-pixel numbers on a plate under the pointer were
+easy to miss.
+
+**Decision.**
+
+1. A ready verb lights from inside. A `ReadyGlow` frame in the verb's accent
+   sits inside the plate at 0.68 to 0.82 transparency, the ring grows from 2px to
+   5px, the plate scales 1.00 to 1.05 and the mark scales 6%. The cues share one
+   beat, and each verb runs its own frequency so they do not pulse in lockstep.
+2. The payout floats from the input point. `ForgeView.strike` takes the point,
+   touch and mouse pass their own position, Space and gamepad fall back to the
+   pointer and then to the stage. The rises and jitters are tuned for a cursor,
+   not for an anvil.
+3. The crit lands on the blade stage. `Main` anchors the crit float and its
+   shockwave on `ForgeView.swordAnchor()`, so the biggest number in the game
+   appears on the object the player is already watching.
+4. A floating label measures its own text. `Vfx.float` calls
+   `TextService:GetTextSize` and grows the box, so the 46px crit cannot lose its
+   cap height or its last digit inside a 260x40 frame.
+5. Effects read the live canvas fit. A cached `UIScale` value goes stale when the
+   play window resizes after boot, which puts labels tens of pixels off their
+   anchor. `toLocal` reads the scale at call time, and edge clamping converts the
+   layer's physical size back into design units first.
+6. The mark pulse multiplies the icon's existing UIScale. A second UIScale on the
+   same object is undefined and would fight the 24px canvas fit.
+
+**Consequences.** The top bar now has two visibly lit keys at the edge of the
+screen, which is more colour than the old chrome used. The glow is clipped by
+the plate, so it cannot bleed into the wallpaper. A click near an edge clamps
+the number inside the canvas, which can move it a few pixels off the exact
+cursor; that is preferable to a cropped first digit.
+
+**Verification.** Studio, 1212x576 game area, canvas 1686x720 at 0.719. DAILY
+sampled at a 4.98px ring, 0.02 transparency, 0.68 glow, 1.049 plate scale and
+0.833 to 0.883 mark scale; ASCEND reaches the same envelope on its own wave and
+reports a gold ring instead of the outline colour. A strike at GUI (497, 372)
+captured its label at design (685, 512) against a cursor at design (691, 517).
+A server crit of 1,234,567 captured `CRIT  +1.23M` at 46px in a 277x55 box with
+`TextFits` true, 33px horizontally from the blade centre and 3px vertically.
+`selene src` clean.
+

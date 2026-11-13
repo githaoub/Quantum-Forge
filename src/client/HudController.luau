@@ -53,6 +53,8 @@ type Pill = {
 	format: (number) -> string,
 }
 
+type MarkPulse = { scale: UIScale, base: number }
+
 local pills: { [string]: Pill } = {}
 local topBar: Frame? = nil
 local rateStrip: Frame? = nil
@@ -65,9 +67,13 @@ local ascendButton: TextButton? = nil
 local ascendLabel: TextLabel? = nil
 local ascendStroke: UIStroke? = nil
 local ascendScale: UIScale? = nil
+local ascendGlow: Frame? = nil
+local ascendMarkScale: MarkPulse? = nil
 local dailyButton: TextButton? = nil
 local dailyStroke: UIStroke? = nil
 local dailyScale: UIScale? = nil
+local dailyGlow: Frame? = nil
+local dailyMarkScale: MarkPulse? = nil
 local dailyLabel: TextLabel? = nil
 local guideButton: TextButton? = nil
 local guideTextLabel: TextLabel? = nil
@@ -346,6 +352,37 @@ local function buildPill(
 	}
 end
 
+--- A wash inside the verb plate and a breathing scale on its mark. The old
+--- feedback was a 2px border and a 3% scale, which at the edge of vision reads
+--- as a rendering wobble. Colour inside the plate is the part a player cannot
+--- mistake for their eyes.
+local function buildReadyGlow(button: TextButton, color: Color3, radius: number): Frame
+	local glow = UiKit.create("Frame", {
+		Name = "ReadyGlow",
+		BackgroundColor3 = color,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 1,
+	}) :: Frame
+	UiKit.corner(glow, radius)
+	glow.Parent = button
+	return glow
+end
+
+--- `Icons.build` already owns a UIScale on the mark: a 24px canvas scaled to
+--- `markSize`. A second UIScale on the same object is undefined, so the pulse
+--- multiplies the icon's own scale instead of stacking another one. The base is
+--- captured once so the mark always settles back to the size the bar was laid
+--- out for.
+local function buildMarkScale(mark: Frame): MarkPulse?
+	local scale = mark:FindFirstChildOfClass("UIScale")
+	if scale == nil then
+		return nil
+	end
+	return { scale = scale, base = scale.Scale }
+end
+
 local function buildAscendButton(parent: Frame): TextButton
 	local button = UiKit.button(parent, {
 		text = "",
@@ -366,6 +403,8 @@ local function buildAscendButton(parent: Frame): TextButton
 	button.LayoutOrder = 9
 	button.Name = "AscendButton"
 
+	ascendGlow = buildReadyGlow(button, Theme.Color.gold, Theme.Radius.md)
+
 	-- The mark sits above the word, same grammar as the utility keys beside it, so
 	-- the whole right end of the bar reads as one row of icons rather than as two
 	-- buttons that happen to be next to a toolbar.
@@ -374,6 +413,7 @@ local function buildAscendButton(parent: Frame): TextButton
 	mark.Name = "Mark"
 	mark.Position = UDim2.fromOffset((Layout.VERB_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
+	ascendMarkScale = buildMarkScale(mark)
 
 	local label = UiKit.label(button, {
 		text = "ASCEND",
@@ -430,11 +470,14 @@ local function buildDailyButton(parent: Frame): TextButton
 	button.LayoutOrder = 10
 	button.Name = "DailyButton"
 
+	dailyGlow = buildReadyGlow(button, Theme.Color.emerald, Theme.Radius.md)
+
 	local markSize = if Layout.COMPACT then 28 else 20
 	local mark = Icons.build(button, "daily", markSize, Theme.Color.emerald)
 	mark.Name = "Mark"
 	mark.Position = UDim2.fromOffset((Layout.DAILY_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
+	dailyMarkScale = buildMarkScale(mark)
 
 	local label = UiKit.label(button, {
 		text = "DAILY",
@@ -1146,23 +1189,38 @@ function HudController.step(dt: number)
 		end
 	end
 
-	-- Ascend button breathes when it is actionable. A 2px stroke shifting a few
-	-- tenths of transparency was too quiet to notice beside nine other keys, so
-	-- the key itself now scales 3% and the ring thickens as it lights.
+	-- The verb keys announce themselves when they are actionable. The old pass
+	-- only scaled 3% and shifted a 2px border, and the owner read it as a trick of
+	-- the eye. A gold or emerald wash inside the plate, a matching 2..5px ring, a
+	-- 5% plate scale and a 6% mark scale are four cues on the same beat.
 	if ascendButton and ascendStroke then
 		local ready = StateStore.current ~= nil and StateStore.current.sm >= Config.AscendThreshold
 		if ready then
 			local wave = 0.5 + 0.5 * math.sin(pulse * 4.2)
-			ascendStroke.Thickness = 2 + wave * 2
-			ascendStroke.Transparency = 0.05 + (1 - wave) * 0.55
+			ascendStroke.Color = Theme.Color.gold
+			ascendStroke.Thickness = 2 + wave * 3
+			ascendStroke.Transparency = 0.02 + (1 - wave) * 0.35
 			if ascendScale then
-				ascendScale.Scale = 1 + wave * 0.03
+				ascendScale.Scale = 1 + wave * 0.05
+			end
+			if ascendGlow then
+				ascendGlow.BackgroundTransparency = 0.82 - wave * 0.14
+			end
+			if ascendMarkScale then
+				ascendMarkScale.scale.Scale = ascendMarkScale.base * (1 + wave * 0.06)
 			end
 		else
+			ascendStroke.Color = Theme.Color.outline
 			ascendStroke.Thickness = 2
 			ascendStroke.Transparency = 0.85
 			if ascendScale then
 				ascendScale.Scale = 1
+			end
+			if ascendGlow then
+				ascendGlow.BackgroundTransparency = 1
+			end
+			if ascendMarkScale then
+				ascendMarkScale.scale.Scale = ascendMarkScale.base
 			end
 		end
 	end
@@ -1171,16 +1229,30 @@ function HudController.step(dt: number)
 		local ready = StateStore.current ~= nil and StateStore.current.dailyReady
 		if ready then
 			local wave = 0.5 + 0.5 * math.sin(pulse * 3.6)
-			dailyStroke.Thickness = 2 + wave * 2
-			dailyStroke.Transparency = 0.05 + (1 - wave) * 0.55
+			dailyStroke.Color = Theme.Color.emerald
+			dailyStroke.Thickness = 2 + wave * 3
+			dailyStroke.Transparency = 0.02 + (1 - wave) * 0.35
 			if dailyScale then
-				dailyScale.Scale = 1 + wave * 0.03
+				dailyScale.Scale = 1 + wave * 0.05
+			end
+			if dailyGlow then
+				dailyGlow.BackgroundTransparency = 0.82 - wave * 0.14
+			end
+			if dailyMarkScale then
+				dailyMarkScale.scale.Scale = dailyMarkScale.base * (1 + wave * 0.06)
 			end
 		else
+			dailyStroke.Color = Theme.Color.outline
 			dailyStroke.Thickness = 2
 			dailyStroke.Transparency = 0.85
 			if dailyScale then
 				dailyScale.Scale = 1
+			end
+			if dailyGlow then
+				dailyGlow.BackgroundTransparency = 1
+			end
+			if dailyMarkScale then
+				dailyMarkScale.scale.Scale = dailyMarkScale.base
 			end
 		end
 	end
@@ -1204,7 +1276,13 @@ function HudController.destroy()
 		ascendButton = nil
 	end
 	ascendScale = nil
+	ascendGlow = nil
+	ascendMarkScale = nil
+	ascendStroke = nil
 	dailyScale = nil
+	dailyGlow = nil
+	dailyMarkScale = nil
+	dailyStroke = nil
 	if dailyButton then
 		dailyButton:Destroy()
 		dailyButton = nil

@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local TextService = game:GetService("TextService")
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
@@ -24,7 +25,10 @@ local layer: Frame? = nil
 --- the game area, so a wash inside it stops at the letterbox on a narrow window
 --- and sits under the crate ceremony. The ScreenGui is the real screen.
 local flashLayer: Frame? = nil
-local scaleFactor = 1
+--- The canvas UIScale. Its `Scale` is read at call time instead of cached:
+--- the boot measurement can be replaced by a resize before the first effect,
+--- and a cached fit puts a payout tens of pixels off the cursor.
+local uiScaleRef: UIScale? = nil
 
 -- Player preferences. Effects are the first thing a low-end device turns off,
 -- so every decorative path checks these before allocating a frame. Floating
@@ -142,7 +146,7 @@ function Vfx.init(canvas: Frame, uiScale: UIScale)
 		ClipsDescendants = false,
 	}) :: Frame
 	layer.Parent = canvas
-	scaleFactor = uiScale.Scale
+	uiScaleRef = uiScale
 
 	-- The wash layer. It gets its own ScreenGui rather than a frame on the game
 	-- screen, for two reasons that both showed up in playtest:
@@ -159,18 +163,24 @@ function Vfx.init(canvas: Frame, uiScale: UIScale)
 	-- input surface: nothing here is clickable.
 	ensureFlashLayer()
 
-	-- The canvas scale changes when the window resizes; keep the conversion
-	-- honest rather than baking a stale value.
-	uiScale:GetPropertyChangedSignal("Scale"):Connect(function()
-		scaleFactor = uiScale.Scale
-	end)
+	-- The canvas scale changes when the window resizes. `toLocal` reads it from
+	-- the live UIScale, so no cached value can go stale after a resize.
+end
+
+--- The current canvas fit. One read per call site; no state to keep in sync.
+local function currentScale(): number
+	local ui = uiScaleRef
+	if ui == nil or ui.Scale <= 0 then
+		return 1
+	end
+	return ui.Scale
 end
 
 local function toLocal(screen: Vector2): Vector2
 	if layer == nil then
 		return screen
 	end
-	return (screen - layer.AbsolutePosition) / scaleFactor
+	return (screen - layer.AbsolutePosition) / currentScale()
 end
 
 --- Where a GUI object's centre sits, in the VFX layer's coordinate space.
@@ -217,6 +227,9 @@ export type FloatOpts = {
 	size: number?,
 	crit: boolean?,
 	drift: number?,
+	--- Where to spawn, in the VFX layer's coordinate space. Used by the strike
+	--- number so the payout appears under the pointer instead of on the anvil.
+	at: Vector2?,
 }
 
 type Spark = {
@@ -228,6 +241,17 @@ type Spark = {
 	angle: number,
 }
 
+--- A screen-space input point in the VFX layer's coordinate space. `pointer`
+--- handles the mouse case; touch and gamepad pass their `InputObject.Position`
+--- through here so the payout still lands under the finger.
+function Vfx.screenPoint(screen: Vector2): Vector2?
+	if layer == nil then
+		return nil
+	end
+	local inset = GuiService:GetGuiInset()
+	return toLocal(screen - Vector2.new(inset.X, inset.Y))
+end
+
 --- Rises and fades a number from the anchor's centre. Called on every accepted
 --- click, so it stays deliberately cheap: one label, one tween pair.
 function Vfx.float(anchor: GuiObject, text: string, opts: FloatOpts?)
@@ -236,26 +260,52 @@ function Vfx.float(anchor: GuiObject, text: string, opts: FloatOpts?)
 	end
 
 	local o = opts or {}
-	local origin = anchorCentre(anchor)
-	local jitterX = math.random(-38, 38)
-	local jitterY = math.random(-14, 8)
+	local atPoint = o.at ~= nil
+	local origin = o.at or anchorCentre(anchor)
+	-- A number spawned under the pointer has to stay under it. The old 38px
+	-- jitter was tuned for an anvil-sized target; beside a cursor it throws the
+	-- number halfway across the stage.
+	local jitterX = math.random(if atPoint then -12 else -38, if atPoint then 12 else 38)
+	local jitterY = math.random(if atPoint then -7 else -14, if atPoint then 3 else 8)
+
+	local textSize = o.size or (if o.crit then Theme.Text.Title else Theme.Text.Subheading)
+	local font = if o.crit then Theme.Font.Display else Theme.Font.Numeric
+	-- A crit is set at Hero (46px). The old fixed 260x40 box was shorter than
+	-- the type and narrower than the string, so a big payout lost its top and
+	-- its last digit. Measure the text and grow the box to fit it.
+	local measured = TextService:GetTextSize(text, textSize, font, Vector2.new(2000, 200))
+	local boxW = math.max(260, measured.X + 28)
+	local boxH = math.max(40, measured.Y + 10)
+
+	-- Keep the whole box inside the canvas so a click near the rail does not
+	-- cut the first digit off. The layer is measured in physical pixels while
+	-- `origin` is in design units, so divide the bounds back by the fit.
+	local fit = currentScale()
+	local width = layer.AbsoluteSize.X / fit
+	local height = layer.AbsoluteSize.Y / fit
+	local padX = math.min(boxW * 0.5, width * 0.5)
+	local padY = math.min(boxH * 0.5, height * 0.5)
+	origin = Vector2.new(
+		math.clamp(origin.X, padX, math.max(padX, width - padX)),
+		math.clamp(origin.Y, padY, math.max(padY, height - padY))
+	)
 
 	local label = UiKit.create("TextLabel", {
 		BackgroundTransparency = 1,
 		Text = text,
 		TextColor3 = o.color or Theme.Color.starMatter,
-		TextSize = o.size or (if o.crit then Theme.Text.Title else Theme.Text.Subheading),
-		Font = if o.crit then Theme.Font.Display else Theme.Font.Numeric,
+		TextSize = textSize,
+		Font = font,
 		TextStrokeTransparency = 0.4,
 		TextStrokeColor3 = if o.crit then Theme.Color.aetherDeep else Theme.Color.ink,
 		TextTransparency = 0.15,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(origin.X + jitterX, origin.Y + jitterY),
-		Size = UDim2.fromOffset(260, 40),
+		Size = UDim2.fromOffset(boxW, boxH),
 	}) :: TextLabel
 	label.Parent = layer
 
-	local rise = o.drift or 74
+	local rise = o.drift or (if atPoint then 52 else 74)
 	local duration = if o.crit then 1.0 else 0.78
 
 	if Theme.reducedMotion() then
@@ -731,10 +781,11 @@ function Vfx.ambientEmbers(anchor: GuiObject, opts: EmberOpts?): () -> ()
 	local seeds: { { x: number, y: number, speed: number, drift: number, phase: number, size: number } } = {}
 
 	local function rect(): (number, number, number, number)
-		local left = (anchor.AbsolutePosition.X - host.AbsolutePosition.X) / scaleFactor
-		local top = (anchor.AbsolutePosition.Y - host.AbsolutePosition.Y) / scaleFactor
-		local width = anchor.AbsoluteSize.X / scaleFactor
-		local height = anchor.AbsoluteSize.Y / scaleFactor
+		local scale = currentScale()
+		local left = (anchor.AbsolutePosition.X - host.AbsolutePosition.X) / scale
+		local top = (anchor.AbsolutePosition.Y - host.AbsolutePosition.Y) / scale
+		local width = anchor.AbsoluteSize.X / scale
+		local height = anchor.AbsoluteSize.Y / scale
 		return left, top, width, height
 	end
 

@@ -16,8 +16,8 @@ Read this before starting work on Quantum Forge.
 
 The real game is `Quantum Forge`, place `102663811434617`, universe
 `10775534186`, held in Team Create. Rojo serve (`rojo serve`, port 34872)
-syncs `src/` into that open place. Forge 32 is saved there as place version
-321. That save is not a publish: live players still get the last published
+syncs `src/` into that open place. Forge 33 is saved there as place version
+326. That save is not a publish: live players still get the last published
 version until the owner presses Publish in Studio. `verify.rbxlx` is a local
 build with a Baseplate, not a copy of the real place, so never publish it over
 the game.
@@ -41,17 +41,23 @@ checkpoint before large structural changes.
 
 ## Current state
 
-Forge 32 is the live pass: fleet, runes and tech are full-bleed pages instead
-of two-column row stacks. Fleet is a hangar (hull stage, five-row rack, service
-deck), runes is a bay and a 2x2 card shelf, and tech is three lanes with spines
-and a core/feat sidebar. The top bar now repaints every key when the compact
+Forge 33 is the live pass: a ready ASCEND or DAILY now lights from inside the
+plate (accent wash, 2 to 5px ring, 5% plate scale, 6% mark scale), the strike
+payout floats from the cursor at 22px, and the crit lands on the blade stage in
+a box measured to fit its 46px type. See `incremental/build-log-forge-33.md`.
+The save is place version 326.
+
+Forge 32 remains the page refactor: fleet, runes and tech are full-bleed pages
+instead of two-column row stacks. Fleet is a hangar (hull stage, five-row rack,
+service deck), runes is a bay and a 2x2 card shelf, and tech is three lanes with
+spines and a core/feat sidebar. The top bar repaints every key when the compact
 line changes, button faces truncate, and the focus ring restores the stroke it
 found instead of a fixed 2px. See `incremental/build-log-forge-32.md`.
 
 The same code was played in the real place: no label failed `TextFits` on any
 of the three pages, the compact top bar keys sat inside the bar, and the focus
-probe restored a 1px stroke after a 3px white focus ring. The save is place
-version 321.
+probe restored a 1px stroke after a 3px white focus ring. Forge 32 was saved as
+place version 321.
 
 Forge 31 remains the behind-the-scenes pass: `Main.client` calls
 `TradeView.step`, a 4:3 tablet grows the canvas height instead of letterboxing,
@@ -66,8 +72,9 @@ actionable.
 
 Known gaps, unchanged:
 
-- No human visual pass on the Forge 32 pages yet. Geometry and text fit were
-  measured in Studio; the composition has not been judged on a real screen.
+- No human visual pass on the Forge 32 pages or the Forge 33 pulses yet.
+  Geometry, text fit and the pulse envelope were measured in Studio; whether the
+  glow is too loud on a real screen has not been judged by a person.
 - A gamepad selection pass. The focus restore is code-verified only.
 - DataStore writes return 401 here; the profile runs MOCK, so nothing persists
   across sessions and the first-join cards repeat on every Studio play.
