@@ -119,8 +119,11 @@ function ProgressionService.globalMultiplier(state: Types.ProfileState): number
 	if now() < state.boostX2Until then
 		mult *= 2
 	end
+	if state.passes.starterForge then
+		mult *= 1 + MonetizationConfig.StarterPermanentIncome
+	end
 	if now() < state.overdriveUntil then
-		mult *= MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
+		mult *= MonetizationConfig.overdriveMult(state.overdriveStacks)
 	end
 	return mult
 end
@@ -1032,11 +1035,15 @@ function ProgressionService.dispatch(player: Player, missionId: string): (boolea
 
 	local mult = ProgressionService.bladeMultiplier(state) * ProgressionService.globalMultiplier(state)
 	local startedAt = now()
+	local clock = mission.seconds
+	if state.passes.expressSalvage then
+		clock = math.max(60, math.floor(clock * MonetizationConfig.ExpeditionTimeScale))
+	end
 	state.expedition = {
 		id = mission.id,
 		squad = mission.squad,
 		startedAt = startedAt,
-		endsAt = startedAt + mission.seconds,
+		endsAt = startedAt + clock,
 		aether = math.floor(mission.aether * mult),
 		cores = mission.cores,
 		shards = mission.shards,
@@ -1320,6 +1327,13 @@ function ProgressionService.buyTech(player: Player, nodeId: string): (boolean, s
 		return false, "Already mastered"
 	end
 
+	if not TechTreeConfig.available(node, state.tech) then
+		local parent, needed = TechTreeConfig.requirement(node, state.tech)
+		if parent ~= nil then
+			return false, string.format("Requires %s Lv%d", parent.name, needed or 1)
+		end
+	end
+
 	local cost = TechTreeConfig.cost(node, level)
 	if state.quantumCores < cost then
 		return false, "Not enough Quantum Cores"
@@ -1501,7 +1515,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 	-- only read while the boost is actually live.
 	local paidRemaining = math.max(0, state.overdriveUntil - now())
 	local paidMult = if paidRemaining > 0
-		then MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
+		then MonetizationConfig.overdriveMult(state.overdriveStacks)
 		else 1
 
 	return {
@@ -1567,6 +1581,7 @@ function ProgressionService.buildPayload(state: Types.ProfileState): Types.SyncP
 		expId = mission.id,
 		expSquad = squadAway,
 		expRemaining = if mission.id ~= "" then math.max(0, mission.endsAt - now()) else 0,
+		expTotal = if mission.id ~= "" then math.max(0, mission.endsAt - mission.startedAt) else 0,
 		expAether = mission.aether,
 		expCores = mission.cores,
 		expShards = mission.shards,

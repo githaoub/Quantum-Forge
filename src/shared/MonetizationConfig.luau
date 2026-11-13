@@ -72,8 +72,8 @@ MonetizationConfig.Passes = {
 
 	x2StarMatter = {
 		id = 2079002443,
-		name = "2x Star-Matter",
-		description = "Doubles all Star-Matter income, forever.",
+		name = "2x Income",
+		description = "Doubles all forge income, forever.",
 		enabled = true,
 		price = 59,
 		badge = "2X",
@@ -83,7 +83,7 @@ MonetizationConfig.Passes = {
 	vipAura = {
 		id = 2079290439,
 		name = "VIP",
-		description = "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
+		description = "Every gamepass, forever, plus the VIP badge, aura and gold strike trail. Cheaper than buying them one by one.",
 		enabled = true,
 		price = 119,
 		badge = "VIP",
@@ -97,7 +97,7 @@ MonetizationConfig.Passes = {
 	eternalForge = {
 		id = 2078156449,
 		name = "Eternal Forge",
-		description = "+25% to all Star-Matter income, forever.",
+		description = "+25% to all forge income, forever.",
 		enabled = true,
 		price = 59,
 		badge = "ETERNAL",
@@ -106,12 +106,13 @@ MonetizationConfig.Passes = {
 }
 
 MonetizationConfig.Products = {
-	--- The player-to-payer door. Priced at the floor of the Robux ladder so the
-	--- first purchase is a decision nobody has to think about.
+	--- The player-to-payer door. Twenty minutes of 2x is a boost the player can
+	--- feel without skipping the first drone rungs; the permanent +5% is the
+	--- reason a first purchase still matters after the clock runs out.
 	starterForge = {
 		id = 3730425410,
 		name = "Starter Forge Pack",
-		description = "500K Aether and twenty minutes of 2x Star-Matter. A head start for a fresh forge.",
+		description = "Twenty minutes of 2x income. The first purchase also adds +5% income, permanently.",
 		enabled = true,
 		price = 9,
 		badge = "START",
@@ -121,22 +122,22 @@ MonetizationConfig.Products = {
 	instantOverdrive = {
 		id = 3730425423,
 		name = "Instant Overdrive",
-		description = "Each charge adds 3x Star-Matter for one hour. Multipliers stack with no cap, including with 2x Star-Matter. The clock never stacks: every charge resets it to one hour.",
+		description = "One hour of 2x income. Each extra charge adds +1x. The clock resets to one hour.",
 		enabled = true,
 		price = 25,
 		badge = "STACK",
 		icon = "instant_overdrive",
 	} :: ProductDef,
 
-	--- Long-horizon utility rather than currency: a mission already paid for, so
-	--- it buys time rather than a number.
+	--- Durable utility, not a timer skip. One purchase changes every future
+	--- expedition, so the value does not depend on a mission being in flight.
 	expressSalvage = {
 		id = 3730425441,
 		name = "Express Salvage",
-		description = "Instantly completes any expedition in flight.",
+		description = "Permanently cuts every expedition's clock by 25%.",
 		enabled = true,
 		price = 35,
-		badge = "EXPRESS",
+		badge = "CHARTER",
 		icon = "express_salvage",
 	} :: ProductDef,
 }
@@ -149,11 +150,17 @@ MonetizationConfig.Products = {
 -- extending it, so the multiplier can climb forever while the clock cannot.
 MonetizationConfig.OverdriveSeconds = 3600
 MonetizationConfig.OverdriveMaxSeconds = 3600
---- The multiplier one charge applies. Charges multiply: two are x6, ten are
---- x30; there is no cap.
-MonetizationConfig.OverdriveMultiplier = 3
+--- The first charge doubles income. Every extra charge adds one more x, so ten
+--- charges are x11 instead of x59,049. Stacking stays uncapped, but it grows
+--- linearly: the paid multiplier can no longer run away from the economy.
+MonetizationConfig.OverdriveMultiplier = 2
+MonetizationConfig.OverdriveStackBonus = 1
 MonetizationConfig.StarterSeconds = 1200
-MonetizationConfig.StarterAether = 500000
+--- One-time permanent income from the first Starter Forge Pack. Stored under
+--- `passes.starterForge`; repeated packs only extend the 2x clock.
+MonetizationConfig.StarterPermanentIncome = 0.05
+--- Express Salvage is a permanent 25% cut to every expedition clock.
+MonetizationConfig.ExpeditionTimeScale = 0.75
 
 --- Looks up a pass by its Marketplace ID. Nil when the ID is still 0.
 function MonetizationConfig.passByid(id: number): (string?, PassDef?)
@@ -172,6 +179,15 @@ function MonetizationConfig.productById(id: number): (string?, ProductDef?)
 		end
 	end
 	return nil, nil
+end
+
+--- The live paid multiplier for a charge count. One helper so the server, the
+--- storefront and the HUD cannot disagree about what a stack is worth.
+function MonetizationConfig.overdriveMult(stacks: number): number
+	if stacks <= 0 then
+		return 1
+	end
+	return MonetizationConfig.OverdriveMultiplier + MonetizationConfig.OverdriveStackBonus * (stacks - 1)
 end
 
 --- Storefront order. Passes first (permanent), then consumables, because the

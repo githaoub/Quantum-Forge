@@ -201,8 +201,8 @@ export type ProfileState = {
 	boostX2Until: number,
 	--- Paid boost from Instant Overdrive. Separate from `forgeOverdriveUntil`.
 	overdriveUntil: number,
-	--- Instant Overdrive charges bought. Never spent, so the paid multiplier
-	--- climbs forever; only the timer is capped at one hour.
+	--- Instant Overdrive charges bought. Never spent: the multiplier grows by
+	--- one x per charge, while the timer stays capped at one hour.
 	overdriveStacks: number,
 
 	-- Onboarding
@@ -276,8 +276,9 @@ export type SyncPayload = {
 	--- True when the account owns the VIP pass. Drives the plate badge; the
 	--- bundle's actual passes are granted server-side and never read here.
 	vip: boolean,
-	--- Pass ownership by config key. The store paints `BOUGHT` from this table
-	--- and the server is the only writer, so a client cannot claim a pass.
+	--- Permanent entitlements by key. Mostly pass ownership, plus the one-time
+	--- Starter Forge income and the expedition charter. The store paints
+	--- `BOUGHT` from this table and the server is the only writer.
 	ownedPasses: { [string]: boolean },
 	clickYield: number,
 	passiveYield: number,
@@ -317,6 +318,9 @@ export type SyncPayload = {
 	expId: string,
 	expSquad: number,
 	expRemaining: number,
+	--- Clock the in-flight mission was dispatched with. Express Salvage does
+	--- not retime a mission already away, so the bar must use this total.
+	expTotal: number,
 	expAether: number,
 	expCores: number,
 	expShards: number,

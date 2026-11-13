@@ -4,16 +4,17 @@
 -- Why a page. A pass is a permanent decision and a boost is a repeat purchase;
 -- stacking them in one column hid the second shelf under a fold and put the
 -- same card shape around a bundle and a consumable. The page is a shelf: five
--- permanent passes on top, three boosts under them, every offer visible at
+-- permanent passes on top, three products under them, every offer visible at
 -- once. Nothing scrolls, so no price can hide below the edge.
 --
 -- Hierarchy, in the order a player reads it:
---   1. The masthead names the shop and states the one rule: no currency packs.
+--   1. The masthead states the split: passes are permanent, boosts are timed.
 --   2. Permanent passes are gold. The bundle carries the shelf's gold tag and
 --      halo, because it is the only offer that replaces the other four.
---   3. Boosts are aether. Instant Overdrive is the repeat purchase, so it is the
---      raised card on the lower shelf, its tag says STACKABLE, and its facts
---      line reports the live multiplier when the player has one running.
+--   3. Products are aether. Instant Overdrive is the repeat purchase, so it is
+--      the raised card on the lower shelf, its tag says STACKABLE, and its facts
+--      line reports the live multiplier when the player has one running. The
+--      Starter Pack now grants no currency; Express Salvage is permanent.
 --   4. Every action plate is emerald. Category colour never becomes the verb.
 --
 -- The client only ever says "prompt for this key". The server decides whether
@@ -67,13 +68,13 @@ type Face = {
 local PASS_FACE: { [string]: Face } = {
 	vipAura = {
 		tag = "BEST VALUE",
-		blurb = "Every pass, plus the badge and aura.",
+		blurb = "Every pass, plus the badge, aura and gold strike trail.",
 		fact = "EVERY PASS · ONE BILL",
 	},
 	x2StarMatter = {
 		eyebrow = "INCOME",
-		blurb = "Doubles all Star-Matter income, forever.",
-		fact = "×2 STAR-MATTER",
+		blurb = "Doubles all forge income, forever.",
+		fact = "×2 INCOME",
 	},
 	fastForge = {
 		eyebrow = "CLICKS",
@@ -87,7 +88,7 @@ local PASS_FACE: { [string]: Face } = {
 	},
 	eternalForge = {
 		eyebrow = "INCOME",
-		blurb = "+25% to all Star-Matter income, forever.",
+		blurb = "+25% to all forge income, forever.",
 		fact = "+25% INCOME",
 	},
 }
@@ -95,25 +96,25 @@ local PASS_FACE: { [string]: Face } = {
 --- The idle summary for Instant Overdrive. The live summary replaces it with
 --- the current multiplier and clock; keeping one constant means the card and
 --- the repaint cannot drift apart.
-local OVERDRIVE_FACT = "MULTIPLIER STACKS · CLOCK RESETS TO 1 HR"
+local OVERDRIVE_FACT = "EACH CHARGE +1X · CLOCK RESETS TO 1 HR"
 
 local PRODUCT_FACE: { [string]: Face } = {
 	starterForge = {
 		eyebrow = "STARTER",
 		tag = "FIRST BUY",
-		blurb = "A head start for a fresh forge.",
-		fact = "500K AETHER · 20 MIN OF 2X STAR MATTER",
+		blurb = "Twenty minutes of 2x. The first pack also adds +5% income, forever.",
+		fact = "20 MIN OF 2X · +5% FOREVER",
 	},
 	instantOverdrive = {
 		eyebrow = "BOOST",
 		tag = "STACKABLE",
-		blurb = "Each charge adds ×3 for one hour.",
+		blurb = "One hour of 2x. Extra charges add +1x.",
 		fact = OVERDRIVE_FACT,
 	},
 	expressSalvage = {
 		eyebrow = "EXPEDITION",
-		blurb = "Instantly completes any expedition in flight.",
-		fact = "COMPLETES ANY EXPEDITION",
+		blurb = "One purchase shortens every future expedition.",
+		fact = "PERMANENT · 25% SHORTER",
 	},
 }
 
@@ -125,7 +126,8 @@ local root: Frame? = nil
 local ownedPasses: { [string]: boolean } = {}
 local passTiles: { PassTile } = {}
 local passFrames: { Frame } = {}
-local boostFrames: { Frame } = {}
+local productTiles: { ProductTile } = {}
+local productFrames: { Frame } = {}
 local ownedSummary: TextLabel? = nil
 local overdriveFact: TextLabel? = nil
 --- `StateStore.onSync` returns an unsubscribe function, not a connection.
@@ -139,6 +141,17 @@ type PassTile = {
 	stroke: UIStroke,
 	baseColor: Color3,
 	baseTransparency: number,
+	paint: string,
+}
+
+type ProductTile = {
+	frame: Frame,
+	key: string,
+	def: MonetizationConfig.ProductDef,
+	handle: UiKit.ActionHandle,
+	fact: TextLabel,
+	baseFact: string,
+	factColor: Color3,
 	paint: string,
 }
 
@@ -249,26 +262,18 @@ local function buildCategoryPlate(parent: Instance, text: string, accent: Color3
 	pad.Parent = plate
 end
 
---- A shelf header: a 3px category tick, the lane name, a live summary on the
---- right, and one rule under both. The rule is the shelf edge; the cards sit
---- 4px under it.
-local function buildShelf(parent: Instance, y: number, text: string, accent: Color3, summary: string): TextLabel
-	local tick = UiKit.create("Frame", {
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(PAD, y + 2),
-		Size = UDim2.fromOffset(3, 14),
-	}) :: Frame
-	UiKit.corner(tick, 2)
-	tick.Parent = parent
-
+--- A shelf header: the lane name, a live summary on the right, and one neutral
+--- rule under both. The rule is the shelf edge; the cards sit 4px under it.
+--- A category tick used to sit here, but the accent stripes were decoration
+--- that made every lane read as a template.
+local function buildShelf(parent: Instance, y: number, text: string, _accent: Color3, summary: string): TextLabel
 	local name = UiKit.label(parent, {
 		text = text,
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textDim,
 	})
-	name.Position = UDim2.fromOffset(PAD + 11, y - 2)
+	name.Position = UDim2.fromOffset(PAD, y - 2)
 	name.Size = UDim2.new(1, -(PAD * 2 + 200), 0, 18)
 
 	local right = UiKit.label(parent, {
@@ -439,7 +444,7 @@ local function buildPassCard(parent: Frame, key: string, def: MonetizationConfig
 	}
 end
 
-local function buildBoostCard(parent: Frame, key: string, def: MonetizationConfig.ProductDef): (Frame, TextLabel)
+local function buildBoostCard(parent: Frame, key: string, def: MonetizationConfig.ProductDef): ProductTile
 	local accent = Theme.Color.aether
 	-- Instant Overdrive is the repeat purchase. It keeps the old hero slot by
 	-- being the one raised card on the lower shelf, in aether rather than gold.
@@ -530,7 +535,7 @@ local function buildBoostCard(parent: Frame, key: string, def: MonetizationConfi
 	fact.Position = UDim2.fromOffset(16, 110)
 	fact.Size = UDim2.new(1, -32, 0, 18)
 
-	buildPlate(card, BOOST_PLATE_H, 132, {
+	local handle = buildPlate(card, BOOST_PLATE_H, 132, {
 		label = if def.enabled and def.id ~= 0 then string.format("R$ %d", def.price) else "SOON",
 		kind = if def.enabled and def.id ~= 0 then "ready" else "locked",
 		handler = function()
@@ -541,11 +546,23 @@ local function buildBoostCard(parent: Frame, key: string, def: MonetizationConfi
 				Notifications.push("This item is not on sale yet.", "warn")
 				return
 			end
+			if key == "expressSalvage" and ownedPasses[key] == true then
+				return
+			end
 			StateStore.send("prompt", { kind = "product", key = key })
 		end,
 	})
 
-	return card, fact
+	return {
+		frame = card,
+		key = key,
+		def = def,
+		handle = handle,
+		fact = fact,
+		baseFact = face.fact,
+		factColor = Theme.Color.textFaint,
+		paint = "",
+	}
 end
 
 -- ---------------------------------------------------------------------------
@@ -605,12 +622,43 @@ local function applyState(state: Types.SyncPayload)
 		end
 	end
 
+	for _, tile in productTiles do
+		local isOwned = ownedPasses[tile.key] == true
+		local kind: UiKit.ActionKind
+		local label: string
+		local accent: Color3
+		local factText = tile.baseFact
+		local factColor = tile.factColor
+
+		if tile.key == "expressSalvage" and isOwned then
+			kind, label, accent = "equipped", "BOUGHT", Theme.Color.emerald
+			factColor = Theme.Color.emerald
+		elseif tile.def.enabled and tile.def.id ~= 0 then
+			kind, label, accent = "ready", string.format("R$ %d", tile.def.price), Theme.Color.good
+		else
+			kind, label, accent = "locked", "SOON", Theme.Color.textFaint
+		end
+
+		if tile.key == "starterForge" and isOwned then
+			factText = "20 MIN OF 2X · +5% OWNED"
+			factColor = Theme.Color.emerald
+		end
+
+		local paint = kind .. ":" .. label .. ":" .. factText
+		if tile.paint ~= paint then
+			tile.paint = paint
+			tile.handle.set(kind, label, accent)
+			tile.fact.Text = factText
+			tile.fact.TextColor3 = factColor
+		end
+	end
+
 	if overdriveFact then
 		local remaining = state.paidBoostRemaining or 0
 		local text, color
 		if remaining > 0 then
-			-- The multiplier is the live paid track, not an assumed x3: ten
-			-- charges read x30 even though each charge is worth x3.
+			-- The multiplier is the live paid track, not an assumed x2: ten
+			-- charges read x11 even though the first charge is only x2.
 			local mult = math.max(1, math.floor((state.paidBoostMult or 1) + 0.5))
 			text = string.format("LIVE ×%d · %s LEFT", mult, timeLeft(remaining))
 			color = Theme.Color.aether
@@ -653,7 +701,7 @@ function ShopView.layout()
 	card.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
 	local inner = Layout.CONTENT_W - PAD * 2
 	placeRow(passFrames, PASS_Y, PASS_H, inner)
-	placeRow(boostFrames, BOOST_Y, BOOST_H, inner)
+	placeRow(productFrames, BOOST_Y, BOOST_H, inner)
 end
 
 -- ---------------------------------------------------------------------------
@@ -707,34 +755,12 @@ function ShopView.init(canvas: Frame, x: number, y: number, width: number, heigh
 	title.Size = UDim2.new(1, -(PAD * 2 + 56 + 200), 0, 34)
 
 	local subtitle = UiKit.label(card, {
-		text = "Every offer multiplies the run you already have.",
+		text = "Passes are permanent. Boosts run on a clock.",
 		size = Theme.Text.Tiny,
 		color = Theme.Color.textSecondary,
 	})
 	subtitle.Position = UDim2.fromOffset(PAD + 56, 47)
-	subtitle.Size = UDim2.new(1, -(PAD * 2 + 56 + 200), 0, 16)
-
-	local trust = UiKit.label(card, {
-		text = "NO CURRENCY PACKS",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.gold,
-		align = Enum.TextXAlignment.Center,
-	})
-	trust.Name = "TrustChip"
-	trust.AutomaticSize = Enum.AutomaticSize.X
-	trust.Size = UDim2.fromOffset(0, 28)
-	trust.BackgroundColor3 = Theme.Color.gold
-	trust.BackgroundTransparency = 0.9
-	trust.AnchorPoint = Vector2.new(1, 0)
-	trust.Position = UDim2.new(1, -PAD, 0, 25)
-	UiKit.corner(trust, 14)
-	UiKit.stroke(trust, Theme.Color.gold, 1, 0.55)
-
-	local trustPad = Instance.new("UIPadding")
-	trustPad.PaddingLeft = UDim.new(0, 12)
-	trustPad.PaddingRight = UDim.new(0, 12)
-	trustPad.Parent = trust
+	subtitle.Size = UDim2.new(1, -(PAD * 2 + 56), 0, 16)
 
 	local headerRule = UiKit.create("Frame", {
 		BackgroundColor3 = Theme.Color.stroke,
@@ -774,21 +800,23 @@ function ShopView.init(canvas: Frame, x: number, y: number, width: number, heigh
 		end
 	end
 
-	boostFrames = {}
+	productTiles = {}
+	productFrames = {}
 	for _, key in MonetizationConfig.ProductOrder do
 		local def = MonetizationConfig.Products[key]
 		if def then
-			local boost, fact = buildBoostCard(card, key, def)
-			table.insert(boostFrames, boost)
+			local tile = buildBoostCard(card, key, def)
+			table.insert(productTiles, tile)
+			table.insert(productFrames, tile.frame)
 			if key == "instantOverdrive" then
-				overdriveFact = fact
+				overdriveFact = tile.fact
 			end
 		end
 	end
 
 	local inner = width - PAD * 2
 	placeRow(passFrames, PASS_Y, PASS_H, inner)
-	placeRow(boostFrames, BOOST_Y, BOOST_H, inner)
+	placeRow(productFrames, BOOST_Y, BOOST_H, inner)
 
 	local current = StateStore.current
 	if current then
@@ -799,6 +827,20 @@ end
 
 function ShopView.card(): Frame?
 	return root
+end
+
+--- Dev seam: paint a temporary owned set so the bought state can be
+--- photographed on a profile that does not own the passes. The next sync
+--- repaints from the player's real receipts.
+function ShopView.preview(owned: { [string]: boolean }): boolean
+	local state = StateStore.current
+	if state == nil then
+		return false
+	end
+	local copy = table.clone(state)
+	copy.ownedPasses = owned
+	applyState(copy)
+	return true
 end
 
 function ShopView.destroy()
@@ -812,7 +854,8 @@ function ShopView.destroy()
 	end
 	passTiles = {}
 	passFrames = {}
-	boostFrames = {}
+	productTiles = {}
+	productFrames = {}
 	ownedSummary = nil
 	overdriveFact = nil
 	ownedPasses = {}

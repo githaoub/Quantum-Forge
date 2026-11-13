@@ -912,9 +912,12 @@ function UiKit.tab(parent: Instance, opts: {
 	}) :: TextButton
 	UiKit.corner(button, radius)
 
+	-- Neutral, not the tab's accent. A coloured rule under every selected tab
+	-- made the modal headers read as six different products instead of one
+	-- control. The label already carries the selection in white.
 	local underline = UiKit.create("Frame", {
 		Name = "Underline",
-		BackgroundColor3 = opts.accent,
+		BackgroundColor3 = Theme.Color.text,
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 1, -2),
 		Size = UDim2.new(1, 0, 0, 2),

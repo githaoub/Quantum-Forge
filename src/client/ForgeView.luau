@@ -896,11 +896,14 @@ function ForgeView.strike(screenPoint: Vector2?)
 				at = at and (at + Vector2.new(0, 20)),
 			})
 		end
-		-- The blade leaves a trail in its own rarity colour. The flipbook is the
-		-- real effect; `Vfx.burst` is the always-available fallback for builds
-		-- whose sheets have not been uploaded yet.
-		if not SpriteFx.play(viewport, "slash", tint) then
-			Vfx.burst(viewport, tint, 0.9)
+		-- The blade leaves a trail in its own rarity colour. VIPs get a gold
+		-- trail instead: the bundle's badge and lobby aura are outside the forge,
+		-- so this is the one expression item the player sees on the screen they
+		-- use most. The flipbook is the real effect; `Vfx.burst` is the fallback
+		-- for builds whose sheets have not been uploaded yet.
+		local trailTint = if current.vip then Theme.Color.gold else tint
+		if not SpriteFx.play(viewport, "slash", trailTint) then
+			Vfx.burst(viewport, trailTint, 0.9)
 		end
 	end
 

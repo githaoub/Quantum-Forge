@@ -48,7 +48,7 @@ local function nextTech(state: Types.SyncPayload): { cost: number }?
 	local cheapest: number? = nil
 	for _, node in TechTreeConfig.list() do
 		local level = state.tech[node.id] or 0
-		if level < node.maxLevel then
+		if level < node.maxLevel and TechTreeConfig.available(node, state.tech) then
 			local cost = TechTreeConfig.cost(node, level)
 			if cheapest == nil or cost < cheapest then
 				cheapest = cost

@@ -1107,7 +1107,7 @@ function HudController.apply(state: Types.SyncPayload)
 	-- was dismissed, so it is not optional decoration.
 	--
 	-- The two timed boosts stack in `globalMultiplier`, so the chip prints the
-	-- product (x6 with the welcome 2x and one charge, x12 after a second charge)
+	-- product (x4 with the welcome 2x and one charge, x6 after a second charge)
 	-- and counts down the paid clock. That is the number the player is actually
 	-- earning from the timed tracks.
 	local boostMult = 1
@@ -1119,8 +1119,8 @@ function HudController.apply(state: Types.SyncPayload)
 	end
 	if paidLive then
 		-- The stack count lives on the server, so the chip prints the multiplier
-		-- it sent instead of assuming x3. Ten charges read x30 on the same chip.
-		boostMult *= math.max(1, math.floor(state.paidBoostMult or 3))
+		-- it sent instead of assuming x2. Ten charges read x11 on the same chip.
+		boostMult *= math.max(1, math.floor(state.paidBoostMult or 2))
 	end
 	-- The paid clock owns the countdown when it is live. It is the one the store
 	-- sells and the player recharges; counting the minimum of the two made a

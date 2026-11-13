@@ -445,9 +445,11 @@ function Sections.layout()
 	end
 end
 
---- One rail item: glyph over label, with a 3px accent bar on the left edge when
---- the section is active. Built by hand rather than through `UiKit.tab`, because
---- a tab is a horizontal underline and this is a vertical list entry.
+--- One rail item: glyph over label, with a neutral 3px marker on the left edge
+--- when the section is active. Built by hand rather than through `UiKit.tab`,
+--- because a tab is a horizontal underline and this is a vertical list entry.
+--- The marker used to take the section accent; six colours down the rail read
+--- as decoration rather than navigation.
 local function buildRailItem(parent: Frame, def: SectionDef, index: number): UiKit.TabHandle
 	local height = Layout.RAIL_ITEM_H
 	local button = UiKit.create("TextButton", {
@@ -464,7 +466,7 @@ local function buildRailItem(parent: Frame, def: SectionDef, index: number): UiK
 
 	local bar = UiKit.create("Frame", {
 		Name = "Bar",
-		BackgroundColor3 = def.accent,
+		BackgroundColor3 = Theme.Color.text,
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 0.5, -12),
 		Size = UDim2.fromOffset(3, 24),
@@ -963,7 +965,10 @@ function Sections.refreshTabBadges()
 		local anyAffordable = false
 		for _, node in TechTreeConfig.list() do
 			local level = state.tech[node.id] or 0
-			if level < node.maxLevel and state.qc >= TechTreeConfig.cost(node, level) then
+			if level < node.maxLevel
+				and TechTreeConfig.available(node, state.tech)
+				and state.qc >= TechTreeConfig.cost(node, level)
+			then
 				anyAffordable = true
 				break
 			end

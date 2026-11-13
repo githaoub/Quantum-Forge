@@ -866,6 +866,13 @@ local function boot()
 				-- photograph FLEET, RUNES and TECH on a given profile.
 				Sections.select(argument)
 				return Sections.activeTab()
+			elseif command == "techSelect" and type(argument) == "string" then
+				return TechTreeView.select(argument)
+			elseif command == "techPreview" and type(argument) == "table" then
+				local levels = if type(argument.levels) == "table" then argument.levels else {}
+				return TechTreeView.preview(levels, tonumber(argument.qc))
+			elseif command == "shopPreview" and type(argument) == "table" then
+				return ShopView.preview(argument)
 			elseif command == "fleetState" then
 				local state = StateStore.current
 				local fleet = {}

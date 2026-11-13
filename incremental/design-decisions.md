@@ -5447,3 +5447,147 @@ not move from the previous note. A replay with the real gates skipped the two
 purchase steps and went 1, 2, closing note. `selene src` clean; `rojo build`
 success; saved as place version 337, not published.
 
+## ADR-129 - Paid power grows by a line, not a tower
+
+**Status.** Accepted, Forge 36.
+
+**Context.** The monetization review found four offers that could not defend
+themselves. The Starter Pack granted 500K Aether, which bought the first three
+drone rungs and removed the part of the game the new guide teaches. Instant
+Overdrive multiplied its own stack, so thirty charges were x90 and ten charges
+were x59,049. Express Salvage sold a timer skip. The store also claimed
+`NO CURRENCY PACKS` directly above a currency pack.
+
+**Decision.**
+
+1. **Starter Forge is a timed boost, not currency.** It grants twenty minutes
+   of 2x and, on the first purchase only, a permanent 5% income bonus stored as
+   `passes.starterForge`. Repeated packs only extend the 2x clock. A first
+   purchase stays worth something after the clock ends, and no purchase can
+   stack the passive bonus.
+2. **Overdrive keeps stacking, but adds.** The first charge is 2x; each extra
+   charge adds 1x through `MonetizationConfig.overdriveMult(stacks)`. Ten
+   charges are x11. The clock still resets to one hour, so the multiplier can
+   climb while the timer cannot. This is the explicit owner decision: remove the
+   runaway, not the stack.
+3. **Express Salvage is durable.** One purchase is a permanent 25% cut to every
+   expedition clock, stored as `passes.expressSalvage`. A repeat receipt is
+   refused and pays nothing twice.
+4. **VIP gains expression.** The bundle now also paints a gold strike trail in
+   `ForgeView` when `payload.vip` is true. The trail is cosmetic and does not
+   touch the economy.
+5. **The store tells the truth.** The trust chip is removed. The subtitle is
+   `Passes are permanent. Boosts run on a clock.` The pass card is titled
+   `2x Income` and the blurbs use `forge income`, not a currency name. The
+   Marketplace listing keeps its original name because the creation script uses
+   names as its idempotency key; renaming that entry first would create a
+   duplicate listing.
+6. **Prices stay put in this pass.** The review's suggested VIP reprice is not
+   shipped because no transaction can be tested in this Studio session. The
+   card still prints the real bundle math (`R$ 236 SEPARATELY` against `R$ 119`).
+
+**Consequences.** Paid power still exists and still scales, but it grows by one
+multiplier step per charge instead of compounding. A ten-charge player is at
+x11 paid, or x22 with the welcome 2x. A repeat Starter purchase buys time, not a
+second permanent bonus. Express Salvage turns the expedition shelf into a
+one-time upgrade. The purchase prompt and the Marketplace listing still carry
+the old `2x Star-Matter` name until the owner renames the live listing.
+
+**Verification.** In Studio, `MonetizationConfig.overdriveMult` returned 1, 2, 3
+and 11 for 0, 1, 2 and 10 charges; `StarterPermanentIncome` was 0.05 and
+`ExpeditionTimeScale` 0.75. Source paths: `MonetizationService.grantProduct`,
+`ProgressionService.globalMultiplier`, `ShopView.ProductTile`. The store card
+painted `BOUGHT` for the two products and `1 / 5 OWNED` for one pass. No real
+transaction was possible.
+
+## ADR-130 - Tech is a gated graph with an inspector
+
+**Status.** Accepted, Forge 36.
+
+**Context.** The old tech page was three lanes with headers, spines and a live
+readout. Six horizontal rules and three coloured branch stripes made every
+screen read as a template, and the long node copy forced the lanes wide. The
+reference the owner supplied is a tree: a root, short branches, small tiles and
+one detail panel.
+
+**Decision.**
+
+1. **Gate the graph.** A node declares `requires` and `requiresLevel`.
+   `TechTreeConfig.requirement` names the parent and the level; `available`
+   answers the boolean the UI and the server both need. The live graph is:
+   `start_might` to `crit_forge` (Lv3), `auto_click` (via `crit_forge` Lv2),
+   `thermal_calibration` (Lv2) and `drone_lattice` (Lv2); `thermal_calibration`
+   to `vent_efficiency` (Lv2); `drone_lattice` to `offline_core` (Lv2) and
+   `head_start` (Lv2).
+2. **Short tiles, long copy in the inspector.** A tile is 140 x 92 and carries
+   the mark, the name, the level pips, a `MAX` tag or a lock. The 300px
+   inspector carries the full effect, current value, next value, price and buy
+   key. This is what lets eight nodes sit on one 1212px page without a lane.
+3. **Connectors are neutral ink.** A link is lit when the path is open: the
+   child is bought, or its gate is met and the next level is on sale. Links past
+   a closed gate stay dim. No lane spine, branch stripe or accent tick.
+4. **The gate is visible.** A gated tile shows a lock mark. The inspector prints
+   `REQUIRES <PARENT> LV <n>` and the buy key reads `LOCKED`. The server repeats
+   the gate in `ProgressionService.buyTech` with the same message, so the client
+   cannot buy through a closed branch.
+5. **Keep the data honest.** `compute` clamps every level to `maxLevel`;
+   `DataManager.sanitiseTech` drops unknown ids and clamps saved levels. The
+   tree progress and the forge feats stay in the inspector's lower panel.
+6. **Two Studio seams.** `TechTreeView.select` and `TechTreeView.preview` paint
+   a selection and a temporary level table. Preview paints a copy and does not
+   store it, so the next real sync or selection reads the profile.
+
+**Consequences.** The page is a graph, not a list. The root tile has no price
+and no level; it is the anchor for the three branches. A player reads the
+frontier from the lit connectors and the locks, then reads the exact gate and
+price in one place. The eight labels fit their tiles at 13 design px, including
+`Thermal Calibration` and `Forged Momentum` on two lines.
+
+**Verification.** Studio, 1212 x 576 game area, canvas 1686 x 720 at 0.719.
+`TechCanvas` measured 871.8 x 378.4 screen px; the inspector 215.8 x 378.4; the
+root tile 63.3 x 63.3 screen px. Gated `auto_click` read `LEVEL 0 / 10`,
+`REQUIRES CRITICAL FORGE LV 2`, `LOCKED`, tree `4 / 59`; the `crit_forge` to
+`auto_click` link was 0.20 opacity while the four open links were 0.45.
+Affordable `auto_click` read `BUY LEVEL`, tree `5 / 59`, and the same link
+became 0.45. Mastered `start_might` read `LEVEL 10 / 10`, `MASTERED`, tree
+`59 / 59`. All eight node labels reported `TextFits = true`. `selene src` clean;
+`rojo build` success; saved as place version 345, not published.
+
+## ADR-131 - Accent colour is state, not decoration
+
+**Status.** Accepted, Forge 36.
+
+**Context.** The owner called out coloured accent lines as the strongest
+generated-looking signal in the UI. The codex was the clearest case: six tabs
+each took their own accent fill when selected, and every cell carried a 4px
+rarity bar across the top. A grid of those bars read as a row of coloured rules.
+The old tech lanes had the same problem with branch stripes.
+
+**Decision.**
+
+1. **A rule may not exist only to add colour.** If a line does not encode a
+   value, a state or a variant, it goes. The codex cell bars are gone. The
+   quality grid's bar is gone. The six tab accents are gone.
+2. **One neutral selected state.** The codex active tab is `woodLight` with a
+   `strokeBright` border and white text. Inactive tabs are `slate` with `stroke`
+   and dim text. The `UiKit.tab` underline and the rail's active bar are white,
+   not the section accent.
+3. **Colour survives where it carries information.** Rarity still colours the
+   codex caption and thumbnail. The heat gauge, next-goal progress, pity pips
+   and the variant bars in the vault and trade grids still carry data or a
+   copy's variant. The tech connectors are neutral, and their brightness encodes
+   whether the path is open.
+4. **No gradient rules.** A gradient is allowed in a stage wash, a bloom or a
+   backdrop, never on a 1 to 4px rule that only decorates a card.
+
+**Consequences.** The codex reads as one screen instead of six products. The
+tech page reads as a graph, not three coloured lanes. A player can still tell a
+rare blade from a common one, because the colour is in the name, the thumbnail
+and the caption. The remaining colour bars have a job, which is the test for the
+next screen.
+
+**Verification.** Codex, Studio, 1212 x 576: the six tabs are neutral; active
+`BLADES` sampled `(46, 54, 68)` against inactive `(18, 22, 29)`. The modal held
+50 cells and no 4px full-width bars. The store and tech screenshots show no
+coloured connector or section rule. `selene src` clean; `rojo build` success.
+

@@ -23,6 +23,7 @@ local DroneRegistry = require(Shared:WaitForChild("DroneRegistry"))
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 local SalvageConfig = require(Shared:WaitForChild("SalvageConfig"))
 local ExpeditionConfig = require(Shared:WaitForChild("ExpeditionConfig"))
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local Theme = require(script.Parent.Theme)
@@ -108,6 +109,7 @@ local expCores: UiKit.CurrencyRow? = nil
 local expShards: TextLabel? = nil
 local expBar: UiKit.BarParts? = nil
 local expButtons: { [string]: UiKit.ActionHandle } = {}
+local expDurations: { [string]: TextLabel } = {}
 
 -- Salvage rack and codex.
 type CacheSlot = {
@@ -614,6 +616,22 @@ end
 -- Expedition
 -- ---------------------------------------------------------------------------
 
+--- The clock the server actually commits. Express Salvage is permanent, so a
+--- mission card must quote the shortened time before the player sends a squad.
+local function missionSeconds(payload: Types.SyncPayload, mission: ExpeditionConfig.Mission): number
+	if payload.ownedPasses.expressSalvage then
+		return math.max(60, math.floor(mission.seconds * MonetizationConfig.ExpeditionTimeScale))
+	end
+	return mission.seconds
+end
+
+local function durationText(seconds: number): string
+	if seconds >= 3600 then
+		return string.format("%dH", math.ceil(seconds / 3600))
+	end
+	return string.format("%dM", math.ceil(seconds / 60))
+end
+
 local function buildExpedition(parent: Frame)
 	local card = UiKit.panel(parent, {
 		tier = "item",
@@ -681,19 +699,14 @@ local function buildExpedition(parent: Frame)
 		name.Size = UDim2.new(1, -200, 0, 22)
 
 		local detail = UiKit.label(row, {
-			text = string.format(
-				"%d DRONES  ·  %s",
-				mission.squad,
-				if mission.seconds >= 3600
-					then string.format("%dH", mission.seconds // 3600)
-					else string.format("%dM", mission.seconds // 60)
-			),
+			text = string.format("%d DRONES  ·  %s", mission.squad, durationText(mission.seconds)),
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textSecondary,
 		})
 		detail.Position = UDim2.fromOffset(76, 34)
 		detail.Size = UDim2.new(1, -200, 0, 16)
+		expDurations[mission.id] = detail
 
 		-- The reward gets its own line instead of riding the end of the squad
 		-- line. On the tablet the card is a third of the deck, and the joined
@@ -1255,6 +1268,11 @@ local function paintExpedition(payload: Types.SyncPayload)
 
 	local home = payload.drones
 	for _, mission in ExpeditionConfig.list() do
+		local clock = missionSeconds(payload, mission)
+		local detail = expDurations[mission.id]
+		if detail then
+			detail.Text = string.format("%d DRONES  ·  %s", mission.squad, durationText(clock))
+		end
 		local handle = expButtons[mission.id]
 		if handle then
 			if active then
@@ -1282,8 +1300,11 @@ local function paintExpedition(payload: Types.SyncPayload)
 		expTimer.Text = formatClock(payload.expRemaining)
 	end
 	if expBar then
-		local elapsed = mission.seconds - payload.expRemaining
-		expBar.set(math.clamp(elapsed / math.max(1, mission.seconds), 0, 1))
+		-- Use the clock the mission was dispatched with, not today's Express
+		-- discount. Buying the charter mid-flight must not make the bar jump.
+		local clock = if payload.expTotal > 0 then payload.expTotal else missionSeconds(payload, mission)
+		local elapsed = clock - payload.expRemaining
+		expBar.set(math.clamp(elapsed / math.max(1, clock), 0, 1))
 	end
 	if expReward then
 		if expAether then
@@ -1637,6 +1658,7 @@ function DroneView.destroy()
 	expShards = nil
 	expBar = nil
 	table.clear(expButtons)
+	table.clear(expDurations)
 	expActiveShown = nil
 	table.clear(cacheSlots)
 	cacheMeterBar = nil

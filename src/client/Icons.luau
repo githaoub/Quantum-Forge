@@ -331,6 +331,17 @@ local function ventMark(root: Frame, color: Color3)
 	round(puff, 1)
 end
 
+--- Lock: a shackle over a solid body. Used on a tech node whose parent has not
+--- reached the required level yet.
+local function lockMark(root: Frame, color: Color3)
+	local shackle = plate(root, 6, 3, 12, 11, color)
+	round(shackle, 5)
+	cut(shackle, 3, 3, 6, 7, 3)
+	local body = plate(root, 4, 11, 16, 10, color)
+	round(body, 2)
+	cut(body, 10, 14, 4, 4, 2)
+end
+
 --- Builds one icon onto `parent` and returns the scaled canvas. Caller positions
 --- it; the canvas is 24x24 in its own space and `size` after the UIScale.
 function Icons.build(parent: GuiObject, kind: string, size: number, color: Color3): Frame
@@ -343,6 +354,8 @@ function Icons.build(parent: GuiObject, kind: string, size: number, color: Color
 		coreMark(root, color)
 	elseif kind == "vent" then
 		ventMark(root, color)
+	elseif kind == "lock" then
+		lockMark(root, color)
 	elseif kind == "guide" then
 		guide(root, color)
 	elseif kind == "feedback" then

@@ -149,3 +149,16 @@ slice of players.
 
 Do not add a ninth product before steps 1 and 7. More offers on an unmeasured,
 unpersisted store is noise.
+
+## Status after Forge 36
+
+Fixed in Forge 36: the false `NO CURRENCY PACKS` claim and the banner promise,
+the Starter Pack's currency grant, the uncapped Overdrive multiplier, and the
+Express Salvage timer skip. The Starter now gives time plus a first-purchase
+permanent +5%; Overdrive adds +1x per charge (ten charges are x11); Express is a
+permanent 25% cut.
+
+Still open: the VIP reprice, a second expression product beyond the VIP trail, a
+season track, and measurement. The purchase prompt and DataStore could not be
+tested in this Studio session. The live Marketplace listing is still named
+`2x Star-Matter`; the in-game card is `2x Income`.

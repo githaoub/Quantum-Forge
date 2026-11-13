@@ -25,6 +25,7 @@ local RuneConfig = require(Shared:WaitForChild("RuneConfig"))
 local SalvageConfig = require(Shared:WaitForChild("SalvageConfig"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
+local TechTreeConfig = require(Shared:WaitForChild("TechTreeConfig"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local DataManager = {}
@@ -415,6 +416,31 @@ local function sanitiseFleet(raw: any): { [string]: number }
 	return out
 end
 
+--- Tech levels are capped per node. A save written against an older balance
+--- could hold more levels than the node now allows; without this clamp the
+--- tree counter can read 61 / 59 and a feat can score levels that no longer
+--- exist. Unknown node ids are dropped rather than carried forever.
+local function sanitiseTech(raw: any): { [string]: number }
+	local out: { [string]: number } = {}
+	if type(raw) ~= "table" then
+		return out
+	end
+	for key, value in raw do
+		if type(key) ~= "string" or not isFiniteNumber(value) then
+			continue
+		end
+		local node = TechTreeConfig.get(key)
+		if node == nil then
+			continue
+		end
+		local level = math.clamp(math.floor(value), 0, node.maxLevel)
+		if level > 0 then
+			out[key] = level
+		end
+	end
+	return out
+end
+
 --- Deep-fills a saved table against defaults. New fields appear at default
 --- values; extra fields are preserved so a rollback does not destroy data a
 --- newer schema wrote.
@@ -440,6 +466,8 @@ local function reconcile(saved: any): Types.ProfileState
 			(base :: any)[key] = saved[key]
 		end
 	end
+
+	base.tech = sanitiseTech(base.tech)
 
 	-- Copies. A save from schema 3 has booleans here; `sanitiseBlades` mints one
 	-- Standard copy per owned id so nothing is lost in the migration.

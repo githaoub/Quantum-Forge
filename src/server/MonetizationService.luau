@@ -15,7 +15,6 @@ local Types = require(Shared:WaitForChild("Types"))
 
 local DataManager = require(script.Parent.DataManager)
 local Net = require(script.Parent.Net)
-local ProgressionService = require(script.Parent.ProgressionService)
 
 local MonetizationService = {}
 
@@ -107,6 +106,7 @@ local function grantProduct(player: Player, key: string): boolean
 	end
 
 	local now = os.time()
+	local message = "Purchase applied"
 
 	if key == "instantOverdrive" then
 		-- Each charge stacks the multiplier and resets the clock to exactly one
@@ -117,33 +117,40 @@ local function grantProduct(player: Player, key: string): boolean
 		local seconds = math.min(MonetizationConfig.OverdriveSeconds, MonetizationConfig.OverdriveMaxSeconds)
 		state.overdriveStacks += 1
 		state.overdriveUntil = now + seconds
+		message = string.format(
+			"Overdrive x%d for one hour",
+			MonetizationConfig.overdriveMult(state.overdriveStacks)
+		)
 	elseif key == "starterForge" then
-		ProgressionService.addAether(state, MonetizationConfig.StarterAether)
+		-- No currency grant: a first pack leaves the early drone ladder intact.
+		-- Every pack extends the 2x clock; only the first one adds the permanent
+		-- income, so a repeat purchase is still worth something but cannot stack
+		-- a passive multiplier forever.
+		local owned = state.passes.starterForge == true
+		state.passes.starterForge = true
 		local base = math.max(now, state.boostX2Until)
 		state.boostX2Until = base + MonetizationConfig.StarterSeconds
+		message = if owned
+			then "2x income for twenty minutes"
+			else "Starter Forge: +5% income, plus twenty minutes of 2x"
 	elseif key == "instantVent" then
 		-- Retired from the storefront, kept for receipts already in flight.
 		state.heat = 0
 		state.streak = 0
 	elseif key == "expressSalvage" then
-		-- Only meaningful with a mission out; the clock is moved, not the payout,
-		-- so the ordinary settle path still pays it.
-		if state.expedition.id == "" then
-			return false
+		-- Durable utility. A repeat receipt is consumed without charging the
+		-- player twice; the storefront swaps the key to BOUGHT after the first.
+		if state.passes.expressSalvage then
+			Net.sendEvent(player, { kind = "toast", text = "Expedition charter is already active" })
+			return true
 		end
-		state.expedition.endsAt = now
+		state.passes.expressSalvage = true
+		message = "Expeditions are 25% shorter, permanently"
 	else
 		return false
 	end
 
 	DataManager.markDirty(player)
-	local message = "Purchase applied"
-	if key == "instantOverdrive" then
-		message = string.format(
-			"Overdrive x%d for one hour",
-			MonetizationConfig.OverdriveMultiplier * math.max(1, state.overdriveStacks)
-		)
-	end
 	Net.sendEvent(player, { kind = "toast", text = message })
 	return true
 end
@@ -239,6 +246,10 @@ function MonetizationService.requestPrompt(player: Player, kind: string, key: st
 	elseif kind == "product" then
 		local def = MonetizationConfig.Products[key]
 		if def == nil or not isConfiguredProduct(def) then
+			return false
+		end
+		local state = DataManager.get(player)
+		if key == "expressSalvage" and state ~= nil and state.passes.expressSalvage then
 			return false
 		end
 		MarketplaceService:PromptProductPurchase(player, def.id)

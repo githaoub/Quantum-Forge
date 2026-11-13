@@ -1,21 +1,22 @@
 --!strict
 -- Prestige tech tree. The permanent layer: everything bought here survives
--- ascension, which is what makes spending Quantum Cores feel like investment
--- rather than upkeep.
+-- ascension, which is what makes spending cores feel like investment rather
+-- than upkeep.
 --
--- Costs come from TechTreeConfig on both sides, so the button label and the
--- server's charge can never disagree.
+-- The page is a tree, not three lanes:
 --
--- The page is a tree, not a list:
+--   root -------- momentum ---- critical ---- phantom
+--                      |------------- thermal ---- vent
+--                      |------------- lattice ---- offline ---- head start
 --
---   sidebar   core reserve, forge feats and the branch totals
---   strike    clicking: momentum, critical forge, phantom hammer
---   fleet     idle: drone lattice, offline core, head start
---   heat      the sweet spot and vent lane, plus a live stats card
+-- Every node is a compact tile with its badge, name, level pips and, when it is
+-- gated, a lock. Clicking a tile selects it; the inspector on the right owns
+-- the long copy, the exact price and the buy key. That keeps the tree readable
+-- without printing a paragraph on every node.
 --
--- Each branch is a lane with a header, a spine and three cards. Every card keeps
--- its level pips and its next-level effect on its face, so the page can be read
--- without hovering anything.
+-- Connectors are neutral ink. A coloured spine behind each branch was the
+-- strongest "generated layout" signal on the old page, so there are no lane
+-- spines, no branch stripes and no coloured rules here.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -30,85 +31,164 @@ local UiKit = require(script.Parent.UiKit)
 local Layout = require(script.Parent.Layout)
 local StateStore = require(script.Parent.StateStore)
 local Sfx = require(script.Parent.Sfx)
+local Icons = require(script.Parent.Icons)
 
 local TechTreeView = {}
 
 local HEADER_H = 58
 local PAGE_PAD = 16
-local GAP = 14
+local GAP = 16
 local SIDEBAR_W = 300
-local BRANCH_HEADER_H = 38
-local NODE_H = 170
-local NODE_GAP = 10
-local NOTES_H = 110
+local NODE_W = 140
+local NODE_H = 92
+local ROOT_SIZE = 88
+local DETAIL_H = 352
+local SUMMARY_Y = 368
+local SUMMARY_H = 146
+
+type NodeGrid = { col: number, row: number }
+
+--- Columns 1 to 4, rows 1 to 3. The root sits at column 0, middle row.
+local NODE_GRID: { [string]: NodeGrid } = {
+	start_might = { col = 1, row = 2 },
+	crit_forge = { col = 2, row = 1 },
+	auto_click = { col = 3, row = 1 },
+	thermal_calibration = { col = 2, row = 2 },
+	vent_efficiency = { col = 3, row = 2 },
+	drone_lattice = { col = 2, row = 3 },
+	offline_core = { col = 3, row = 3 },
+	head_start = { col = 4, row = 3 },
+}
+
+local LINKS = {
+	{ from = "", to = "start_might" },
+	{ from = "start_might", to = "crit_forge" },
+	{ from = "crit_forge", to = "auto_click" },
+	{ from = "start_might", to = "thermal_calibration" },
+	{ from = "thermal_calibration", to = "vent_efficiency" },
+	{ from = "start_might", to = "drone_lattice" },
+	{ from = "drone_lattice", to = "offline_core" },
+	{ from = "offline_core", to = "head_start" },
+}
 
 type NodeCard = {
 	node: TechTreeConfig.Node,
-	root: Frame,
-	level: TextLabel,
-	effect: TextLabel,
-	next: TextLabel,
-	handle: UiKit.ActionHandle,
-	bar: UiKit.BarParts,
-	lastKind: UiKit.ActionKind?,
-	lastLabel: string?,
-}
-
-type FeatRow = {
+	root: TextButton,
+	stroke: UIStroke,
 	name: TextLabel,
-	progress: TextLabel,
-	bar: UiKit.BarParts,
+	art: ImageLabel,
+	pips: { Frame },
+	lock: Frame,
+	maxTag: TextLabel,
 }
 
-type FeatPanel = {
-	count: TextLabel,
-	bonus: TextLabel,
-	bar: UiKit.BarParts,
-	rows: { FeatRow },
+type Link = {
+	frame: Frame,
+	from: string,
+	to: string,
 }
 
-type Branch = {
-	id: string,
-	name: string,
-	accent: Color3,
-	root: Frame,
-	count: TextLabel,
-	cards: { NodeCard },
+type Inspector = {
+	card: Frame,
+	artWell: Frame,
+	art: ImageLabel,
+	fallback: Frame,
+	name: TextLabel,
+	level: TextLabel,
+	pips: { Frame },
+	desc: TextLabel,
+	nowLine: TextLabel,
+	nextLine: TextLabel,
+	costCaption: TextLabel,
+	costRow: UiKit.CurrencyRow,
+	buy: UiKit.ActionHandle,
+	hint: TextLabel,
+	treeCount: TextLabel,
+	treeBar: UiKit.BarParts,
+	featCount: TextLabel,
+	featBonus: TextLabel,
+	featBar: UiKit.BarParts,
 }
 
 local root: Frame? = nil
-local scroll: ScrollingFrame? = nil
+local body: Frame? = nil
+local treePanel: Frame? = nil
+local lineLayer: Frame? = nil
+local rootTile: Frame? = nil
+local inspector: Inspector? = nil
 local headerDetailRow: UiKit.CurrencyRow? = nil
-local balance: TextLabel? = nil
-local balanceNext: TextLabel? = nil
-local featPanel: FeatPanel? = nil
-local branches: { Branch } = {}
-local branchTotals: { [string]: TextLabel } = {}
-local heatMult: TextLabel? = nil
-local heatBand: TextLabel? = nil
-local heatVent: TextLabel? = nil
+local cards: { [string]: NodeCard } = {}
+local cardOrder: { NodeCard } = {}
+local links: { Link } = {}
+local selectedId = "start_might"
+local latest: Types.SyncPayload? = nil
 local unsubscribe: (() -> ())? = nil
-local relayout: (() -> ())? = nil
 
-local BRANCH_ORDER = { "strike", "fleet", "heat" }
+-- ---------------------------------------------------------------------------
+-- Small copy helpers
+-- ---------------------------------------------------------------------------
 
-local BRANCHES = {
-	strike = {
-		name = "STRIKE",
-		accent = Theme.Color.gold,
-		nodes = { "start_might", "crit_forge", "auto_click" },
-	},
-	fleet = {
-		name = "FLEET",
-		accent = Theme.Color.cyan,
-		nodes = { "drone_lattice", "offline_core", "head_start" },
-	},
-	heat = {
-		name = "HEAT",
-		accent = Theme.Color.magenta,
-		nodes = { "thermal_calibration", "vent_efficiency" },
-	},
-}
+--- A node's effect at a given level, in the unit the effect actually uses.
+--- The old page printed every `perLevel` as a percentage, so Phantom Hammer
+--- said +50% and Head Start said +100%.
+local function effectText(node: TechTreeConfig.Node, level: number): string
+	if level <= 0 then
+		return "NONE"
+	end
+	if node.effect == "autoClicks" then
+		return string.format("+%.1f strikes/s", node.perLevel * level)
+	elseif node.effect == "startBlades" then
+		local total = math.floor(node.perLevel * level + 0.5)
+		return if total == 1 then "+1 starting blade" else string.format("+%d starting blades", total)
+	end
+
+	local percent = math.floor(node.perLevel * level * 100 + 0.5)
+	if node.effect == "critChance" then
+		return string.format("+%d%% crit", percent)
+	elseif node.effect == "sweetSpotMult" then
+		return string.format("+%d%% payout · +%d° band", percent, 2 * level)
+	elseif node.effect == "droneYield" then
+		return string.format("+%d%% fleet yield", percent)
+	elseif node.effect == "offlineYield" then
+		return string.format("+%d%% offline yield", percent)
+	elseif node.effect == "ventYield" then
+		return string.format("+%d%% vent payout", percent)
+	else
+		return string.format("+%d%% strike yield", percent)
+	end
+end
+
+local function pipsFor(host: Frame, count: number, width: number, height: number, gap: number): { Frame }
+	local pips: { Frame } = {}
+	for index = 1, count do
+		local pip = UiKit.create("Frame", {
+			Name = string.format("Pip%d", index),
+			BackgroundColor3 = Theme.Color.stroke,
+			BackgroundTransparency = 0.55,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset((index - 1) * (width + gap), 0),
+			Size = UDim2.fromOffset(width, height),
+			ZIndex = 4,
+		}) :: Frame
+		UiKit.corner(pip, 1)
+		pip.Parent = host
+		table.insert(pips, pip)
+	end
+	return pips
+end
+
+local function paintPips(pips: { Frame }, level: number, maxLevel: number, color: Color3)
+	for index, pip in pips do
+		pip.Visible = index <= maxLevel
+		if index <= level then
+			pip.BackgroundColor3 = color
+			pip.BackgroundTransparency = 0
+		else
+			pip.BackgroundColor3 = Theme.Color.stroke
+			pip.BackgroundTransparency = 0.55
+		end
+	end
+end
 
 -- ---------------------------------------------------------------------------
 -- Page shell
@@ -126,16 +206,17 @@ local function buildPage(canvas: Frame, x: number, y: number, width: number, hei
 	card.ClipsDescendants = true
 	root = card
 
-	local body = UiKit.create("Frame", {
+	local inner = UiKit.create("Frame", {
 		Name = "Inner",
 		BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(PAGE_PAD, PAGE_PAD),
 		Size = UDim2.new(1, -PAGE_PAD * 2, 1, -PAGE_PAD * 2),
 	}) :: Frame
-	body.Parent = card
+	inner.Parent = card
+	body = inner
 
-	local header = UiKit.header(body, {
-		eyebrow = "PERMANENT  /  PRESTIGE",
+	local header = UiKit.header(inner, {
+		eyebrow = "PERMANENT  /  THE ASCENT",
 		title = "TECH TREE",
 		height = HEADER_H,
 	})
@@ -150,662 +231,674 @@ local function buildPage(canvas: Frame, x: number, y: number, width: number, hei
 	})
 	headerDetailRow.root.AnchorPoint = Vector2.new(1, 0)
 	headerDetailRow.root.Position = UDim2.new(1, -2, 0, 18)
-
-	local box = UiKit.scroll(body, { thickness = 6, transparency = 0.2 })
-	box.Name = "TechBody"
-	box.Position = UDim2.fromOffset(0, HEADER_H + 2)
-	box.Size = UDim2.new(1, 0, 1, -(HEADER_H + 2))
-	box.AutomaticCanvasSize = Enum.AutomaticSize.None
-	box.CanvasSize = UDim2.fromOffset(0, 0)
-	box.ScrollingDirection = Enum.ScrollingDirection.Y
-	box.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
-	scroll = box
 end
 
 -- ---------------------------------------------------------------------------
--- Sidebar
+-- Tree
 -- ---------------------------------------------------------------------------
 
-local function buildBalance(parent: Frame, y: number)
-	local card = UiKit.panel(parent, {
-		tier = "raised",
-		radius = Theme.Radius.card,
-		stroke = Theme.Color.quantum,
-		strokeTransparency = 0.55,
-	})
-	card.Name = "CoreReserve"
-	card.Position = UDim2.fromOffset(0, y)
-	card.Size = UDim2.new(1, 0, 0, 150)
-
-	local cap = UiKit.eyebrow(card, "RESERVE")
-	cap.Position = UDim2.fromOffset(14, 10)
-
-	balance = UiKit.label(card, {
-		text = "0",
-		size = Theme.Text.Title,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.quantum,
-	})
-	balance.Position = UDim2.fromOffset(14, 28)
-	balance.Size = UDim2.new(1, -28, 0, 36)
-
-	local rule = UiKit.rule(card, { position = UDim2.fromOffset(14, 72) })
-	rule.Size = UDim2.new(1, -28, 0, 1)
-
-	local note = UiKit.label(card, {
-		text = "They come from THE ASCENT only. Every level below is permanent.",
-		size = Theme.Text.Tiny,
-		color = Theme.Color.textSecondary,
-		wrap = true,
-	})
-	note.Position = UDim2.fromOffset(14, 82)
-	note.Size = UDim2.new(1, -28, 0, 32)
-
-	balanceNext = UiKit.label(card, {
-		text = "",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textFaint,
-	})
-	balanceNext.Position = UDim2.fromOffset(14, 120)
-	balanceNext.Size = UDim2.new(1, -28, 0, 16)
-end
-
-local function buildFeatPanel(parent: Frame, y: number): FeatPanel
-	local card = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.card,
-		stroke = Theme.Color.gold,
-		strokeTransparency = 0.7,
-	})
-	card.Name = "FeatPanel"
-	card.Position = UDim2.fromOffset(0, y)
-	card.Size = UDim2.new(1, 0, 0, 300)
-
-	local title = UiKit.label(card, {
-		text = "FORGE FEATS",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.gold,
-	})
-	title.Position = UDim2.fromOffset(14, 8)
-	title.Size = UDim2.new(1, -160, 0, 16)
-
-	local count = UiKit.label(card, {
-		text = "0 / 0",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Right,
-	})
-	count.Position = UDim2.new(1, -132, 0, 8)
-	count.Size = UDim2.fromOffset(118, 16)
-
-	local bonus = UiKit.label(card, {
-		text = "PERMANENT +0% ALL YIELD",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.gold,
-	})
-	bonus.Position = UDim2.fromOffset(14, 26)
-	bonus.Size = UDim2.new(1, -28, 0, 16)
-
-	local bar = UiKit.bar(card, {
-		height = 4,
-		radius = 2,
-		gradient = { Theme.Color.goldDeep, Theme.Color.gold },
-	})
-	bar.track.Position = UDim2.fromOffset(14, 48)
-	bar.track.Size = UDim2.new(1, -28, 0, 4)
-
-	local rows: { FeatRow } = {}
-	for index = 1, 4 do
-		local rowY = 62 + (index - 1) * 56
-		local name = UiKit.label(card, {
-			text = "",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.text,
-		})
-		name.Position = UDim2.fromOffset(14, rowY)
-		name.Size = UDim2.new(1, -150, 0, 18)
-
-		local progress = UiKit.label(card, {
-			text = "",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Right,
-		})
-		progress.Position = UDim2.new(1, -142, 0, rowY + 1)
-		progress.Size = UDim2.fromOffset(128, 16)
-
-		local rowBar = UiKit.bar(card, {
-			height = 3,
-			radius = 2,
-			gradient = { Theme.Color.goldDeep, Theme.Color.gold },
-		})
-		rowBar.track.Position = UDim2.fromOffset(14, rowY + 22)
-		rowBar.track.Size = UDim2.new(1, -28, 0, 3)
-
-		table.insert(rows, { name = name, progress = progress, bar = rowBar })
-	end
-
-	return { count = count, bonus = bonus, bar = bar, rows = rows }
-end
-
-local function buildBranchTotals(parent: Frame, y: number)
-	local card = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.card,
-	})
-	card.Name = "BranchTotals"
-	card.Position = UDim2.fromOffset(0, y)
-	card.Size = UDim2.new(1, 0, 0, 150)
-
-	local head = UiKit.label(card, {
-		text = "BRANCH TOTALS",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
-	})
-	head.Position = UDim2.fromOffset(14, 8)
-	head.Size = UDim2.new(1, -28, 0, 16)
-
-	for index, id in BRANCH_ORDER do
-		local branch = BRANCHES[id]
-		local row = UiKit.create("Frame", {
-			Name = string.format("Total_%s", id),
-			BackgroundColor3 = Theme.Color.panelSunken,
-			BackgroundTransparency = 0.35,
-			BorderSizePixel = 0,
-			Position = UDim2.fromOffset(12, 30 + (index - 1) * 34),
-			Size = UDim2.new(1, -24, 0, 28),
-		}) :: Frame
-		UiKit.corner(row, 4)
-		row.Parent = card
-
-		local mark = UiKit.create("Frame", {
-			BackgroundColor3 = branch.accent,
-			BorderSizePixel = 0,
-			Position = UDim2.fromOffset(8, 8),
-			Size = UDim2.fromOffset(12, 12),
-		}) :: Frame
-		UiKit.corner(mark, 3)
-		mark.Parent = row
-
-		local name = UiKit.label(row, {
-			text = branch.name,
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.text,
-		})
-		name.Position = UDim2.fromOffset(28, 5)
-		name.Size = UDim2.new(1, -100, 0, 18)
-
-		local value = UiKit.label(row, {
-			text = "0 LEVELS",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Right,
-		})
-		value.Position = UDim2.new(1, -104, 0, 5)
-		value.Size = UDim2.fromOffset(94, 18)
-		branchTotals[id] = value
-	end
-end
-
-local function buildSidebar(parent: Frame)
-	local side = UiKit.create("Frame", {
-		Name = "TechSidebar",
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.fromOffset(SIDEBAR_W, 624),
-	}) :: Frame
-	side.Parent = parent
-
-	buildBalance(side, 0)
-	featPanel = buildFeatPanel(side, 162)
-	buildBranchTotals(side, 474)
-end
-
--- ---------------------------------------------------------------------------
--- Nodes
--- ---------------------------------------------------------------------------
-
-local function buildNodeCard(parent: Frame, node: TechTreeConfig.Node, accent: Color3, order: number): NodeCard
-	local card = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.md,
-		stroke = accent,
-		strokeTransparency = 0.8,
-	})
-	card.Name = string.format("TechNode_%s", node.id)
-	card.Size = UDim2.new(1, 0, 0, NODE_H)
-	card.Position = UDim2.fromOffset(0, BRANCH_HEADER_H + NODE_GAP + (order - 1) * (NODE_H + NODE_GAP))
-	card.ZIndex = 2
-
-	local stripe = UiKit.create("Frame", {
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.25,
+local function buildNode(parent: Frame, node: TechTreeConfig.Node): NodeCard
+	local button = UiKit.create("TextButton", {
+		Name = string.format("TechNode_%s", node.id),
+		BackgroundColor3 = Theme.Color.card,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 10),
-		Size = UDim2.new(0, 3, 1, -20),
+		AutoButtonColor = false,
+		Text = "",
+		Size = UDim2.fromOffset(NODE_W, NODE_H),
 		ZIndex = 3,
+	}) :: TextButton
+	UiKit.corner(button, Theme.Radius.md)
+	local stroke = UiKit.stroke(button, Theme.Color.stroke, 1, 0)
+	UiKit.focus(button, stroke, Theme.Color.stroke, 0)
+	button.Parent = parent
+
+	local well = UiKit.create("Frame", {
+		Name = "Badge",
+		BackgroundColor3 = Theme.Color.panelSunken,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(10, 9),
+		Size = UDim2.fromOffset(36, 36),
+		ZIndex = 4,
 	}) :: Frame
-	UiKit.corner(stripe, 2)
-	stripe.Parent = card
+	UiKit.corner(well, 18)
+	UiKit.stroke(well, Theme.Color.outline, 2, 0)
+	well.Parent = button
 
-	local well = UiKit.badgeWell(card, {
-		image = AssetManifest.uiArt(node.icon),
-		size = 56,
-		accent = accent,
-	})
-	if well ~= nil then
-		well.Position = UDim2.fromOffset(10, 10)
-	end
+	local art = UiKit.create("ImageLabel", {
+		Name = "Art",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		Image = AssetManifest.uiArt(node.icon),
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 5,
+	}) :: ImageLabel
+	UiKit.corner(art, 18)
+	art.Parent = well
 
-	local name = UiKit.label(card, {
+	local name = UiKit.label(button, {
 		text = node.name,
-		size = Theme.Text.Small,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.text,
-	})
-	name.Position = UDim2.fromOffset(76, 9)
-	name.Size = UDim2.new(1, -86, 0, 20)
-
-	local level = UiKit.label(card, {
-		text = "0 / 0",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = accent,
-	})
-	level.Position = UDim2.fromOffset(76, 29)
-	level.Size = UDim2.new(1, -86, 0, 16)
-
-	local desc = UiKit.label(card, {
-		text = node.description,
-		size = Theme.Text.Tiny,
-		color = Theme.Color.textSecondary,
 		wrap = true,
+		alignY = Enum.TextYAlignment.Top,
 	})
-	desc.Position = UDim2.fromOffset(76, 47)
-	desc.Size = UDim2.new(1, -86, 0, 30)
+	name.Name = "Name"
+	name.Position = UDim2.fromOffset(52, 7)
+	name.Size = UDim2.new(1, -60, 0, 34)
+	name.ZIndex = 4
 
-	local effect = UiKit.label(card, {
-		text = "",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = accent,
-	})
-	effect.Position = UDim2.fromOffset(10, 78)
-	effect.Size = UDim2.new(1, -20, 0, 16)
+	local status = UiKit.create("Frame", {
+		Name = "Status",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(10, 50),
+		Size = UDim2.fromOffset(36, 18),
+		ZIndex = 4,
+	}) :: Frame
+	status.Parent = button
 
-	local bar = UiKit.bar(card, {
-		height = 4,
-		radius = 2,
-		gradient = { Theme.Color.panelSunken, accent },
-	})
-	bar.track.Position = UDim2.fromOffset(10, 98)
-	bar.track.Size = UDim2.new(1, -20, 0, 4)
+	local lock = Icons.build(status, "lock", 16, Theme.Color.textFaint)
+	lock.Name = "Lock"
+	lock.Position = UDim2.fromOffset(10, 1)
+	lock.Visible = false
 
-	local nextLabel = UiKit.label(card, {
-		text = "",
+	local maxTag = UiKit.label(status, {
+		text = "MAX",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
 	})
-	nextLabel.Position = UDim2.fromOffset(10, 108)
-	nextLabel.Size = UDim2.new(1, -20, 0, 16)
+	maxTag.Name = "Max"
+	maxTag.Position = UDim2.fromOffset(0, 0)
+	maxTag.Size = UDim2.fromOffset(36, 18)
+	maxTag.Visible = false
 
-	local handle = UiKit.actionButton(card, {
-		accent = accent,
-		height = 32,
-		radius = Theme.Radius.sm,
-		size = 13,
-		label = "BUY",
-		handler = function()
-			StateStore.send("buyTech", node.id)
-			Sfx.tech()
-		end,
-	})
-	local action = handle.button
-	action.Name = string.format("TechBuy_%s", node.id)
-	action.AnchorPoint = Vector2.new(0, 1)
-	action.Position = UDim2.new(0, 10, 1, -10)
-	action.Size = UDim2.new(1, -20, 0, 32)
+	local pipHost = UiKit.create("Frame", {
+		Name = "Pips",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(10, 76),
+		Size = UDim2.fromOffset(NODE_W - 20, 5),
+		ZIndex = 4,
+	}) :: Frame
+	pipHost.Parent = button
+
+	local gap = 2
+	local pipW = math.max(4, math.floor(((NODE_W - 20) - gap * (node.maxLevel - 1)) / node.maxLevel))
+	local pips = pipsFor(pipHost, node.maxLevel, pipW, 5, gap)
+
+	UiKit.track(button, button.MouseEnter:Connect(function()
+		if selectedId ~= node.id then
+			button.BackgroundColor3 = Theme.Color.panelRaised
+		end
+	end))
+	UiKit.track(button, button.MouseLeave:Connect(function()
+		button.BackgroundColor3 = Theme.Color.card
+	end))
+	UiKit.track(button, button.Activated:Connect(function()
+		selectedId = node.id
+		Sfx.ui()
+		if latest then
+			TechTreeView.render(latest)
+		end
+	end))
 
 	return {
 		node = node,
-		root = card,
-		level = level,
-		effect = effect,
-		next = nextLabel,
-		handle = handle,
-		bar = bar,
-		lastKind = nil,
-		lastLabel = nil,
+		root = button,
+		stroke = stroke,
+		name = name,
+		art = art,
+		pips = pips,
+		lock = lock,
+		maxTag = maxTag,
 	}
 end
 
-local function buildHeatCard(parent: Frame, accent: Color3, order: number)
-	local card = UiKit.panel(parent, {
-		tier = "well",
-		radius = Theme.Radius.md,
-		stroke = accent,
-		strokeTransparency = 0.75,
-	})
-	card.Name = "HeatSummary"
-	card.Size = UDim2.new(1, 0, 0, NODE_H)
-	card.Position = UDim2.fromOffset(0, BRANCH_HEADER_H + NODE_GAP + (order - 1) * (NODE_H + NODE_GAP))
-	card.ZIndex = 2
+local function buildRootTile(parent: Frame): Frame
+	local tile = UiKit.create("Frame", {
+		Name = "PrestigeRoot",
+		BackgroundColor3 = Theme.Color.card,
+		BorderSizePixel = 0,
+		Size = UDim2.fromOffset(ROOT_SIZE, ROOT_SIZE),
+		ZIndex = 3,
+	}) :: Frame
+	UiKit.corner(tile, math.floor(ROOT_SIZE / 2))
+	UiKit.stroke(tile, Theme.Color.stroke, 1, 0.1)
+	tile.Parent = parent
 
-	local head = UiKit.label(card, {
-		text = "HEAT READOUT",
+	local markHost = UiKit.create("Frame", {
+		Name = "Mark",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(22, 19),
+		Size = UDim2.fromOffset(44, 44),
+		ZIndex = 4,
+	}) :: Frame
+	markHost.Parent = tile
+	local mark = Icons.build(markHost, "core", 40, Theme.Color.quantum)
+	mark.AnchorPoint = Vector2.new(0.5, 0.5)
+	mark.Position = UDim2.fromScale(0.5, 0.5)
+
+	local label = UiKit.label(tile, {
+		text = "THE ASCENT",
 		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = accent,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Center,
 	})
-	head.Position = UDim2.fromOffset(12, 10)
-	head.Size = UDim2.new(1, -24, 0, 16)
+	label.Position = UDim2.fromOffset(0, 64)
+	label.Size = UDim2.fromOffset(ROOT_SIZE, 14)
+	label.ZIndex = 4
 
-	local rows = {
-		{ key = "mult", caption = "SWEET SPOT", color = Theme.Color.gold },
-		{ key = "band", caption = "BAND", color = Theme.Color.starMatter },
-		{ key = "vent", caption = "VENT BONUS", color = Theme.Color.aether },
+	return tile
+end
+
+local function buildTree(parent: Frame)
+	local panel = UiKit.panel(parent, {
+		tier = "well",
+		radius = Theme.Radius.card,
+	})
+	panel.Name = "TechCanvas"
+	panel.ClipsDescendants = true
+	treePanel = panel
+
+	local lines = UiKit.create("Frame", {
+		Name = "Links",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 1,
+	}) :: Frame
+	lines.Parent = panel
+	lineLayer = lines
+
+	for _, spec in LINKS do
+		local frame = UiKit.create("Frame", {
+			Name = string.format("Link_%s_%s", if spec.from == "" then "root" else spec.from, spec.to),
+			BackgroundColor3 = Theme.Color.stroke,
+			BackgroundTransparency = 0.72,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromOffset(1, 2),
+			ZIndex = 1,
+		}) :: Frame
+		frame.Parent = lines
+		table.insert(links, { frame = frame, from = spec.from, to = spec.to })
+	end
+
+	rootTile = buildRootTile(panel)
+	for _, node in TechTreeConfig.list() do
+		local card = buildNode(panel, node)
+		cards[node.id] = card
+		table.insert(cardOrder, card)
+	end
+end
+
+local function columns(width: number): { number }
+	local usable = math.max(0, width - 160)
+	return {
+		80,
+		80 + usable * 0.25,
+		80 + usable * 0.50,
+		80 + usable * 0.75,
+		80 + usable,
 	}
-	for index, row in rows do
-		local y = 28 + (index - 1) * 36
-		local cap = UiKit.label(card, {
-			text = row.caption,
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
-			color = Theme.Color.textFaint,
-		})
-		cap.Position = UDim2.fromOffset(12, y)
-		cap.Size = UDim2.new(1, -24, 0, 14)
+end
 
-		local value = UiKit.label(card, {
-			text = "",
-			size = Theme.Text.Subheading,
-			font = Theme.Font.Numeric,
-			color = row.color,
-		})
-		value.Position = UDim2.fromOffset(12, y + 14)
-		value.Size = UDim2.new(1, -24, 0, 22)
+local function rows(height: number): { number }
+	return { height * 0.23, height * 0.50, height * 0.77 }
+end
 
-		if row.key == "mult" then
-			heatMult = value
-		elseif row.key == "band" then
-			heatBand = value
-		else
-			heatVent = value
+local function nodeCenter(id: string, xs: { number }, ys: { number }): Vector2
+	if id == "" then
+		return Vector2.new(xs[1], ys[2])
+	end
+	local grid = NODE_GRID[id]
+	if grid == nil then
+		return Vector2.new(xs[1], ys[2])
+	end
+	return Vector2.new(xs[grid.col + 1], ys[grid.row])
+end
+
+local function layoutTree(width: number, height: number)
+	if treePanel == nil or lineLayer == nil or rootTile == nil then
+		return
+	end
+
+	local xs = columns(width)
+	local ys = rows(height)
+
+	if rootTile then
+		rootTile.Position = UDim2.fromOffset(xs[1] - ROOT_SIZE / 2, ys[2] - ROOT_SIZE / 2)
+	end
+	for id, card in cards do
+		local grid = NODE_GRID[id]
+		if grid ~= nil then
+			card.root.Position = UDim2.fromOffset(
+				xs[grid.col + 1] - NODE_W / 2,
+				ys[grid.row] - NODE_H / 2
+			)
 		end
 	end
 
-	local note = UiKit.label(card, {
-		text = "Read from the levels you own. Not another purchase.",
+	for _, link in links do
+		local a = nodeCenter(link.from, xs, ys)
+		local b = nodeCenter(link.to, xs, ys)
+		local delta = b - a
+		local length = math.max(1, delta.Magnitude)
+		link.frame.Position = UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2)
+		link.frame.Size = UDim2.fromOffset(length, 2)
+		link.frame.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Inspector
+-- ---------------------------------------------------------------------------
+
+local function buildInspector(parent: Frame): Inspector
+	local card = UiKit.panel(parent, {
+		tier = "raised",
+		radius = Theme.Radius.card,
+	})
+	card.Name = "TechInspector"
+
+	local detail = UiKit.panel(card, {
+		tier = "item",
+		radius = Theme.Radius.md,
+	})
+	detail.Name = "Detail"
+	detail.Position = UDim2.fromOffset(0, 0)
+	detail.Size = UDim2.new(1, 0, 0, DETAIL_H)
+
+	local artWell = UiKit.create("Frame", {
+		Name = "SelectedBadge",
+		BackgroundColor3 = Theme.Color.panelSunken,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(14, 28),
+		Size = UDim2.fromOffset(56, 56),
+	}) :: Frame
+	UiKit.corner(artWell, 28)
+	UiKit.stroke(artWell, Theme.Color.outline, 2, 0)
+	artWell.Parent = detail
+
+	local art = UiKit.create("ImageLabel", {
+		Name = "Art",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Crop,
+	}) :: ImageLabel
+	UiKit.corner(art, 28)
+	art.Parent = artWell
+
+	local fallback = UiKit.create("Frame", {
+		Name = "Fallback",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(28, 28),
+	}) :: Frame
+	fallback.Parent = artWell
+	local fallbackIcon = Icons.build(fallback, "tech", 28, Theme.Color.textFaint)
+	fallbackIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	fallbackIcon.Position = UDim2.fromScale(0.5, 0.5)
+	fallback.Visible = false
+
+	local name = UiKit.label(detail, {
+		text = "FORGED MOMENTUM",
+		size = Theme.Text.Subheading,
+		font = Theme.Font.Heading,
+		color = Theme.Color.text,
+	})
+	name.Position = UDim2.fromOffset(82, 26)
+	name.Size = UDim2.new(1, -96, 0, 26)
+
+	local level = UiKit.label(detail, {
+		text = "LEVEL 0 / 10",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+	})
+	level.Position = UDim2.fromOffset(82, 54)
+	level.Size = UDim2.new(1, -96, 0, 16)
+
+	local pipHost = UiKit.create("Frame", {
+		Name = "Pips",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(82, 76),
+		Size = UDim2.new(1, -96, 0, 8),
+	}) :: Frame
+	pipHost.Parent = detail
+	local pips = pipsFor(pipHost, 10, 8, 8, 3)
+
+	local rule = UiKit.rule(detail, { position = UDim2.fromOffset(14, 104) })
+	rule.Size = UDim2.new(1, -28, 0, 1)
+
+	local desc = UiKit.label(detail, {
+		text = "",
+		size = Theme.Text.Tiny,
+		color = Theme.Color.textSecondary,
+		wrap = true,
+		alignY = Enum.TextYAlignment.Top,
+	})
+	desc.Position = UDim2.fromOffset(14, 114)
+	desc.Size = UDim2.new(1, -28, 0, 38)
+
+	local nowLine = UiKit.label(detail, {
+		text = "NOW   0%",
+		size = Theme.Text.Small,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textDim,
+	})
+	nowLine.Position = UDim2.fromOffset(14, 158)
+	nowLine.Size = UDim2.new(1, -28, 0, 20)
+
+	local nextLine = UiKit.label(detail, {
+		text = "NEXT  +25%",
+		size = Theme.Text.Small,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+	})
+	nextLine.Position = UDim2.fromOffset(14, 180)
+	nextLine.Size = UDim2.new(1, -28, 0, 20)
+
+	local costCaption = UiKit.label(detail, {
+		text = "NEXT LEVEL",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textFaint,
+	})
+	costCaption.Position = UDim2.fromOffset(14, 210)
+	costCaption.Size = UDim2.new(1, -28, 0, 16)
+
+	local costRow = UiKit.currencyRow(detail, {
+		kind = "cores",
+		text = "0",
+		iconSize = 16,
+		textSize = Theme.Text.Body,
+		color = Theme.Color.text,
+		height = 20,
+	})
+	costRow.root.Position = UDim2.fromOffset(14, 228)
+
+	local buy = UiKit.actionButton(detail, {
+		accent = Theme.Color.quantum,
+		height = 44,
+		radius = Theme.Radius.sm,
+		size = 15,
+		label = "BUY LEVEL",
+		handler = function()
+			local node = TechTreeConfig.get(selectedId)
+			if node ~= nil then
+				StateStore.send("buyTech", node.id)
+				Sfx.tech()
+			end
+		end,
+	})
+	buy.button.Name = "BuyTech"
+	buy.button.Position = UDim2.fromOffset(14, 258)
+	buy.button.Size = UDim2.new(1, -28, 0, 44)
+
+	local hint = UiKit.label(detail, {
+		text = "",
 		size = Theme.Text.Tiny,
 		color = Theme.Color.textFaint,
 		wrap = true,
+		alignY = Enum.TextYAlignment.Top,
 	})
-	note.Position = UDim2.fromOffset(12, NODE_H - 32)
-	note.Size = UDim2.new(1, -24, 0, 26)
-end
+	hint.Position = UDim2.fromOffset(14, 310)
+	hint.Size = UDim2.new(1, -28, 0, 32)
 
-local function buildBranch(parent: Frame, id: string, order: number): Branch
-	local def = BRANCHES[id]
-	local accent = def.accent
-
-	local lane = UiKit.create("Frame", {
-		Name = string.format("Branch_%s", id),
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.fromOffset(300, 588),
-	}) :: Frame
-	lane.Parent = parent
-
-	-- The spine runs behind the cards, in the gaps. It is what makes three
-	-- stacked cards read as one lane instead of three tiles.
-	local spine = UiKit.create("Frame", {
-		Name = "Spine",
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.7,
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, BRANCH_HEADER_H),
-		Size = UDim2.new(0, 2, 1, -(BRANCH_HEADER_H + 12)),
-		ZIndex = 1,
-	}) :: Frame
-	spine.Parent = lane
-
-	local header = UiKit.create("Frame", {
-		Name = "BranchHeader",
-		BackgroundColor3 = Theme.Color.card,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.new(1, 0, 0, BRANCH_HEADER_H),
-		ZIndex = 2,
-	}) :: Frame
-	UiKit.corner(header, Theme.Radius.sm)
-	UiKit.stroke(header, accent, 1, 0.55)
-	header.Parent = lane
-
-	local plaque = UiKit.create("Frame", {
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(8, 6),
-		Size = UDim2.fromOffset(26, 26),
-	}) :: Frame
-	UiKit.corner(plaque, 3)
-	plaque.Parent = header
-
-	local number = UiKit.label(plaque, {
-		text = string.format("%02d", order),
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.onColor(accent),
-		align = Enum.TextXAlignment.Center,
+	local summary = UiKit.panel(card, {
+		tier = "item",
+		radius = Theme.Radius.md,
 	})
-	number.Size = UDim2.fromScale(1, 1)
+	summary.Name = "Progress"
+	summary.Position = UDim2.fromOffset(0, SUMMARY_Y)
+	summary.Size = UDim2.new(1, 0, 0, SUMMARY_H)
 
-	local title = UiKit.label(header, {
-		text = def.name,
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.text,
-	})
-	title.Position = UDim2.fromOffset(44, 10)
-	title.Size = UDim2.new(1, -110, 0, 18)
+	local treeLabel = UiKit.eyebrow(summary, "TREE PROGRESS")
+	treeLabel.Position = UDim2.fromOffset(14, 10)
 
-	local count = UiKit.label(header, {
+	local treeCount = UiKit.label(summary, {
 		text = "0 / 0",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textFaint,
 		align = Enum.TextXAlignment.Right,
 	})
-	count.Position = UDim2.new(1, -80, 0, 10)
-	count.Size = UDim2.fromOffset(70, 18)
+	treeCount.Position = UDim2.new(1, -120, 0, 9)
+	treeCount.Size = UDim2.fromOffset(106, 16)
 
-	local cards: { NodeCard } = {}
-	for index, nodeId in def.nodes do
-		local node = TechTreeConfig.get(nodeId)
-		if node then
-			table.insert(cards, buildNodeCard(lane, node, accent, index))
+	local treeBar = UiKit.bar(summary, {
+		height = 4,
+		radius = 2,
+		fill = Theme.Color.quantum,
+	})
+	treeBar.track.Position = UDim2.fromOffset(14, 34)
+	treeBar.track.Size = UDim2.new(1, -28, 0, 4)
+
+	local featLabel = UiKit.eyebrow(summary, "FORGE FEATS")
+	featLabel.Position = UDim2.fromOffset(14, 62)
+
+	local featCount = UiKit.label(summary, {
+		text = "0 / 0",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	featCount.Position = UDim2.new(1, -120, 0, 61)
+	featCount.Size = UDim2.fromOffset(106, 16)
+
+	local featBonus = UiKit.label(summary, {
+		text = "+0% ALL YIELD",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.gold,
+	})
+	featBonus.Position = UDim2.fromOffset(14, 80)
+	featBonus.Size = UDim2.new(1, -28, 0, 16)
+
+	local featBar = UiKit.bar(summary, {
+		height = 3,
+		radius = 2,
+		fill = Theme.Color.gold,
+	})
+	featBar.track.Position = UDim2.fromOffset(14, 106)
+	featBar.track.Size = UDim2.new(1, -28, 0, 3)
+
+	card.Size = UDim2.fromOffset(SIDEBAR_W, DETAIL_H + SUMMARY_Y + SUMMARY_H)
+	card.Parent = parent
+
+	return {
+		card = card,
+		artWell = artWell,
+		art = art,
+		fallback = fallback,
+		name = name,
+		level = level,
+		pips = pips,
+		desc = desc,
+		nowLine = nowLine,
+		nextLine = nextLine,
+		costCaption = costCaption,
+		costRow = costRow,
+		buy = buy,
+		hint = hint,
+		treeCount = treeCount,
+		treeBar = treeBar,
+		featCount = featCount,
+		featBonus = featBonus,
+		featBar = featBar,
+	}
+end
+
+-- ---------------------------------------------------------------------------
+-- Paint
+-- ---------------------------------------------------------------------------
+
+local function paintInspector(payload: Types.SyncPayload)
+	local view = inspector
+	if view == nil then
+		return
+	end
+
+	local node = TechTreeConfig.get(selectedId)
+	if node == nil then
+		return
+	end
+
+	local level = math.clamp(payload.tech[node.id] or 0, 0, node.maxLevel)
+	local maxed = level >= node.maxLevel
+	local available = TechTreeConfig.available(node, payload.tech)
+	local parent, needed = TechTreeConfig.requirement(node, payload.tech)
+	local cost = TechTreeConfig.cost(node, level)
+	local affordable = not maxed and available and payload.qc >= cost
+
+	view.name.Text = string.upper(node.name)
+	view.level.Text = string.format("LEVEL %d / %d", level, node.maxLevel)
+	view.desc.Text = node.description
+	view.nowLine.Text = "NOW   " .. effectText(node, level)
+	view.nextLine.Text = if maxed then "NEXT  MASTERED" else "NEXT  " .. effectText(node, level + 1)
+	view.nextLine.TextColor3 = if maxed then Theme.Color.textFaint else Theme.Color.text
+	paintPips(view.pips, level, node.maxLevel, Theme.Color.quantum)
+
+	local artId = AssetManifest.uiArt(node.icon)
+	view.art.Image = artId
+	view.art.Visible = artId ~= ""
+	view.fallback.Visible = artId == ""
+
+	if maxed then
+		view.costCaption.Visible = false
+		view.costRow.root.Visible = false
+		view.buy.set("equipped", "MASTERED", Theme.Color.emerald)
+		view.hint.Text = "MASTERED. The bonus stays through every ascent."
+	else
+		view.costCaption.Visible = true
+		view.costRow.root.Visible = true
+		view.costRow.set(NumberUtil.abbreviate(cost), if affordable then Theme.Color.text else Theme.Color.textFaint)
+
+		if not available then
+			view.buy.set("locked", "LOCKED", Theme.Color.textFaint)
+			local parentName = if parent then parent.name else "the parent node"
+			view.hint.Text = string.format("REQUIRES %s LV %d", string.upper(parentName), needed or 1)
+		elseif affordable then
+			view.buy.set("ready", "BUY LEVEL", Theme.Color.quantum)
+			view.hint.Text = "PERMANENT. NEVER RESETS."
+		else
+			view.buy.set("locked", "NOT ENOUGH", Theme.Color.textFaint)
+			view.hint.Text = "EARN MORE IN THE FORGE, THEN COME BACK."
 		end
 	end
 
-	if id == "heat" then
-		buildHeatCard(lane, accent, #cards + 1)
-	end
-
-	return { id = id, name = def.name, accent = accent, root = lane, count = count, cards = cards }
 end
 
--- ---------------------------------------------------------------------------
--- Notes
--- ---------------------------------------------------------------------------
+local function paintTree(payload: Types.SyncPayload)
+	for _, card in cardOrder do
+		local node = card.node
+		local level = math.clamp(payload.tech[node.id] or 0, 0, node.maxLevel)
+		local maxed = level >= node.maxLevel
+		local available = TechTreeConfig.available(node, payload.tech)
+		local selected = selectedId == node.id
 
-local function buildNotes(parent: Frame)
-	local card = UiKit.panel(parent, {
-		tier = "well",
-		radius = Theme.Radius.card,
-		stroke = Theme.Color.quantum,
-		strokeTransparency = 0.75,
-	})
-	card.Name = "TechNotes"
-	card.Size = UDim2.new(1, 0, 0, NOTES_H)
+		paintPips(card.pips, level, node.maxLevel, Theme.Color.quantum)
+		card.art.ImageColor3 = if available or level > 0 then Theme.Color.white else Theme.Color.locked
+		card.art.ImageTransparency = if available or level > 0 then 0 else 0.58
+		card.name.TextColor3 = if available or level > 0 then Theme.Color.text else Theme.Color.textFaint
+		card.maxTag.Visible = maxed
+		card.lock.Visible = not available and not maxed
 
-	local head = UiKit.label(card, {
-		text = "HOW THEY WORK",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.quantum,
-	})
-	head.Position = UDim2.fromOffset(14, 8)
-	head.Size = UDim2.new(1, -28, 0, 16)
+		if selected then
+			card.stroke.Color = Theme.Color.text
+			card.stroke.Thickness = 2
+			card.stroke.Transparency = 0
+		elseif level > 0 then
+			card.stroke.Color = Theme.Color.textFaint
+			card.stroke.Thickness = 1
+			card.stroke.Transparency = 0.15
+		else
+			card.stroke.Color = Theme.Color.stroke
+			card.stroke.Thickness = 1
+			card.stroke.Transparency = 0
+		end
+	end
 
-	local facts = {
-		"Every level on this page survives THE ASCENT. Nothing here resets.",
-		"They come from an ascent, not from venting. Spend them before the next run.",
-		"A maxed node keeps its bonus and its pips, so a full lane is a finished promise.",
-	}
-	for index, fact in facts do
-		local marker = UiKit.label(card, {
-			text = string.format("%02d", index),
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
-			color = Theme.Color.quantum,
-		})
-		marker.Position = UDim2.fromOffset(14, 32 + (index - 1) * 24)
-		marker.Size = UDim2.fromOffset(24, 16)
-
-		local copy = UiKit.label(card, {
-			text = fact,
-			size = Theme.Text.Tiny,
-			color = Theme.Color.textSecondary,
-		})
-		copy.Position = UDim2.fromOffset(42, 32 + (index - 1) * 24)
-		copy.Size = UDim2.new(1, -56, 0, 16)
+	for _, link in links do
+		local fromLevel = if link.from == "" then 1 else (payload.tech[link.from] or 0)
+		local toLevel = payload.tech[link.to] or 0
+		local target = TechTreeConfig.get(link.to)
+		-- A link is lit when the path is open: either the child is bought, or
+		-- its gate is already met and the next level is on sale. Links past a
+		-- closed gate stay dim, so the tree shows the frontier instead of a
+		-- uniform web.
+		local open = fromLevel > 0
+			and (toLevel > 0 or (target ~= nil and TechTreeConfig.available(target, payload.tech)))
+		link.frame.BackgroundColor3 = if open then Theme.Color.textFaint else Theme.Color.stroke
+		link.frame.BackgroundTransparency = if open then 0.55 else 0.8
 	end
 end
 
--- ---------------------------------------------------------------------------
--- Feats
--- ---------------------------------------------------------------------------
-
-local function renderFeats(payload: Types.SyncPayload)
-	local panel = featPanel
-	if panel == nil then
+local function paintProgress(payload: Types.SyncPayload)
+	local view = inspector
+	if view == nil then
 		return
 	end
+
+	local levels = 0
+	local maxLevels = 0
+	for _, node in TechTreeConfig.list() do
+		levels += math.clamp(payload.tech[node.id] or 0, 0, node.maxLevel)
+		maxLevels += node.maxLevel
+	end
+	view.treeCount.Text = string.format("%d / %d", levels, maxLevels)
+	view.treeBar.set(if maxLevels > 0 then levels / maxLevels else 0)
+
 	local input = FeatConfig.fromSync(payload)
 	local done = FeatConfig.completed(input)
 	local total = FeatConfig.total()
-	panel.count.Text = string.format("%d / %d", done, total)
-	panel.bonus.Text = string.format(
-		"PERMANENT +%d%% ALL YIELD",
-		math.floor(FeatConfig.PerFeatBonus * done * 100 + 0.5)
-	)
-	panel.bar.set(if total > 0 then done / total else 1)
-
-	local nextFeats = FeatConfig.next(input, #panel.rows)
-	for index, row in panel.rows do
-		local entry = nextFeats[index]
-		if entry ~= nil then
-			row.name.Visible = true
-			row.name.Text = entry.feat.name
-			row.progress.Visible = true
-			row.progress.Text = string.format(
-				"%s / %s",
-				NumberUtil.abbreviate(entry.value),
-				NumberUtil.abbreviate(entry.feat.target)
-			)
-			row.bar.track.Visible = true
-			row.bar.set(entry.progress)
-		elseif index == 1 then
-			row.name.Visible = true
-			row.name.Text = "ALL FEATS COMPLETE"
-			row.progress.Visible = true
-			row.progress.Text = "EVERY LADDER FINISHED"
-			row.bar.track.Visible = true
-			row.bar.set(1)
-		else
-			row.name.Visible = false
-			row.progress.Visible = false
-			row.bar.track.Visible = false
-		end
-	end
+	local bonus = math.floor(FeatConfig.PerFeatBonus * done * 100 + 0.5)
+	view.featCount.Text = string.format("%d / %d", done, total)
+	view.featBonus.Text = string.format("+%d%% ALL YIELD", bonus)
+	view.featBar.set(if total > 0 then done / total else 0)
 end
 
 -- ---------------------------------------------------------------------------
--- Layout
+-- Public
 -- ---------------------------------------------------------------------------
-
-relayout = function()
-	if root == nil or scroll == nil then
-		return
-	end
-
-	local bodyW = Layout.CONTENT_W - PAGE_PAD * 2 - 8
-	local treeX = SIDEBAR_W + 24
-	local branchW = math.floor((bodyW - treeX - GAP * 2) / 3)
-	for _, branch in branches do
-		branch.root.Size = UDim2.fromOffset(branchW, 588)
-	end
-
-	local lane1 = branches[1]
-	local lane2 = branches[2]
-	local lane3 = branches[3]
-	if lane1 and lane2 and lane3 then
-		lane1.root.Position = UDim2.fromOffset(treeX, 0)
-		lane2.root.Position = UDim2.fromOffset(treeX + branchW + GAP, 0)
-		lane3.root.Position = UDim2.fromOffset(treeX + (branchW + GAP) * 2, 0)
-	end
-
-	local notes = scroll:FindFirstChild("TechNotes")
-	if notes and notes:IsA("GuiObject") then
-		notes.Size = UDim2.fromOffset(bodyW - treeX, NOTES_H)
-		notes.Position = UDim2.fromOffset(treeX, 600)
-	end
-
-	local viewH = Layout.CONTENT_H - PAGE_PAD * 2 - HEADER_H - 2
-	scroll.CanvasSize = UDim2.fromOffset(0, math.max(viewH, 724))
-end
 
 function TechTreeView.layout()
-	if root == nil then
+	if root == nil or body == nil or treePanel == nil or inspector == nil then
 		return
 	end
+
 	root.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
 	root.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
-	if relayout then
-		relayout()
-	end
-end
 
--- ---------------------------------------------------------------------------
--- Init
--- ---------------------------------------------------------------------------
+	local bodyW = Layout.CONTENT_W - PAGE_PAD * 2
+	local bodyH = Layout.CONTENT_H - PAGE_PAD * 2
+	local treeH = bodyH - HEADER_H - 2
+	local treeW = bodyW - SIDEBAR_W - GAP
+
+	treePanel.Position = UDim2.fromOffset(0, HEADER_H + 2)
+	treePanel.Size = UDim2.fromOffset(treeW, treeH)
+	inspector.card.Position = UDim2.fromOffset(treeW + GAP, HEADER_H + 2)
+	inspector.card.Size = UDim2.fromOffset(SIDEBAR_W, treeH)
+	layoutTree(treeW, treeH)
+end
 
 function TechTreeView.init(canvas: Frame, x: number, y: number, width: number, height: number)
 	buildPage(canvas, x, y, width, height)
-	local body = scroll
-	if body == nil then
+
+	local inner = body
+	if inner == nil then
 		return
 	end
 
-	buildSidebar(body)
-	for index, id in BRANCH_ORDER do
-		table.insert(branches, buildBranch(body, id, index))
-	end
-	buildNotes(body)
-
-	if relayout then
-		relayout()
-	end
+	buildTree(inner)
+	inspector = buildInspector(inner)
+	TechTreeView.layout()
 
 	unsubscribe = StateStore.onSync(function(payload: Types.SyncPayload)
 		TechTreeView.render(payload)
@@ -821,117 +914,50 @@ function TechTreeView.card(): Frame?
 	return root
 end
 
--- ---------------------------------------------------------------------------
--- Render
--- ---------------------------------------------------------------------------
+--- Dev seam: select a node without a pointer press so the inspector's locked
+--- and affordable states can be photographed on one profile.
+function TechTreeView.select(id: string): boolean
+	if TechTreeConfig.get(id) == nil then
+		return false
+	end
+	selectedId = id
+	if latest then
+		TechTreeView.render(latest)
+	end
+	return true
+end
 
-function TechTreeView.render(payload: Types.SyncPayload)
+--- Paints every region from one payload. `render` stores the payload; the
+--- preview seam paints a copy and leaves the stored state alone.
+local function paint(payload: Types.SyncPayload)
 	if headerDetailRow then
 		headerDetailRow.set(NumberUtil.abbreviate(payload.qc))
 	end
-	if balance then
-		balance.Text = NumberUtil.abbreviate(payload.qc)
+	paintTree(payload)
+	paintInspector(payload)
+	paintProgress(payload)
+end
+
+--- Dev seam: render a temporary level table so the locked and affordable
+--- inspector states can be photographed on a maxed profile. The next real sync
+--- or a selection still reads the player's true state.
+function TechTreeView.preview(levels: { [string]: number }, qc: number?): boolean
+	local base = latest
+	if base == nil then
+		return false
 	end
-	renderFeats(payload)
-
-	-- The cheapest node the player can buy right now. It is a nudge, not a
-	-- promise: a maxed node is skipped.
-	local cheapest: number? = nil
-	for _, branch in branches do
-		for _, card in branch.cards do
-			local level = payload.tech[card.node.id] or 0
-			if level < card.node.maxLevel then
-				local cost = TechTreeConfig.cost(card.node, level)
-				if cheapest == nil or cost < cheapest then
-					cheapest = cost
-				end
-			end
-		end
+	local copy = table.clone(base)
+	copy.tech = table.clone(levels)
+	if qc ~= nil then
+		copy.qc = qc
 	end
-	if balanceNext then
-		balanceNext.Text = if cheapest
-			then string.format("CHEAPEST NEXT LEVEL  %s QC", NumberUtil.abbreviate(cheapest))
-			else "EVERY NODE MAXED"
-		balanceNext.TextColor3 = if cheapest and payload.qc >= cheapest
-			then Theme.Color.emerald
-			else Theme.Color.textFaint
-	end
+	paint(copy)
+	return true
+end
 
-	for _, branch in branches do
-		local levels = 0
-		local maxLevels = 0
-		for _, card in branch.cards do
-			local level = payload.tech[card.node.id] or 0
-			local maxed = level >= card.node.maxLevel
-			local cost = TechTreeConfig.cost(card.node, level)
-			local affordable = payload.qc >= cost and not maxed
-
-			levels += level
-			maxLevels += card.node.maxLevel
-
-			card.level.Text = string.format("Lv %d / %d", level, card.node.maxLevel)
-			card.bar.set(level / math.max(1, card.node.maxLevel))
-
-			if level > 0 then
-				card.effect.Text = string.format("Now +%d%%", math.floor(card.node.perLevel * level * 100 + 0.5))
-				card.effect.TextColor3 = branch.accent
-			else
-				card.effect.Text = string.format("Per level +%d%%", math.floor(card.node.perLevel * 100 + 0.5))
-				card.effect.TextColor3 = Theme.Color.textFaint
-			end
-
-			local kind: UiKit.ActionKind
-			local text: string
-			if maxed then
-				kind = "equipped"
-				text = "MAXED"
-			elseif affordable then
-				kind = "ready"
-				text = string.format("BUY  ·  %s QC", NumberUtil.abbreviate(cost))
-				card.next.Text = string.format(
-					"NEXT +%d%%",
-					math.floor(card.node.perLevel * 100 + 0.5)
-				)
-			else
-				kind = "locked"
-				text = string.format("%s QC", NumberUtil.abbreviate(cost))
-				card.next.Text = string.format("NEED %s MORE", NumberUtil.abbreviate(math.max(0, cost - payload.qc)))
-			end
-			if maxed then
-				card.next.Text = "BONUS IS BANKED"
-			end
-
-			if kind ~= card.lastKind or text ~= card.lastLabel then
-				card.lastKind = kind
-				card.lastLabel = text
-				card.handle.set(kind, text, branch.accent)
-			end
-
-			card.root.BackgroundTransparency = if level > 0 then 0.02 else 0.06
-		end
-
-		if branch.count then
-			branch.count.Text = string.format("%d / %d", levels, maxLevels)
-			branch.count.TextColor3 = if levels > 0 then branch.accent else Theme.Color.textFaint
-		end
-
-		local total = branchTotals[branch.id]
-		if total then
-			total.Text = string.format("%d LEVELS", levels)
-			total.TextColor3 = if levels > 0 then branch.accent else Theme.Color.textFaint
-		end
-	end
-
-	local stats = TechTreeConfig.compute(payload.tech)
-	if heatMult then
-		heatMult.Text = string.format("x%.2f", stats.sweetSpotMult)
-	end
-	if heatBand then
-		heatBand.Text = string.format("%d - %d", math.floor(stats.sweetSpotMin), math.floor(stats.sweetSpotMax))
-	end
-	if heatVent then
-		heatVent.Text = string.format("+%d%%", math.floor((stats.ventMult - 1) * 100 + 0.5))
-	end
+function TechTreeView.render(payload: Types.SyncPayload)
+	latest = payload
+	paint(payload)
 end
 
 function TechTreeView.destroy()
@@ -943,17 +969,17 @@ function TechTreeView.destroy()
 		root:Destroy()
 		root = nil
 	end
-	scroll = nil
+	body = nil
+	treePanel = nil
+	lineLayer = nil
+	rootTile = nil
+	inspector = nil
 	headerDetailRow = nil
-	balance = nil
-	balanceNext = nil
-	featPanel = nil
-	branches = {}
-	heatMult = nil
-	heatBand = nil
-	heatVent = nil
-	table.clear(branchTotals)
-	relayout = nil
+	cards = {}
+	cardOrder = {}
+	links = {}
+	latest = nil
+	selectedId = "start_might"
 end
 
 return TechTreeView

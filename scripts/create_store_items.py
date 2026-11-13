@@ -58,7 +58,7 @@ UNIVERSE_ID = 10775534186
 PASSES = [
     (
         "VIP",
-        "Every gamepass, forever, plus the VIP badge and aura. Cheaper than buying them one by one.",
+        "Every gamepass, forever, plus the VIP badge, aura and gold strike trail. Cheaper than buying them one by one.",
         119,
         "vip_aura",
         "vipAura",
@@ -87,13 +87,25 @@ PASSES = [
 PRODUCTS = [
     (
         "Starter Forge Pack",
-        "500K Aether and twenty minutes of double income. One-time lift for a fresh forge.",
+        "Twenty minutes of 2x income. The first purchase also adds +5% income, permanently.",
         9,
         "starter_forge",
         "starterForge",
     ),
-    ("Instant Overdrive", "Fifteen minutes of triple Star-Matter.", 25, "instant_overdrive", "instantOverdrive"),
-    ("Express Salvage", "Instantly completes any expedition in flight.", 35, "express_salvage", "expressSalvage"),
+    (
+        "Instant Overdrive",
+        "One hour of 2x income. Each extra charge adds +1x. The clock resets to one hour.",
+        25,
+        "instant_overdrive",
+        "instantOverdrive",
+    ),
+    (
+        "Express Salvage",
+        "Permanently cuts every expedition's clock by 25%.",
+        35,
+        "express_salvage",
+        "expressSalvage",
+    ),
 ]
 
 SCOPE_HINT = """

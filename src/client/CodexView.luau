@@ -44,12 +44,12 @@ local activeTab = "blades"
 local unsubscribe: (() -> ())? = nil
 
 local TABS = {
-	{ id = "blades", label = "BLADES", accent = Theme.Color.gold },
-	{ id = "quality", label = "QUALITY", accent = Theme.Color.starMatter },
-	{ id = "variants", label = "VARIANTS", accent = Theme.Color.cyan },
-	{ id = "elements", label = "ELEMENTS", accent = Theme.Color.emerald },
-	{ id = "grades", label = "GRADES", accent = Theme.Color.quantum },
-	{ id = "affixes", label = "AFFIXES", accent = Theme.Color.red },
+	{ id = "blades", label = "BLADES" },
+	{ id = "quality", label = "QUALITY" },
+	{ id = "variants", label = "VARIANTS" },
+	{ id = "elements", label = "ELEMENTS" },
+	{ id = "grades", label = "GRADES" },
+	{ id = "affixes", label = "AFFIXES" },
 }
 
 --- Every key the codex can hold, in the order the tabs show them. Built once:
@@ -113,14 +113,9 @@ local function cell(
 	card.Size = UDim2.fromOffset(CELL_W, CELL_H)
 	card.LayoutOrder = order
 
-	local bar = UiKit.create("Frame", {
-		BackgroundColor3 = if known then color else Theme.Color.strokeFaint,
-		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 4),
-		ZIndex = 2,
-	}) :: Frame
-	UiKit.corner(bar, 2)
-	bar.Parent = card
+	-- The rarity colour stays in the caption and in the thumbnail. A 4px
+	-- accent bar across the top of every cell was decoration, and a grid of
+	-- them read as a row of coloured rules.
 
 	if blade then
 		local stage = UiKit.create("ViewportFrame", {
@@ -250,15 +245,6 @@ local function paintQuality()
 		card.Size = UDim2.fromOffset(CELL_W, CARD_H)
 		card.LayoutOrder = index
 
-		local bar = UiKit.create("Frame", {
-			BackgroundColor3 = if known then quality.color else Theme.Color.strokeFaint,
-			BorderSizePixel = 0,
-			Size = UDim2.new(1, 0, 0, 4),
-			ZIndex = 2,
-		}) :: Frame
-		UiKit.corner(bar, 2)
-		bar.Parent = card
-
 		local name = UiKit.label(card, {
 			text = if known then quality.name else "???",
 			size = Theme.Text.Small,
@@ -347,8 +333,10 @@ local function paintTabs()
 		local active = activeTab == spec.id
 		local pill = UiKit.button(bar, {
 			text = spec.label,
-			fill = if active then spec.accent else Theme.Color.slate,
-			stroke = if active then Theme.Color.outline else Theme.Color.stroke,
+			-- One neutral selected state. Six accent fills turned the tab strip
+			-- into a rainbow and made the codex read as six separate screens.
+			fill = if active then Theme.Color.woodLight else Theme.Color.slate,
+			stroke = if active then Theme.Color.strokeBright else Theme.Color.stroke,
 			height = 34,
 			radius = Theme.Radius.sm,
 			size = Theme.Text.Tiny,
