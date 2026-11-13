@@ -1,7 +1,7 @@
 ---
 type: reference
 status: live
-updated: 2026-11-12
+updated: 2026-11-13
 aliases:
   - agent-handoff
 tags:
@@ -11,6 +11,16 @@ tags:
 # Agent handoff
 
 Read this before starting work on Quantum Forge.
+
+## Target
+
+The real game is `Quantum Forge`, place `102663811434617`, universe
+`10775534186`, held in Team Create. Rojo serve (`rojo serve`, port 34872)
+syncs `src/` into that open place. Forge 32 is saved there as place version
+321. That save is not a publish: live players still get the last published
+version until the owner presses Publish in Studio. `verify.rbxlx` is a local
+build with a Baseplate, not a copy of the real place, so never publish it over
+the game.
 
 ## Load these skills first
 
@@ -37,6 +47,11 @@ deck), runes is a bay and a 2x2 card shelf, and tech is three lanes with spines
 and a core/feat sidebar. The top bar now repaints every key when the compact
 line changes, button faces truncate, and the focus ring restores the stroke it
 found instead of a fixed 2px. See `incremental/build-log-forge-32.md`.
+
+The same code was played in the real place: no label failed `TextFits` on any
+of the three pages, the compact top bar keys sat inside the bar, and the focus
+probe restored a 1px stroke after a 3px white focus ring. The save is place
+version 321.
 
 Forge 31 remains the behind-the-scenes pass: `Main.client` calls
 `TradeView.step`, a 4:3 tablet grows the canvas height instead of letterboxing,
