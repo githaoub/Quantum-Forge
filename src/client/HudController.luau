@@ -1133,7 +1133,8 @@ function HudController.apply(state: Types.SyncPayload)
 	rateHighlight = boostMult > 1
 	rateText = if rateHighlight
 		then string.format("x%d BOOST  %s", boostMult, NumberUtil.abbreviateTime(boostSeconds))
-		elseif state.drones > 0 then string.format("%s DRONES", NumberUtil.abbreviate(state.drones))
+		elseif state.drones > 1 then string.format("%s DRONES", NumberUtil.abbreviate(state.drones))
+		elseif state.drones == 1 then "1 DRONE"
 		else "NO DRONES"
 
 	-- The rail-foot goal. `NextGoal` owns the rule; this only paints it. A goal

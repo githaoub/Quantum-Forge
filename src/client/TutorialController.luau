@@ -8,13 +8,11 @@
 -- The sequence follows the first real decisions:
 --   1. strike until the core can vent
 --   2. purge, with the gauge held at the threshold so reading the note cannot
---      cost the heat the note is about
---   3. earn the first drone's Aether
---   4. open Fleet
---   5. build a drone
---   6. open Crates
---   7. roll a blade
---   8. hand the game back
+--      cost the heat the note is about. The ring follows the job: the blade
+--      while the bar is short, the key once it is full
+--   3. earn the first drone's Aether, open Fleet, build the drone
+--   4. earn the first crate's Star-Matter, open Crates, roll a blade
+--   5. hand the game back: explore, read GUIDE, replay the tour
 --
 -- It is advice, not a lock: the card has a SKIP key on every step, the top-bar
 -- GUIDE key becomes SKIP while the notes run, and no input is blocked. The only
@@ -80,7 +78,7 @@ type Step = {
 }
 
 local CARD_W = 344
-local CARD_H = 172
+local CARD_H = 210
 local RING_Z = 21
 local CARD_Z = 22
 local BADGE_Z = 23
@@ -118,6 +116,14 @@ local dronesAtStart = 0
 --- reads as a hijack; a 0.9 s beat reads as a hand on the shoulder.
 local droneReadyAt = 0
 local droneOpened = false
+--- The crate lesson mirrors the drone lesson: wait until the standard crate is
+--- affordable, then take the player to CRATES once. The step advances on a new
+--- vault copy, not on the page opening, so the note cannot be satisfied by a
+--- navigation. It counts copies rather than banner rolls because the roll
+--- counter resets when the player switches pools.
+local copiesAtStart = 0
+local crateReadyAt = 0
+local crateOpened = false
 local pollAccum = 0
 local lastCardX = -1
 local lastCardY = -1
@@ -140,6 +146,20 @@ local function dronePrice(payload: Types.SyncPayload?): number
 		return first.cost
 	end
 	return math.max(1, payload.droneCost)
+end
+
+--- The standard banner's next single roll. The lesson is about the first crate,
+--- so it quotes the banner a new account can actually open, not whichever pool
+--- the player happens to be browsing.
+local function cratePrice(payload: Types.SyncPayload?): number
+	if payload == nil then
+		return 50
+	end
+	local quote = payload.forgeCosts["standard"]
+	if quote ~= nil and quote.one > 0 then
+		return quote.one
+	end
+	return 50
 end
 
 -- ---------------------------------------------------------------------------
@@ -469,6 +489,9 @@ local function start()
 	sawAnyVent = false
 	droneReadyAt = 0
 	droneOpened = false
+	crateReadyAt = 0
+	crateOpened = false
+	copiesAtStart = 0
 	lastCardX = -1
 	lastCardY = -1
 	dronesAtStart = if payload ~= nil then payload.drones else 0
@@ -561,7 +584,7 @@ local function buildSteps()
 			key = "strike",
 			title = "TAP THE BLADE",
 			body = function(): string
-				return "Fill the heat bar."
+				return "Every strike pays Star-Matter. Fill the heat bar."
 			end,
 			target = function(): GuiObject?
 				return ForgeView.strikeAnchor()
@@ -577,19 +600,25 @@ local function buildSteps()
 		},
 		{
 			key = "purge",
-			title = "PURGE",
+			title = "PURGE THE HEAT",
 			body = function(payload: Types.SyncPayload?): string
 				local heat = if payload ~= nil then payload.heat else Config.VentThreshold
 				if heat < Config.VentThreshold - 0.5 then
-					return "Tap until the bar is full."
+					return "Tap the blade until the bar is full."
 				end
-				local price = dronePrice(payload)
-				if payload ~= nil and payload.as < price then
-					return string.format("Vent the heat. Your first drone needs %s Aether.", NumberUtil.abbreviate(price))
-				end
-				return "Turn the heat into Aether."
+				return "Press the purge key. Heat becomes Aether."
 			end,
+			-- The ring follows the job, not the step. A ring on the purge key
+			-- while the copy says "tap the blade" is the dead end this step used
+			-- to have: the key cannot fire until the bar is full again.
 			target = function(): GuiObject?
+				if Sections.activeTab() ~= "forge" then
+					return targetTab("forge")
+				end
+				local payload = StateStore.current
+				if payload ~= nil and payload.heat < Config.VentThreshold - 0.5 then
+					return ForgeView.strikeAnchor()
+				end
 				return ForgeView.ventAnchor()
 			end,
 			place = "left",
@@ -598,12 +627,13 @@ local function buildSteps()
 			gate = function(): boolean
 				return not sawAnyVent
 			end,
-			-- The lesson does not hand the player to FLEET until the first drone
-			-- is actually affordable. Advancing on the first vent pointed the
-			-- card and its ring at a locked BUILD key, which reads as the game
-			-- demanding a purchase the player cannot make.
-			advance = function(payload: Types.SyncPayload): boolean
-				return sawVent and payload.as >= dronePrice(payload)
+			-- A purge is the whole lesson. It used to also demand the drone
+			-- price, and one purge at the line pays 6.8 Aether against a 7
+			-- Aether drone, so the card sat with its ring on a key that was
+			-- locked and no instruction to strike again. Earning the drone is
+			-- the next step's job.
+			advance = function(): boolean
+				return sawVent
 			end,
 			enter = function()
 				sawVent = false
@@ -617,20 +647,33 @@ local function buildSteps()
 			body = function(payload: Types.SyncPayload?): string
 				local price = dronePrice(payload)
 				if payload == nil or payload.as < price then
-					return string.format("Purge until you have %s Aether.", NumberUtil.abbreviate(price))
+					local head = string.format(
+						"The first drone costs %s Aether. You have %s.",
+						NumberUtil.abbreviate(price),
+						NumberUtil.abbreviate(if payload ~= nil then payload.as else 0)
+					)
+					if payload ~= nil and payload.heat >= Config.VentThreshold then
+						return head .. " Purge the heat."
+					end
+					return head .. " Strike, then purge."
 				end
-				return "Press BUILD 1. It earns while you do nothing."
+				return "Press BUILD 1. It earns Star-Matter while you do nothing."
 			end,
 			-- While the first drone is still out of reach the card points at the
 			-- forge, not at a locked BUILD key. A ring around a key the player
 			-- cannot press reads as the game demanding money they do not have.
+			-- When the bar is full the ring moves to the purge key, so the
+			-- lesson is the loop and not just "press the blade forever".
 			target = function(): GuiObject?
 				local payload = StateStore.current
 				if payload == nil or payload.as < dronePrice(payload) then
 					if Sections.activeTab() ~= "forge" then
 						return targetTab("forge")
 					end
-					return ForgeView.ventAnchor()
+					if payload ~= nil and payload.heat >= Config.VentThreshold then
+						return ForgeView.ventAnchor()
+					end
+					return ForgeView.strikeAnchor()
 				end
 				if Sections.activeTab() ~= "fleet" then
 					return targetTab("fleet")
@@ -638,6 +681,11 @@ local function buildSteps()
 				return findVisible("BuyDrone")
 			end,
 			place = "right",
+			-- A replay already owns drones. Asking a level-65 account to buy a
+			-- 300M hull to finish a tour is a purchase demand, not a lesson.
+			gate = function(): boolean
+				return dronesAtStart == 0
+			end,
 			advance = function(payload: Types.SyncPayload): boolean
 				return payload.drones > dronesAtStart
 			end,
@@ -650,7 +698,7 @@ local function buildSteps()
 				end
 			end,
 			tick = function(payload: Types.SyncPayload)
-				if droneOpened then
+				if droneOpened or ModalShell.openCount() > 0 then
 					return
 				end
 				if payload.as < dronePrice(payload) then
@@ -670,13 +718,86 @@ local function buildSteps()
 			end,
 		},
 		{
+			key = "crate",
+			title = "OPEN A CRATE",
+			body = function(payload: Types.SyncPayload?): string
+				local price = cratePrice(payload)
+				local sm = if payload ~= nil then payload.sm else 0
+				if sm < price then
+					return string.format(
+						"The first crate costs %s Star-Matter. You have %s. Every strike earns it. Purge when the bar is full.",
+						NumberUtil.abbreviate(price),
+						NumberUtil.abbreviate(sm)
+					)
+				end
+				if Sections.activeTab() ~= "crates" then
+					return string.format(
+						"The first crate costs %s Star-Matter. You have enough. Opening CRATES.",
+						NumberUtil.abbreviate(price)
+					)
+				end
+				return "Press ROLL. It forges your first blade."
+			end,
+			target = function(): GuiObject?
+				local payload = StateStore.current
+				if payload == nil or payload.sm < cratePrice(payload) then
+					if Sections.activeTab() ~= "forge" then
+						return targetTab("forge")
+					end
+					if payload ~= nil and payload.heat >= Config.VentThreshold then
+						return ForgeView.ventAnchor()
+					end
+					return ForgeView.strikeAnchor()
+				end
+				if Sections.activeTab() ~= "crates" then
+					return targetTab("crates")
+				end
+				return findVisible("RollOne") or targetTab("crates")
+			end,
+			place = "left",
+			-- A replay already forged a blade. The starter blade counts as one
+			-- copy, so `<= 1` is "nothing forged yet"; gating on `== 0` would
+			-- skip the lesson on every fresh account.
+			gate = function(payload: Types.SyncPayload): boolean
+				return payload.invCount <= 1 and payload.forgeRolls == 0
+			end,
+			advance = function(payload: Types.SyncPayload): boolean
+				return payload.invCount > copiesAtStart or payload.invCount >= payload.invMax
+			end,
+			enter = function()
+				local payload = StateStore.current
+				copiesAtStart = if payload ~= nil then payload.invCount else 0
+				crateReadyAt = 0
+				crateOpened = Sections.activeTab() == "crates"
+			end,
+			tick = function(payload: Types.SyncPayload)
+				if crateOpened or ModalShell.openCount() > 0 then
+					return
+				end
+				if payload.sm < cratePrice(payload) then
+					crateReadyAt = 0
+					return
+				end
+				if crateReadyAt == 0 then
+					crateReadyAt = os.clock()
+					return
+				end
+				if os.clock() - crateReadyAt < 0.9 then
+					return
+				end
+				crateOpened = true
+				Sections.select("crates")
+				Sfx.tab()
+			end,
+		},
+		{
 			key = "done",
-			title = "THAT IS THE LOOP",
+			title = "THE REST IS YOURS",
 			body = function(): string
-				return "Tap. Purge. Build. Roll. Repeat."
+				return "Tap, purge, build, roll. The rest is yours to figure out. The GUIDE section explains every system, and you can replay this tour any time."
 			end,
 			target = nil,
-			place = "bottomCenter",
+			place = "stay",
 			finish = true,
 		},
 	}
@@ -800,7 +921,7 @@ local function buildUi(host: Frame)
 	})
 	bodyLabel.Name = "GuideBody"
 	bodyLabel.Position = UDim2.fromOffset(20, 64)
-	bodyLabel.Size = UDim2.new(1, -40, 0, 48)
+	bodyLabel.Size = UDim2.new(1, -40, 0, 78)
 	bodyLabel.ZIndex = CARD_Z + 1
 
 	-- Informational steps have nothing to watch, so they carry a NEXT key. It

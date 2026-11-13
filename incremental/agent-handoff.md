@@ -41,13 +41,29 @@ checkpoint before large structural changes.
 
 ## Current state
 
-Forge 34 is the live pass: a currency unit is a mark, not a word, and the
-marks are the uploaded top-bar art. The Fleet rack has five spinning 38px hull
-previews and its buy keys read `BUILD 1` / `LOCKED` over an aether price or
+Forge 35 is the onboarding pass: the first-join guide now has five steps and
+teaches both currencies. Step 2's ring follows the job (blade while the bar is
+short, purge key at the line), and it advances on the vent alone, which removes
+the 6.8-versus-7 Aether dead end. Step 3 names the live drone price and opens
+FLEET after the 0.9 s beat. Step 4 names the live standard crate price, opens
+CRATES, rings `ROLL` and advances on a new vault copy. Step 5 hands the player
+to the GUIDE section and promises a replay. Replays skip the two purchase
+lessons. See `incremental/build-log-forge-35.md` and ADR-128. The save is place
+version 337.
+
+`incremental/monetization-review.md` is the honest read of the store: ethically
+above average (no paywalled content, no Robux loot boxes, printed odds, real
+bundle math), commercially not good enough yet (a false `NO CURRENCY PACKS`
+badge, a 500K Aether starter pack that skips the first three rungs, an uncapped
+Overdrive stack, a timer-skip product, no expression item and no season pass).
+
+Forge 34 remains the currency pass: a currency unit is a mark, not a word, and
+the marks are the uploaded top-bar art. The Fleet rack has five spinning 38px
+hull previews and its buy keys read `BUILD 1` / `LOCKED` over an aether price or
 `110 DRONES REQUIRED`. The purge key is a red icon plate with the aether payout
 on its own line. `ForgeView` converts `InputObject.Position` to a Vector2,
 which restores the cursor payout, flash, sound and crit for a real mouse press.
-See `incremental/build-log-forge-34.md`. The save is place version 333.
+See `incremental/build-log-forge-34.md`. That save was place version 333.
 
 Forge 33 remains the feedback pass: a ready ASCEND or DAILY lights from inside
 the plate (accent wash, 2 to 5px ring, 5% plate scale, 6% mark scale), the
@@ -86,6 +102,9 @@ Known gaps, unchanged:
 - A gamepad selection pass. The focus restore is code-verified only.
 - DataStore writes return 401 here; the profile runs MOCK, so nothing persists
   across sessions and the first-join cards repeat on every Studio play.
+- A true clean-profile first-join walk. The Forge 35 drone and crate cards were
+  rendered with temporary forced gates because the seeded profile already owned
+  a drone and four copies; the gates were restored before the save.
 - A two-client trade reproduced `NO TRADE OPEN` before the polling fix. The
   fixed client has not been driven through a full offer, accept and commit.
 - The purchase prompt does not render in this Studio session.

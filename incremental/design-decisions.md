@@ -5387,3 +5387,63 @@ second row. The Fleet rack mounted five previews (27 to 99 parts) that advanced
 a 3px `(255, 107, 107)` ring and a white 32px mark; the locked plate sampled
 slate with `REACH 85%`. `selene src` clean; `rojo build` success.
 
+## ADR-128 - The first crate belongs in the first minute
+
+**Status.** Accepted, Forge 35.
+
+**Context.** The first-join guide had four steps and one currency. Step 2 said
+`TAP UNTIL THE BAR IS FULL` while its ring sat on the purge key, and its advance
+also waited for the first drone's price. One purge at 85 heat pays 6.8 Aether
+against a 7 Aether drone, so a player who purged exactly at the line was left
+with a locked key, a ring on that key, and no instruction to strike again. The
+guide never named Star-Matter or explained why the crate existed, and it ended
+with `THAT IS THE LOOP` rather than telling the player where the rest of the
+game was written down.
+
+**Decision.**
+
+1. **One job per step.** The purge step advances on the vent alone. The drone
+   step owns `as >= dronePrice`; the crate step owns `sm >= cratePrice`. A step
+   that both teaches a key and waits for a purchase is how a guide dead-ends.
+2. **The ring follows the job.** At low heat the purge step points at the blade
+   stage; at the line it points at the purge key. The same rule drives the
+   drone and crate steps: blade, purge key, tab, buy key. The ring never sits on
+   a control that cannot act.
+3. **The guide names both currencies.** The tour is the one place where a
+   player learns that strikes pay Star-Matter and purges pay Aether. It prints
+   the live price and the current balance (`The first drone costs 7 Aether. You
+   have 6.8.`). This is the prose exception in ADR-127, not a repeal: every
+   other label stays mark-only, and the top bar remains the legend.
+4. **The first crate is onboarding.** After the first drone the guide quotes
+   the standard crate's live price, waits until the balance covers it, opens
+   CRATES itself, and rings `ROLL`. The step advances on a new vault copy, not
+   on a navigation, so opening the page cannot tick the lesson.
+5. **Replays do not demand purchases.** The drone step is gated on
+   `dronesAtStart == 0`; the crate step on `invCount <= 1 and forgeRolls == 0`.
+   The starter blade counts as one copy, so `<= 1` is "nothing forged yet".
+   A leveled account replaying the tour walks strike, purge and the closing
+   note. A first join still gets the full five.
+6. **The tour ends with a door, not a full stop.** `THE REST IS YOURS` says the
+   rest is for the player to figure out, names the GUIDE section, and promises
+   the replay. The guide is a starting point, not the manual.
+
+**Consequences.** The card grows from 172 to 210 design px and the body box
+from 48 to 78, because the closing note is three lines. The crate and drone
+prices are read from the payload, so they never go stale. The crate step counts
+copies rather than banner rolls because the roll counter resets when the player
+switches pools. The closing card uses `place = "stay"` so it does not jump to
+the bottom of the screen and cover the crates roll keys.
+
+**Verification.** Studio, 1212x576 game area, canvas 1686x720 at 0.719. At low
+heat step 2 read `Tap the blade until the bar is full.` and its ring measured
+`812 x 378` on the blade stage; the purge key is `281 x 71` at `(908.5, 418.7)`.
+At heat 99 the same card read `Press the purge key. Heat becomes Aether.` and
+the ring sat on that `281 x 71` key. The drone step's 0.9 s tick opened FLEET
+and ringed `BuyDrone` (`192 x 41` around `184 x 33`). The crate step quoted
+`515.58K Star-Matter`, opened CRATES, ringed `RollOne` (`229 x 55` around
+`222 x 46`), and switched its body to `Press ROLL. It forges your first blade.`
+The closing card reported `TextFits = true` at 215 x 31 inside 218 x 56 and did
+not move from the previous note. A replay with the real gates skipped the two
+purchase steps and went 1, 2, closing note. `selene src` clean; `rojo build`
+success; saved as place version 337, not published.
+
