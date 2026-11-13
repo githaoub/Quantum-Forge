@@ -65,6 +65,10 @@ local gatePercent: TextLabel? = nil
 local gateBar: UiKit.BarParts? = nil
 local buyOneHandle: UiKit.ActionHandle? = nil
 local buyTenHandle: UiKit.ActionHandle? = nil
+local buyOneCost: UiKit.CurrencyRow? = nil
+local buyOneNeed: TextLabel? = nil
+local buyTenCost: UiKit.CurrencyRow? = nil
+local buyTenNeed: TextLabel? = nil
 local unsubscribe: (() -> ())? = nil
 local cleanupModel: (() -> ())? = nil
 local relayout: (() -> ())? = nil
@@ -86,6 +90,10 @@ type RackRow = {
 
 local rackRows: { [string]: RackRow } = {}
 local rackOrder: { string } = {}
+--- One live orbit per rack row. They spin unconditionally, so the cleanup has
+--- to run before the card is destroyed or five RenderStepped loops keep writing
+--- into dead viewports.
+local rackPreviewCleanups: { () -> () } = {}
 
 -- Expedition band. Two halves that never coexist: the mission shelf while the
 -- fleet is home, and a single flight line while it is out.
@@ -94,7 +102,10 @@ local expLive: Frame? = nil
 local expShardLabel: TextLabel? = nil
 local expTitle: TextLabel? = nil
 local expTimer: TextLabel? = nil
-local expReward: TextLabel? = nil
+local expReward: Frame? = nil
+local expAether: UiKit.CurrencyRow? = nil
+local expCores: UiKit.CurrencyRow? = nil
+local expShards: TextLabel? = nil
 local expBar: UiKit.BarParts? = nil
 local expButtons: { [string]: UiKit.ActionHandle } = {}
 
@@ -104,6 +115,8 @@ type CacheSlot = {
 	name: TextLabel,
 	state: TextLabel,
 	hint: TextLabel,
+	aether: UiKit.CurrencyRow,
+	cores: UiKit.CurrencyRow,
 	bar: UiKit.BarParts,
 	stroke: UIStroke,
 }
@@ -435,6 +448,48 @@ local function buildHero(parent: Frame)
 	tenHandle.button.Size = UDim2.new(0.54, -4, 0, 46)
 	tenHandle.button.ZIndex = 5
 	buyTenHandle = tenHandle
+
+	-- The buy keys show their currency. A bare "5.37M" beside a "150.26M" was
+	-- the only price in the game with no unit, and the crystal is the same mark
+	-- the top bar and every payout row use. Two lines: verb on top, price or
+	-- the unlock requirement underneath, so a locked hull never has to fit
+	-- "LOCKED · 110 DRONES REQUIRED" on one line.
+	local function buildCost(handle: UiKit.ActionHandle, ink: Color3): (UiKit.CurrencyRow, TextLabel)
+		local face = handle.button:FindFirstChild("Face")
+		if face and face:IsA("TextLabel") then
+			face.Position = UDim2.fromOffset(6, 3)
+			face.Size = UDim2.new(1, -12, 0, 18)
+		end
+		local need = UiKit.label(handle.button, {
+			text = "",
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textSecondary,
+			align = Enum.TextXAlignment.Center,
+		})
+		need.Name = "Need"
+		need.Position = UDim2.fromOffset(6, 24)
+		need.Size = UDim2.new(1, -12, 0, 16)
+		need.Visible = false
+		local cost = UiKit.currencyRow(handle.button, {
+			kind = "aether",
+			text = "",
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
+			color = ink,
+			iconColor = Theme.Color.white,
+			height = 16,
+			gap = 3,
+		})
+		cost.root.Name = "Cost"
+		cost.root.AnchorPoint = Vector2.new(0.5, 0)
+		cost.root.Position = UDim2.new(0.5, 0, 0, 24)
+		cost.root.Visible = false
+		return cost, need
+	end
+
+	buyOneCost, buyOneNeed = buildCost(oneHandle, Theme.Color.ink)
+	buyTenCost, buyTenNeed = buildCost(tenHandle, Theme.Color.white)
 end
 
 -- ---------------------------------------------------------------------------
@@ -485,14 +540,27 @@ local function buildRack(parent: Frame)
 		local stroke = UiKit.stroke(row, Theme.Color.stroke, 1, 0)
 		row.Parent = card
 
-		local accent = UiKit.create("Frame", {
-			BackgroundColor3 = tier.glow,
+		-- The row has to look like a hull you can pick, not a label with a meter.
+		-- A spinning 38px model is the cheapest way to say "this is a drone" and
+		-- it makes the locked rungs read as a ladder you climb instead of five
+		-- grey rows. The model is the same one the hero stage uses.
+		local preview = UiKit.create("ViewportFrame", {
+			Name = "RungPreview",
+			BackgroundColor3 = Theme.Color.void,
+			BackgroundTransparency = 0.2,
 			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(4, 26),
-			Position = UDim2.new(0, 8, 0.5, -13),
-		}) :: Frame
-		UiKit.corner(accent, 2)
-		accent.Parent = row
+			ClipsDescendants = true,
+			Ambient = Color3.fromRGB(152, 168, 200),
+			LightColor = Color3.fromRGB(228, 242, 255),
+			LightDirection = Vector3.new(-0.5, -0.7, -0.5),
+			Size = UDim2.fromOffset(38, 38),
+			Position = UDim2.fromOffset(6, 5),
+			ZIndex = 2,
+		}) :: ViewportFrame
+		UiKit.corner(preview, 6)
+		UiKit.stroke(preview, tier.glow, 1, 0.55)
+		preview.Parent = row
+		rackPreviewCleanups[#rackPreviewCleanups + 1] = DroneModelBuilder.mount(preview, tier.id)
 
 		local name = UiKit.label(row, {
 			text = string.upper(tier.name),
@@ -500,8 +568,8 @@ local function buildRack(parent: Frame)
 			font = Theme.Font.Black,
 			color = Theme.Color.locked,
 		})
-		name.Position = UDim2.fromOffset(22, 5)
-		name.Size = UDim2.new(1, -92, 0, 18)
+		name.Position = UDim2.fromOffset(52, 4)
+		name.Size = UDim2.new(1, -118, 0, 18)
 
 		local count = UiKit.label(row, {
 			text = "0",
@@ -510,14 +578,14 @@ local function buildRack(parent: Frame)
 			color = Theme.Color.textDim,
 			align = Enum.TextXAlignment.Right,
 		})
-		count.Position = UDim2.new(1, -62, 0, 4)
+		count.Position = UDim2.new(1, -62, 0, 3)
 		count.Size = UDim2.fromOffset(52, 20)
 
 		local track = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.void,
 			BorderSizePixel = 0,
-			Size = UDim2.new(1, -84, 0, 4),
-			Position = UDim2.new(0, 22, 1, -11),
+			Size = UDim2.new(1, -122, 0, 4),
+			Position = UDim2.new(0, 52, 1, -9),
 		}) :: Frame
 		UiKit.corner(track, 2)
 		track.Parent = row
@@ -630,14 +698,15 @@ local function buildExpedition(parent: Frame)
 		-- The reward gets its own line instead of riding the end of the squad
 		-- line. On the tablet the card is a third of the deck, and the joined
 		-- string did not fit at the 13px floor.
-		local reward = UiKit.label(row, {
-			text = string.format("+%s AE", NumberUtil.compact(mission.aether)),
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
+		local reward = UiKit.currencyRow(row, {
+			kind = "aether",
+			text = string.format("+%s", NumberUtil.compact(mission.aether)),
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
 			color = Theme.Color.aether,
+			height = 16,
 		})
-		reward.Position = UDim2.fromOffset(76, 52)
-		reward.Size = UDim2.new(1, -200, 0, 16)
+		reward.root.Position = UDim2.fromOffset(76, 52)
 
 		local handle = UiKit.actionButton(row, {
 			accent = Theme.Color.quantum,
@@ -694,14 +763,40 @@ local function buildExpedition(parent: Frame)
 	expBar.track.Position = UDim2.fromOffset(2, 50)
 	expBar.track.Size = UDim2.new(1, -4, 0, 8)
 
-	expReward = UiKit.label(live, {
+	expReward = UiKit.create("Frame", {
+		Name = "ExpeditionReward",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, -4, 0, 20),
+		Position = UDim2.fromOffset(2, 70),
+	}) :: Frame
+	expReward.Parent = live
+	local rewardList = UiKit.hlist(expReward, 12, Enum.VerticalAlignment.Center)
+	rewardList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	expAether = UiKit.currencyRow(expReward, {
+		kind = "aether",
+		text = "+0",
+		iconSize = 16,
+		textSize = Theme.Text.Tiny,
+		color = Theme.Color.aether,
+		height = 20,
+	})
+	expCores = UiKit.currencyRow(expReward, {
+		kind = "cores",
+		text = "+0",
+		iconSize = 16,
+		textSize = Theme.Text.Tiny,
+		color = Theme.Color.quantum,
+		height = 20,
+	})
+	expShards = UiKit.label(expReward, {
 		text = "",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
 	})
-	expReward.Position = UDim2.fromOffset(2, 70)
-	expReward.Size = UDim2.new(1, -4, 0, 20)
+	expShards.AutomaticSize = Enum.AutomaticSize.X
+	expShards.Size = UDim2.fromOffset(0, 20)
 end
 
 -- ---------------------------------------------------------------------------
@@ -778,6 +873,32 @@ local function buildSalvage(parent: Frame)
 		stateLabel.Position = UDim2.fromOffset(6, 36)
 		stateLabel.Size = UDim2.new(1, -12, 0, 28)
 
+		local aetherRow = UiKit.currencyRow(rootSlot, {
+			kind = "aether",
+			text = "+0",
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
+			color = Theme.Color.aether,
+			height = 16,
+			gap = 3,
+		})
+		aetherRow.root.AnchorPoint = Vector2.new(0.5, 0)
+		aetherRow.root.Position = UDim2.new(0.5, 0, 0, 66)
+		aetherRow.root.Visible = false
+
+		local coresRow = UiKit.currencyRow(rootSlot, {
+			kind = "cores",
+			text = "+0",
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
+			color = Theme.Color.quantum,
+			height = 16,
+			gap = 3,
+		})
+		coresRow.root.AnchorPoint = Vector2.new(0.5, 0)
+		coresRow.root.Position = UDim2.new(0.5, 0, 0, 82)
+		coresRow.root.Visible = false
+
 		local hint = UiKit.label(rootSlot, {
 			text = "",
 			size = Theme.Text.Tiny,
@@ -786,8 +907,8 @@ local function buildSalvage(parent: Frame)
 			align = Enum.TextXAlignment.Center,
 			wrap = true,
 		})
-		hint.Position = UDim2.fromOffset(6, 70)
-		hint.Size = UDim2.new(1, -12, 0, 34)
+		hint.Position = UDim2.fromOffset(6, 98)
+		hint.Size = UDim2.new(1, -12, 0, 18)
 
 		local bar = UiKit.bar(rootSlot, {
 			height = 4,
@@ -821,6 +942,8 @@ local function buildSalvage(parent: Frame)
 			name = nameLabel,
 			state = stateLabel,
 			hint = hint,
+			aether = aetherRow,
+			cores = coresRow,
 			bar = bar,
 			stroke = stroke,
 		}
@@ -1163,14 +1286,17 @@ local function paintExpedition(payload: Types.SyncPayload)
 		expBar.set(math.clamp(elapsed / math.max(1, mission.seconds), 0, 1))
 	end
 	if expReward then
-		local parts = { string.format("+%s AETHER", NumberUtil.compact(payload.expAether)) }
-		if payload.expCores > 0 then
-			parts[#parts + 1] = string.format("+%d CORES", payload.expCores)
+		if expAether then
+			expAether.set(string.format("+%s", NumberUtil.compact(payload.expAether)))
 		end
-		if payload.expShards > 0 then
-			parts[#parts + 1] = string.format("+%d SHARDS", payload.expShards)
+		if expCores then
+			expCores.root.Visible = payload.expCores > 0
+			expCores.set(string.format("+%d", payload.expCores))
 		end
-		expReward.Text = table.concat(parts, "  ·  ")
+		if expShards then
+			expShards.Visible = payload.expShards > 0
+			expShards.Text = string.format("%d SHARDS", payload.expShards)
+		end
 	end
 end
 
@@ -1180,17 +1306,6 @@ local function formatShort(seconds: number): string
 		return string.format("%d:%02d", total // 60, total % 60)
 	end
 	return string.format("0:%02d", total)
-end
-
-local function rewardHint(rarity: SalvageConfig.Rarity): string
-	local parts = { string.format("+%s AE", NumberUtil.compact(rarity.aether)) }
-	if rarity.cores > 0 then
-		table.insert(parts, string.format("%dC", rarity.cores))
-	end
-	if rarity.shards > 0 then
-		table.insert(parts, string.format("%dS", rarity.shards))
-	end
-	return table.concat(parts, "  ")
 end
 
 local function paintSalvage(payload: Types.SyncPayload)
@@ -1205,6 +1320,8 @@ local function paintSalvage(payload: Types.SyncPayload)
 			slot.name.TextColor3 = Theme.Color.textFaint
 			slot.state.Text = ""
 			slot.hint.Text = ""
+			slot.aether.root.Visible = false
+			slot.cores.root.Visible = false
 			slot.stroke.Color = Theme.Color.stroke
 			slot.stroke.Transparency = 0.35
 			slot.bar.set(0)
@@ -1225,6 +1342,8 @@ local function paintSalvage(payload: Types.SyncPayload)
 			slot.state.Text = "CRACK"
 			slot.state.TextColor3 = Theme.Color.text
 			slot.hint.Text = ""
+			slot.aether.root.Visible = false
+			slot.cores.root.Visible = false
 			slot.bar.set(0)
 		elseif not ready then
 			local total = math.max(1, rarity.crackSeconds)
@@ -1234,6 +1353,8 @@ local function paintSalvage(payload: Types.SyncPayload)
 			slot.state.Text = formatShort(cache.secondsLeft)
 			slot.state.TextColor3 = Theme.Color.text
 			slot.hint.Text = "CRACKING"
+			slot.aether.root.Visible = false
+			slot.cores.root.Visible = false
 			slot.bar.set(math.clamp(1 - cache.secondsLeft / total, 0, 1))
 		else
 			slot.root.BackgroundColor3 = rarity.color:Lerp(Theme.Color.ink, 0.74)
@@ -1241,7 +1362,11 @@ local function paintSalvage(payload: Types.SyncPayload)
 			slot.stroke.Transparency = 0
 			slot.state.Text = "CLAIM"
 			slot.state.TextColor3 = rarity.color
-			slot.hint.Text = rewardHint(rarity)
+			slot.aether.root.Visible = rarity.aether > 0
+			slot.aether.set(string.format("+%s", NumberUtil.compact(rarity.aether)))
+			slot.cores.root.Visible = rarity.cores > 0
+			slot.cores.set(string.format("+%d", rarity.cores))
+			slot.hint.Text = if rarity.shards > 0 then string.format("%d SHARDS", rarity.shards) else ""
 			slot.bar.set(1)
 		end
 	end
@@ -1375,20 +1500,40 @@ function DroneView.render(payload: Types.SyncPayload)
 	if buyOneHandle then
 		buyOneHandle.set(
 			if oneReady then "ready" else "locked",
-			if entry.unlocked
-				then string.format("BUILD 1  ·  %s", NumberUtil.compact(entry.cost))
-				else string.format("LOCKED  ·  %s", NumberUtil.compact(entry.unlockAt)),
+			if entry.unlocked then "BUILD 1" else "LOCKED",
 			Theme.Color.actionCyan
 		)
 	end
 	if buyTenHandle then
 		buyTenHandle.set(
 			if tenReady then "ready" else "locked",
-			if entry.unlocked
-				then string.format("BUILD 10  ·  %s", NumberUtil.compact(entry.bulk))
-				else string.format("LOCKED  ·  %s", NumberUtil.compact(entry.unlockAt)),
+			if entry.unlocked then "BUILD 10" else "LOCKED",
 			Theme.Color.aether
 		)
+	end
+	if buyOneCost and buyOneNeed then
+		buyOneCost.root.Visible = entry.unlocked
+		buyOneNeed.Visible = not entry.unlocked
+		if entry.unlocked then
+			buyOneCost.set(
+				NumberUtil.compact(entry.cost),
+				if oneReady then Theme.Color.ink else Theme.Color.textSecondary
+			)
+		else
+			buyOneNeed.Text = string.format("%s DRONES REQUIRED", NumberUtil.compact(entry.unlockAt))
+		end
+	end
+	if buyTenCost and buyTenNeed then
+		buyTenCost.root.Visible = entry.unlocked
+		buyTenNeed.Visible = not entry.unlocked
+		if entry.unlocked then
+			buyTenCost.set(
+				NumberUtil.compact(entry.bulk),
+				if tenReady then Theme.Color.white else Theme.Color.textSecondary
+			)
+		else
+			buyTenNeed.Text = string.format("%s DRONES REQUIRED", NumberUtil.compact(entry.unlockAt))
+		end
 	end
 
 	-- Rack. Every row repaints from the tick payload: owned count, unlock
@@ -1444,6 +1589,10 @@ function DroneView.destroy()
 		cleanupModel()
 		cleanupModel = nil
 	end
+	for _, cleanup in rackPreviewCleanups do
+		cleanup()
+	end
+	table.clear(rackPreviewCleanups)
 	if root then
 		root:Destroy()
 		root = nil
@@ -1468,6 +1617,10 @@ function DroneView.destroy()
 	gateBar = nil
 	buyOneHandle = nil
 	buyTenHandle = nil
+	buyOneCost = nil
+	buyOneNeed = nil
+	buyTenCost = nil
+	buyTenNeed = nil
 	selectedTier = nil
 	mountedTier = nil
 	latest = nil
@@ -1479,6 +1632,9 @@ function DroneView.destroy()
 	expTitle = nil
 	expTimer = nil
 	expReward = nil
+	expAether = nil
+	expCores = nil
+	expShards = nil
 	expBar = nil
 	table.clear(expButtons)
 	expActiveShown = nil

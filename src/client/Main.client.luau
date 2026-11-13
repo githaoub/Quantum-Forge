@@ -404,7 +404,7 @@ local function boot()
 				NumberUtil.abbreviate(threshold),
 				NumberUtil.abbreviate(state.sm)
 			)
-			locked = string.format("NEED %s SM", NumberUtil.abbreviate(threshold))
+			locked = string.format("%s TO ASCEND", NumberUtil.abbreviate(threshold))
 		end
 
 		Modals.confirm(

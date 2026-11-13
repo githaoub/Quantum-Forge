@@ -20,6 +20,7 @@ local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
+local Icons = require(script.Parent.Icons)
 local ModalShell = require(script.Parent.ModalShell)
 local BladePreview = require(script.Parent.BladePreview)
 local StateStore = require(script.Parent.StateStore)
@@ -39,10 +40,10 @@ local refreshClock = 0
 local staged = false
 
 local BOARDS = {
-	{ id = "star", label = "STAR-MATTER", accent = Theme.Color.starMatter },
+	{ id = "star", label = "STAR-MATTER", accent = Theme.Color.starMatter, kind = "sm" },
 	{ id = "playtime", label = "PLAYTIME", accent = Theme.Color.emerald },
-	{ id = "aether", label = "AETHER", accent = Theme.Color.cyan },
-	{ id = "cores", label = "CORES", accent = Theme.Color.quantum },
+	{ id = "aether", label = "AETHER", accent = Theme.Color.cyan, kind = "as" },
+	{ id = "cores", label = "CORES", accent = Theme.Color.quantum, kind = "qc" },
 	{ id = "blades", label = "BEST BLADE", accent = Theme.Color.gold },
 }
 
@@ -252,7 +253,7 @@ local function paintTabs()
 	for index, board in BOARDS do
 		local active = activeBoard == board.id
 		local pill = UiKit.button(bar, {
-			text = board.label,
+			text = if board.kind then "" else board.label,
 			fill = if active then board.accent else Theme.Color.slate,
 			stroke = if active then Theme.Color.outline else Theme.Color.stroke,
 			height = 36,
@@ -270,6 +271,18 @@ local function paintTabs()
 				LeaderboardView.refresh()
 			end,
 		})
+		if board.kind then
+			-- The three currency boards are their marks. A tab that spells the
+			-- currency is the one place the names would survive in the UI.
+			local mark = Icons.currency(
+				pill,
+				board.kind,
+				18,
+				if active then Theme.Color.text else board.accent
+			)
+			mark.AnchorPoint = Vector2.new(0.5, 0.5)
+			mark.Position = UDim2.fromScale(0.5, 0.5)
+		end
 		pill.Name = "BoardTab_" .. board.id
 		pill.Position = UDim2.fromOffset((index - 1) * 190, 0)
 		pill.Size = UDim2.fromOffset(182, 36)

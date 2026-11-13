@@ -14,7 +14,12 @@
 -- Every mark is one shape plus one or two notches. Detail below 3px is a smudge
 -- at canvas scale, so nothing here is drawn thinner than that.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ContentProvider = game:GetService("ContentProvider")
+
 local Theme = require(script.Parent.Theme)
+local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 
 local Icons = {}
 
@@ -277,11 +282,68 @@ local function players(root: Frame, color: Color3)
 	round(frontBody, 3)
 end
 
+--- The three currencies, drawn at 24px so one canvas covers every size the HUD
+--- asks for. They mirror the top-bar badges: a star for Star-Matter, a faceted
+--- crystal for Aether, a cold ring for Cores.
+local function starMark(root: Frame, color: Color3)
+	local glyph = Instance.new("TextLabel")
+	glyph.Name = "Glyph"
+	glyph.BackgroundTransparency = 1
+	glyph.BorderSizePixel = 0
+	glyph.Size = UDim2.fromScale(1, 1)
+	glyph.Font = Theme.Font.Black
+	glyph.Text = "★"
+	glyph.TextSize = 23
+	glyph.TextColor3 = color
+	glyph.TextStrokeColor3 = Theme.Color.outline
+	glyph.TextStrokeTransparency = 0.5
+	glyph.Parent = root
+end
+
+local function aetherMark(root: Frame, color: Color3)
+	local outer = plate(root, 4, 4, 16, 16, color)
+	outer.Rotation = 45
+	round(outer, 3)
+	local facet = plate(outer, 5, 5, 6, 6, Theme.Color.white)
+	round(facet, 1)
+end
+
+local function coreMark(root: Frame, color: Color3)
+	local ring = plate(root, 3, 3, 18, 18, color)
+	round(ring, 9)
+	cut(ring, 3, 3, 12, 12, 6)
+	local disc = plate(ring, 6, 6, 6, 6, color)
+	round(disc, 3)
+end
+
+--- A vent: a low tray with three plumes rising out of it. Deliberately not the
+--- anvil, and not a thermometer: the key dumps heat, it does not measure it.
+local function ventMark(root: Frame, color: Color3)
+	local tray = plate(root, 3, 18, 18, 3, color)
+	round(tray, 1)
+	local left = plate(root, 5, 11, 3, 6, color)
+	round(left, 1)
+	local middle = plate(root, 10, 6, 4, 11, color)
+	round(middle, 2)
+	local right = plate(root, 16, 11, 3, 6, color)
+	round(right, 1)
+	local puff = plate(root, 9, 2, 6, 3, color)
+	round(puff, 1)
+end
+
 --- Builds one icon onto `parent` and returns the scaled canvas. Caller positions
 --- it; the canvas is 24x24 in its own space and `size` after the UIScale.
 function Icons.build(parent: GuiObject, kind: string, size: number, color: Color3): Frame
 	local root = canvas(parent, size)
-	if kind == "guide" then
+	if kind == "aether" then
+		aetherMark(root, color)
+	elseif kind == "star" then
+		starMark(root, color)
+	elseif kind == "core" then
+		coreMark(root, color)
+	elseif kind == "vent" then
+		ventMark(root, color)
+	elseif kind == "guide" then
 		guide(root, color)
 	elseif kind == "feedback" then
 		feedback(root, color)
@@ -314,6 +376,122 @@ function Icons.build(parent: GuiObject, kind: string, size: number, color: Color
 	elseif kind == "store" then
 		storeMark(root, color)
 	end
+	return root
+end
+
+local CURRENCY: { [string]: { kind: string, color: Color3 } } = {
+	as = { kind = "aether", color = Theme.Color.aether },
+	aether = { kind = "aether", color = Theme.Color.aether },
+	sm = { kind = "star", color = Theme.Color.starMatter },
+	star = { kind = "star", color = Theme.Color.starMatter },
+	starMatter = { kind = "star", color = Theme.Color.starMatter },
+	qc = { kind = "core", color = Theme.Color.quantum },
+	core = { kind = "core", color = Theme.Color.quantum },
+	cores = { kind = "core", color = Theme.Color.quantum },
+}
+
+-- Uploaded currency art. The top bar lays these PNGs over its vector badges and
+-- retires the drawing once the thumbnail resolves. Inline marks do the same, so
+-- a price row and the bar show one icon, not two designs. State is per asset:
+-- one preload, then every later row swaps to the art in the same frame.
+local artState: { [string]: string } = {}
+local artWaiters: { [string]: { ImageLabel } } = {}
+
+local function showArt(image: ImageLabel, root: Frame)
+	Theme.fade(image, 0.16, { ImageTransparency = 0 })
+	for _, child in root:GetChildren() do
+		if child ~= image then
+			if child:IsA("Frame") then
+				Theme.fade(child, 0.16, { BackgroundTransparency = 1 })
+			elseif child:IsA("TextLabel") then
+				Theme.fade(child, 0.16, { TextTransparency = 1, TextStrokeTransparency = 1 })
+			end
+		end
+	end
+end
+
+local function attachArt(root: Frame, key: string)
+	local source = AssetManifest.currencyArt(key)
+	if source == "" then
+		return
+	end
+
+	local image = Instance.new("ImageLabel")
+	image.Name = "CurrencyArt"
+	image.BackgroundTransparency = 1
+	image.BorderSizePixel = 0
+	image.Size = UDim2.fromScale(1, 1)
+	image.ScaleType = Enum.ScaleType.Fit
+	image.Image = source
+	image.ImageTransparency = 1
+	image.ZIndex = 4
+	image.Parent = root
+
+	local state = artState[key]
+	if state == "ready" then
+		image.ImageTransparency = 0
+		for _, child in root:GetChildren() do
+			if child ~= image then
+				if child:IsA("Frame") then
+					child.BackgroundTransparency = 1
+				elseif child:IsA("TextLabel") then
+					child.TextTransparency = 1
+					child.TextStrokeTransparency = 1
+				end
+			end
+		end
+		return
+	end
+	if state == "loading" then
+		local waiters = artWaiters[key]
+		if waiters then
+			table.insert(waiters, image)
+		end
+		return
+	end
+	if state == "failed" then
+		return
+	end
+
+	artState[key] = "loading"
+	artWaiters[key] = { image }
+	task.spawn(function()
+		local ok = pcall(function()
+			ContentProvider:PreloadAsync({ image })
+		end)
+		artState[key] = if ok then "ready" else "failed"
+		local waiters = artWaiters[key] or {}
+		artWaiters[key] = nil
+		if not ok then
+			return
+		end
+		for _, waiter in waiters do
+			local holder = waiter.Parent
+			if holder and holder:IsA("Frame") then
+				showArt(waiter, holder)
+			end
+		end
+	end)
+end
+
+--- One currency mark in the colour the top bar uses. `key` accepts the short
+--- payload names (`as`, `sm`, `qc`) and the long ones. The vector is the first
+--- frame; when the uploaded art is resident it is laid on top, exactly as the
+--- top bar does, so every inline price matches the bar instead of merely
+--- resembling it.
+function Icons.currency(parent: GuiObject, key: string, size: number, color: Color3?): Frame
+	local entry = CURRENCY[key]
+	local root = Icons.build(
+		parent,
+		if entry then entry.kind else "star",
+		size,
+		color or (if entry then entry.color else Theme.Color.starMatter)
+	)
+	local artKey = if entry == nil or entry.kind == "star"
+		then "sm"
+		elseif entry.kind == "aether" then "as"
+		else "qc"
+	attachArt(root, artKey)
 	return root
 end
 

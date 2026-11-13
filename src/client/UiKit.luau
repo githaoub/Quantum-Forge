@@ -362,6 +362,81 @@ function UiKit.textIn(parent: Instance, text: string, color: Color3?, size: numb
 	})
 end
 
+export type CurrencyRowOpts = {
+	--- `as`, `sm` or `qc`, or the long names. Drives the mark and its colour.
+	kind: string,
+	text: string,
+	iconSize: number?,
+	textSize: number?,
+	--- Text colour. The icon keeps its currency colour unless `iconColor` is set.
+	color: Color3?,
+	iconColor: Color3?,
+	height: number?,
+	gap: number?,
+	font: Enum.Font?,
+}
+
+export type CurrencyRow = {
+	root: Frame,
+	icon: Frame,
+	label: TextLabel,
+	set: (text: string, color: Color3?) -> (),
+}
+
+--- An amount and its currency mark as one inline unit. This is the house way to
+--- print a price or a payout: the mark carries the unit, so no label ever has to
+--- spell out Star-Matter, Aether or Cores.
+---
+--- The root is AutomaticSize.X, so a caller can centre it with an anchor point
+--- and the mark stays 4px from the number at any text length.
+function UiKit.currencyRow(parent: Instance, opts: CurrencyRowOpts): CurrencyRow
+	local height = opts.height or 18
+	local iconSize = opts.iconSize or 14
+	local root = UiKit.create("Frame", {
+		Name = "CurrencyRow",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, height),
+	}) :: Frame
+	root.Parent = parent
+	UiKit.hlist(root, opts.gap or 4, Enum.VerticalAlignment.Center)
+
+	-- `Icons.build` always returns a 24px canvas; the holder gives the list
+	-- layout the size the icon is drawn at, and the canvas overflows it evenly.
+	local holder = UiKit.create("Frame", {
+		Name = "Icon",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromOffset(iconSize, iconSize),
+	}) :: Frame
+	holder.Parent = root
+	local icon = Icons.currency(holder, opts.kind, iconSize, opts.iconColor)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+
+	local label = UiKit.label(root, {
+		text = opts.text,
+		size = opts.textSize or Theme.Text.Tiny,
+		font = opts.font or Theme.Font.Numeric,
+		color = opts.color or Theme.Color.text,
+	})
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Size = UDim2.fromOffset(0, height)
+
+	return {
+		root = root,
+		icon = holder,
+		label = label,
+		set = function(text: string, color: Color3?)
+			label.Text = text
+			if color then
+				label.TextColor3 = color
+			end
+		end,
+	}
+end
+
 -- ---------------------------------------------------------------------------
 -- Chrome: banners, badges, close buttons
 -- ---------------------------------------------------------------------------

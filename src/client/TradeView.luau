@@ -34,10 +34,10 @@ local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
 local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 local Types = require(Shared:WaitForChild("Types"))
-local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
+local Icons = require(script.Parent.Icons)
 local BladePreview = require(script.Parent.BladePreview)
 local ModalShell = require(script.Parent.ModalShell)
 local StateStore = require(script.Parent.StateStore)
@@ -649,17 +649,12 @@ local function buildDesk(state: any)
 	}) :: Frame
 	aetherRow.Parent = area
 
-	local iconImage = AssetManifest.currencyArt("sm")
-	local icon = UiKit.create("ImageLabel", {
-		Name = "AetherIcon",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(8, 8),
-		Size = UDim2.fromOffset(20, 20),
-		Image = iconImage,
-		ScaleType = Enum.ScaleType.Fit,
-	}) :: ImageLabel
-	icon.Parent = aetherRow
+	-- The row's unit is the crystal, not a caption. The box used to carry the
+	-- Star-Matter art and the gold ink, which made an Aether offer read as a
+	-- Star-Matter price.
+	local icon = Icons.currency(aetherRow, "as", 20)
+	icon.Name = "AetherIcon"
+	icon.Position = UDim2.fromOffset(8, 8)
 
 	local box = UiKit.create("TextBox", {
 		Name = "AetherBox",
@@ -667,7 +662,7 @@ local function buildDesk(state: any)
 		BorderSizePixel = 0,
 		Text = tostring(offerAether),
 		PlaceholderText = "0",
-		TextColor3 = Theme.Color.starMatter,
+		TextColor3 = Theme.Color.aether,
 		TextSize = Theme.Text.Body,
 		Font = Theme.Font.Numeric,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -742,16 +737,9 @@ local function buildDesk(state: any)
 	theirAether.Position = UDim2.fromOffset(COL_W + COL_GAP + 40, 288)
 	theirAether.Size = UDim2.fromOffset(COL_W - 52, 28)
 
-	local theirIcon = UiKit.create("ImageLabel", {
-		Name = "TheirAetherIcon",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(COL_W + COL_GAP + 12, 292),
-		Size = UDim2.fromOffset(20, 20),
-		Image = iconImage,
-		ScaleType = Enum.ScaleType.Fit,
-	}) :: ImageLabel
-	theirIcon.Parent = area
+	local theirIcon = Icons.currency(area, "as", 20)
+	theirIcon.Name = "TheirAetherIcon"
+	theirIcon.Position = UDim2.fromOffset(COL_W + COL_GAP + 12, 292)
 
 	local countLabel = UiKit.label(area, {
 		text = "YOUR BLADES",

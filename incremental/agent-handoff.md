@@ -16,8 +16,8 @@ Read this before starting work on Quantum Forge.
 
 The real game is `Quantum Forge`, place `102663811434617`, universe
 `10775534186`, held in Team Create. Rojo serve (`rojo serve`, port 34872)
-syncs `src/` into that open place. Forge 33 is saved there as place version
-326. That save is not a publish: live players still get the last published
+syncs `src/` into that open place. Forge 34 is saved there as place version
+333. That save is not a publish: live players still get the last published
 version until the owner presses Publish in Studio. `verify.rbxlx` is a local
 build with a Baseplate, not a copy of the real place, so never publish it over
 the game.
@@ -41,11 +41,19 @@ checkpoint before large structural changes.
 
 ## Current state
 
-Forge 33 is the live pass: a ready ASCEND or DAILY now lights from inside the
-plate (accent wash, 2 to 5px ring, 5% plate scale, 6% mark scale), the strike
-payout floats from the cursor at 22px, and the crit lands on the blade stage in
-a box measured to fit its 46px type. See `incremental/build-log-forge-33.md`.
-The save is place version 326.
+Forge 34 is the live pass: a currency unit is a mark, not a word, and the
+marks are the uploaded top-bar art. The Fleet rack has five spinning 38px hull
+previews and its buy keys read `BUILD 1` / `LOCKED` over an aether price or
+`110 DRONES REQUIRED`. The purge key is a red icon plate with the aether payout
+on its own line. `ForgeView` converts `InputObject.Position` to a Vector2,
+which restores the cursor payout, flash, sound and crit for a real mouse press.
+See `incremental/build-log-forge-34.md`. The save is place version 333.
+
+Forge 33 remains the feedback pass: a ready ASCEND or DAILY lights from inside
+the plate (accent wash, 2 to 5px ring, 5% plate scale, 6% mark scale), the
+strike payout floats from the cursor at 22px, and the crit lands on the blade
+stage in a box measured to fit its 46px type. See
+`incremental/build-log-forge-33.md`.
 
 Forge 32 remains the page refactor: fleet, runes and tech are full-bleed pages
 instead of two-column row stacks. Fleet is a hangar (hull stage, five-row rack,

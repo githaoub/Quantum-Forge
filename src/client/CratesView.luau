@@ -118,7 +118,8 @@ local railPlate: Frame? = nil
 local hero: Frame? = nil
 
 local railRows: { [string]: TextButton } = {}
-local railPrices: { [string]: TextLabel } = {}
+local railPrices: { [string]: UiKit.CurrencyRow } = {}
+local railGates: { [string]: TextLabel } = {}
 local railTracks: { [string]: Frame } = {}
 local railFills: { [string]: Frame } = {}
 local selected = "standard"
@@ -533,19 +534,23 @@ local function paintRail()
 			end
 
 			local price = railPrices[crate.id]
-			if price then
+			local gate = railGates[crate.id]
+			if price and gate then
 				if unlocked then
+					price.root.Visible = true
+					gate.Visible = false
 					local q = quote(crate.id)
-					price.Text = string.format("%s SM", if q then NumberUtil.abbreviate(q.one) else "--")
-					price.TextColor3 = Theme.Color.textSecondary
+					price.set(if q then NumberUtil.abbreviate(q.one) else "--", Theme.Color.textSecondary)
 				else
+					price.root.Visible = false
+					gate.Visible = true
 					local pct = if crate.unlock <= 0 then 1 else math.clamp(runSm / crate.unlock, 0, 1)
 					-- The widened unlock gates make single-digit percentages common,
 					-- and `floor` printed a dead `0% TO OPEN` for the first few
 					-- thousand Star-Matter. Say `<1%` until there is a whole point
 					-- to show, so a locked crate still reads as progress.
-					price.Text = if pct < 0.01 then "<1% TO OPEN" else string.format("%d%% TO OPEN", math.floor(pct * 100))
-					price.TextColor3 = Theme.Color.locked
+					gate.Text = if pct < 0.01 then "<1% TO OPEN" else string.format("%d%% TO OPEN", math.floor(pct * 100))
+					gate.TextColor3 = Theme.Color.locked
 				end
 			end
 
@@ -776,7 +781,7 @@ end
 local function paintKey(
 	button: TextButton?,
 	face: TextLabel?,
-	cost: TextLabel?,
+	cost: UiKit.CurrencyRow?,
 	ready: boolean,
 	locked: boolean,
 	label: string,
@@ -799,9 +804,10 @@ local function paintKey(
 		face.TextTransparency = if ready then 0 else 0.25
 	end
 	if cost then
-		cost.Text = if price then string.format("%s SM", NumberUtil.abbreviate(price)) else "--"
-		cost.TextColor3 = if ready then ink else Theme.Color.locked
-		cost.TextTransparency = if ready then 0 else 0.3
+		cost.root.Visible = price ~= nil
+		if price then
+			cost.set(NumberUtil.abbreviate(price), if ready then ink else Theme.Color.locked)
+		end
 	end
 end
 
@@ -827,7 +833,7 @@ local function paintNote(q: Types.CrateQuote?)
 		return
 	end
 	if state.sm < q.one then
-		label.Text = string.format("Needs %s more Star-Matter for a single roll.", NumberUtil.abbreviate(q.one - state.sm))
+		label.Text = string.format("Needs %s more for a single roll.", NumberUtil.abbreviate(q.one - state.sm))
 		label.TextColor3 = Theme.Color.warn
 		return
 	end
@@ -1278,7 +1284,7 @@ function CratesView.roll(count: number?)
 	if state.sm < price then
 		Sfx.error()
 		if noteLabel then
-			noteLabel.Text = string.format("Needs %s Star-Matter.", NumberUtil.abbreviate(price))
+			noteLabel.Text = string.format("Needs %s more.", NumberUtil.abbreviate(price))
 			noteLabel.TextColor3 = Theme.Color.red
 		end
 		return false
@@ -1422,16 +1428,36 @@ local function buildRail(parent: Frame)
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		name.ZIndex = 3
 
-		local price = UiKit.label(row, {
+		-- The price is a mark and a number. "SM" was a fourth spelling of a
+		-- currency the bar already draws, and the mark is what the rail reads
+		-- at a glance.
+		local price = UiKit.currencyRow(row, {
+			kind = "sm",
 			text = "--",
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
+			color = Theme.Color.textSecondary,
+			height = 16,
+			gap = 3,
+		})
+		price.root.Position = UDim2.fromOffset(66, 40)
+		price.root.ZIndex = 3
+		railPrices[crate.id] = price
+
+		-- Locked pools trade the price for a progress line; both live in the
+		-- same slot so a crate unlocking never moves the row.
+		local gate = UiKit.label(row, {
+			text = "0% TO OPEN",
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
-			color = Theme.Color.textSecondary,
+			color = Theme.Color.locked,
 		})
-		price.Position = UDim2.fromOffset(66, 40)
-		price.Size = UDim2.fromOffset(RAIL_W - 92, 16)
-		price.ZIndex = 3
-		railPrices[crate.id] = price
+		gate.Name = "Gate"
+		gate.Position = UDim2.fromOffset(66, 40)
+		gate.Size = UDim2.fromOffset(RAIL_W - 92, 16)
+		gate.ZIndex = 3
+		gate.Visible = false
+		railGates[crate.id] = gate
 
 		local track = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.strokeFaint,
@@ -2042,7 +2068,7 @@ end
 --- One roll key. `primary` gets the saturated fill and the heavy outline; the
 --- secondary key is a quiet plate beside it. Two equally loud keys made the page
 --- ask "which one is the real button" on every visit.
-local function buildKey(parent: Frame, name: string, x: number, w: number, accent: Color3, primary: boolean): (TextButton, TextLabel, TextLabel)
+local function buildKey(parent: Frame, name: string, x: number, w: number, accent: Color3, primary: boolean): (TextButton, TextLabel, UiKit.CurrencyRow)
 	local fill = if primary then accent else Theme.Color.panelRaised
 	local button = UiKit.create("TextButton", {
 		Name = name,
@@ -2068,16 +2094,24 @@ local function buildKey(parent: Frame, name: string, x: number, w: number, accen
 	face.Size = UDim2.new(1, 0, 0, 22)
 	face.ZIndex = 2
 
-	local cost = UiKit.label(button, {
-		text = "--",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
+	-- The price line is a mark and a number, same as the rail. The mark is
+	-- white on the primary key so it survives both the accent fill and the
+	-- slate lock state without being repainted on every sync.
+	local cost = UiKit.currencyRow(button, {
+		kind = "sm",
+		text = "",
+		iconSize = 16,
+		textSize = Theme.Text.Tiny,
 		color = if primary then Theme.onColor(fill) else Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Center,
+		iconColor = if primary then Theme.Color.white else Theme.Color.starMatter,
+		height = 16,
+		gap = 3,
 	})
-	cost.Position = UDim2.fromOffset(0, 36)
-	cost.Size = UDim2.new(1, 0, 0, 16)
-	cost.ZIndex = 2
+	cost.root.Name = "Cost"
+	cost.root.AnchorPoint = Vector2.new(0.5, 0)
+	cost.root.Position = UDim2.new(0.5, 0, 0, 36)
+	cost.root.ZIndex = 2
+	cost.root.Visible = false
 
 	local hoverBase: Color3? = nil
 	UiKit.track(button, button.MouseEnter:Connect(function()
@@ -2435,6 +2469,7 @@ function CratesView.destroy()
 	end
 	table.clear(railRows)
 	table.clear(railPrices)
+	table.clear(railGates)
 	table.clear(railTracks)
 	table.clear(railFills)
 	table.clear(pityTicks)

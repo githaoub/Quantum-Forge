@@ -78,7 +78,7 @@ type Branch = {
 
 local root: Frame? = nil
 local scroll: ScrollingFrame? = nil
-local headerDetail: TextLabel? = nil
+local headerDetailRow: UiKit.CurrencyRow? = nil
 local balance: TextLabel? = nil
 local balanceNext: TextLabel? = nil
 local featPanel: FeatPanel? = nil
@@ -137,14 +137,19 @@ local function buildPage(canvas: Frame, x: number, y: number, width: number, hei
 	local header = UiKit.header(body, {
 		eyebrow = "PERMANENT  /  PRESTIGE",
 		title = "TECH TREE",
-		detail = "0 CORES",
 		height = HEADER_H,
 	})
 	header.Name = "TechHeader"
-	local detail = header:FindFirstChild("Detail")
-	if detail and detail:IsA("TextLabel") then
-		headerDetail = detail
-	end
+	headerDetailRow = UiKit.currencyRow(header, {
+		kind = "cores",
+		text = "0",
+		iconSize = 16,
+		textSize = Theme.Text.Small,
+		color = Theme.Color.textSecondary,
+		height = 18,
+	})
+	headerDetailRow.root.AnchorPoint = Vector2.new(1, 0)
+	headerDetailRow.root.Position = UDim2.new(1, -2, 0, 18)
 
 	local box = UiKit.scroll(body, { thickness = 6, transparency = 0.2 })
 	box.Name = "TechBody"
@@ -172,7 +177,7 @@ local function buildBalance(parent: Frame, y: number)
 	card.Position = UDim2.fromOffset(0, y)
 	card.Size = UDim2.new(1, 0, 0, 150)
 
-	local cap = UiKit.eyebrow(card, "CORE RESERVE")
+	local cap = UiKit.eyebrow(card, "RESERVE")
 	cap.Position = UDim2.fromOffset(14, 10)
 
 	balance = UiKit.label(card, {
@@ -188,7 +193,7 @@ local function buildBalance(parent: Frame, y: number)
 	rule.Size = UDim2.new(1, -28, 0, 1)
 
 	local note = UiKit.label(card, {
-		text = "Cores come from THE ASCENT only. Every level below is permanent.",
+		text = "They come from THE ASCENT only. Every level below is permanent.",
 		size = Theme.Text.Tiny,
 		color = Theme.Color.textSecondary,
 		wrap = true,
@@ -654,7 +659,7 @@ local function buildNotes(parent: Frame)
 	card.Size = UDim2.new(1, 0, 0, NOTES_H)
 
 	local head = UiKit.label(card, {
-		text = "HOW CORES WORK",
+		text = "HOW THEY WORK",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.quantum,
@@ -664,7 +669,7 @@ local function buildNotes(parent: Frame)
 
 	local facts = {
 		"Every level on this page survives THE ASCENT. Nothing here resets.",
-		"Cores come from an ascent, not from Aether. Spend them before the next run.",
+		"They come from an ascent, not from venting. Spend them before the next run.",
 		"A maxed node keeps its bonus and its pips, so a full lane is a finished promise.",
 	}
 	for index, fact in facts do
@@ -821,8 +826,8 @@ end
 -- ---------------------------------------------------------------------------
 
 function TechTreeView.render(payload: Types.SyncPayload)
-	if headerDetail then
-		headerDetail.Text = string.format("%s CORES", NumberUtil.abbreviate(payload.qc))
+	if headerDetailRow then
+		headerDetailRow.set(NumberUtil.abbreviate(payload.qc))
 	end
 	if balance then
 		balance.Text = NumberUtil.abbreviate(payload.qc)
@@ -939,7 +944,7 @@ function TechTreeView.destroy()
 		root = nil
 	end
 	scroll = nil
-	headerDetail = nil
+	headerDetailRow = nil
 	balance = nil
 	balanceNext = nil
 	featPanel = nil

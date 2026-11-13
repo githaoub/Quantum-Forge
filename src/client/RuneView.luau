@@ -240,7 +240,7 @@ local function buildBay(parent: Frame)
 		{ key = "click", label = "STRIKE YIELD", color = Theme.Color.starMatter },
 		{ key = "cool", label = "HEAT COOLING", color = Theme.Color.cyan },
 		{ key = "crit", label = "CRIT CHANCE", color = Theme.Color.gold },
-		{ key = "vent", label = "VENT AETHER", color = Theme.Color.aether },
+		{ key = "vent", label = "PURGE YIELD", color = Theme.Color.aether },
 	}
 	for index, cell in cells do
 		local column = (index - 1) % 2

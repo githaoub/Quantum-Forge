@@ -20,6 +20,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local Theme = require(script.Parent.Theme)
 local Layout = require(script.Parent.Layout)
 local UiKit = require(script.Parent.UiKit)
+local Icons = require(script.Parent.Icons)
 local ModalShell = require(script.Parent.ModalShell)
 local StateStore = require(script.Parent.StateStore)
 local Sfx = require(script.Parent.Sfx)
@@ -55,19 +56,21 @@ end
 -- Painting
 -- ---------------------------------------------------------------------------
 
-local function rewardLines(reward: Config.DailyReward): { { text: string, color: Color3 } }
+type RewardLine = { key: string?, text: string, color: Color3 }
+
+local function rewardLines(reward: Config.DailyReward): { RewardLine }
 	-- The Aether figure is already the headline under the day number, so the row
-	-- list starts at the toppings. Repeating the Aether figure under the headline
-	-- was the same fact three times in 60 pixels.
-	local lines = {}
+	-- list starts at the toppings. A currency line carries its mark, never its
+	-- name: the icon is the unit.
+	local lines: { RewardLine } = {}
 	if (reward.scrap or 0) > 0 then
 		table.insert(lines, { text = string.format("+%s SCRAP", NumberUtil.compact(reward.scrap)), color = Theme.Color.textSecondary })
 	end
 	if (reward.starMatter or 0) > 0 then
-		table.insert(lines, { text = string.format("+%s SM", NumberUtil.compact(reward.starMatter)), color = Theme.Color.starMatter })
+		table.insert(lines, { key = "sm", text = string.format("+%s", NumberUtil.compact(reward.starMatter)), color = Theme.Color.starMatter })
 	end
 	if (reward.cores or 0) > 0 then
-		table.insert(lines, { text = string.format("+%d CORES", reward.cores), color = Theme.Color.quantum })
+		table.insert(lines, { key = "qc", text = string.format("+%d", reward.cores), color = Theme.Color.quantum })
 	end
 	return lines
 end
@@ -141,7 +144,7 @@ local function paint()
 			noteLabel.Text = "The clock resets 24 hours after your last claim. Miss 48 and the streak starts over."
 			noteLabel.TextColor3 = Theme.Color.textSecondary
 		elseif state then
-			noteLabel.Text = "Back tomorrow for the next card. Day seven pays Quantum Cores."
+			noteLabel.Text = "Back tomorrow for the next card. Day seven pays the biggest drop of the week."
 			noteLabel.TextColor3 = Theme.Color.textFaint
 		end
 	end
@@ -243,15 +246,21 @@ function DailyView.init(canvas: Frame)
 		aether.Position = UDim2.fromOffset(0, 40)
 		aether.Size = UDim2.new(1, 0, 0, 48)
 
-		local unit = UiKit.label(card, {
-			text = "AETHER",
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Heading,
-			color = Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Center,
-		})
-		unit.Position = UDim2.fromOffset(0, 86)
-		unit.Size = UDim2.new(1, 0, 0, 16)
+		-- The mark is the unit now. "AETHER" under the number was the same fact a
+		-- third time, and the icon is the one the player already reads in the bar.
+		local unit = UiKit.create("Frame", {
+			Name = "Unit",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 86),
+			Size = UDim2.fromOffset(18, 18),
+			ZIndex = 2,
+		}) :: Frame
+		unit.Parent = card
+		local mark = Icons.currency(unit, "as", 18)
+		mark.AnchorPoint = Vector2.new(0.5, 0.5)
+		mark.Position = UDim2.fromScale(0.5, 0.5)
 
 		local rule = UiKit.create("Frame", {
 			BackgroundColor3 = Theme.Color.strokeFaint,
@@ -264,15 +273,29 @@ function DailyView.init(canvas: Frame)
 
 		local lines = rewardLines(reward)
 		for lineIndex, line in lines do
-			local extra = UiKit.label(card, {
-				text = line.text,
-				size = Theme.Text.Tiny,
-				font = Theme.Font.Numeric,
-				color = line.color,
-				align = Enum.TextXAlignment.Center,
-			})
-			extra.Position = UDim2.fromOffset(0, 120 + (lineIndex - 1) * 22)
-			extra.Size = UDim2.new(1, 0, 0, 18)
+			local y = 120 + (lineIndex - 1) * 22
+			if line.key then
+				local row = UiKit.currencyRow(card, {
+					kind = line.key,
+					text = line.text,
+					iconSize = 16,
+					textSize = Theme.Text.Tiny,
+					color = line.color,
+					height = 18,
+				})
+				row.root.AnchorPoint = Vector2.new(0.5, 0)
+				row.root.Position = UDim2.new(0.5, 0, 0, y)
+			else
+				local extra = UiKit.label(card, {
+					text = line.text,
+					size = Theme.Text.Tiny,
+					font = Theme.Font.Numeric,
+					color = line.color,
+					align = Enum.TextXAlignment.Center,
+				})
+				extra.Position = UDim2.fromOffset(0, y)
+				extra.Size = UDim2.new(1, 0, 0, 18)
+			end
 		end
 
 		local state = UiKit.label(card, {

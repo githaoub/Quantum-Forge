@@ -5338,3 +5338,52 @@ A server crit of 1,234,567 captured `CRIT  +1.23M` at 46px in a 277x55 box with
 `TextFits` true, 33px horizontally from the blade centre and 3px vertically.
 `selene src` clean.
 
+## ADR-127 - A currency is a mark, not a word
+
+**Status.** Accepted, Forge 34.
+
+**Context.** The daily cards printed `+10K` as the Aether headline and then
+`AETHER` under it, `+250K SM` and `+3 CORES` below. The top bar already draws a
+star, a crystal and a core for those three wallets, so the card was teaching a
+second spelling of a fact the player had already learned. The Fleet buy keys had
+the opposite problem: a bare `LOCKED · 110` named no unit and no requirement, so
+the number read as a mystery rather than a gate.
+
+**Decision.**
+
+1. A unit is a mark. Prices and payouts use `UiKit.currencyRow`, which puts the
+   same icon the top bar uses next to the number. The currency name does not
+   appear on a label. The top bar counts are the one exception; they are the
+   legend the rest of the screen refers to.
+2. The mark is the uploaded art, not a lookalike. `Icons.currency` preloads the
+   top-bar PNG once per asset and lays it over the vector canvas, the same
+   arrangement `HudController` uses for its badges. The vector is the first
+   frame and the missing-upload fallback, so a CDN failure leaves a drawn star
+   instead of a hole.
+3. Inline marks are 16px design. Below that the PNG's detail collapses into a
+   coloured smudge; above it, the mark starts competing with the number.
+4. A gate states its unit. A locked hull reads `LOCKED` then
+   `110 DRONES REQUIRED`, never `LOCKED · 110`. The number is the registry's
+   real gate; the fix is the sentence, not the balance.
+5. Prose may name a currency. The handbook, the ascend confirmation and the
+   store blurbs explain what the marks mean, and an explainer has to name its
+   subject. The ban is on unit labels, not on the language.
+
+**Consequences.** Three thumbnails preload at boot; each later mark is an
+`ImageLabel` swap. A caller's `color` argument only tints the vector fallback
+once the art is resident, so the purge key's white mark becomes the blue
+crystal on red, which is the point. Mark and number share one automatic-width
+row, so a longer price grows leftward from the row's centre instead of pushing
+the number off the plate. The top bar remains the only place a player reads the
+word `AETHER`, and every other surface answers to the picture.
+
+**Verification.** Studio, 1212x576 game area, canvas 1686x720 at 0.719. The
+daily overlay held 5 currency rows and 18 mark canvases and no visible
+`SM`, `AETHER` or `CORES` label. A crate rail mark measured 16 design px and
+the uploaded star resolved (`ImageTransparency = 0`) in the same frame as the
+second row. The Fleet rack mounted five previews (27 to 99 parts) that advanced
+30.9° to 31.8° per 0.6s. Both buy keys read `LOCKED` over
+`110 DRONES REQUIRED`. The purge key's ready plate sampled `(176, 52, 52)` with
+a 3px `(255, 107, 107)` ring and a white 32px mark; the locked plate sampled
+slate with `REACH 85%`. `selene src` clean; `rojo build` success.
+

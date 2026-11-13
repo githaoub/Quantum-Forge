@@ -65,6 +65,7 @@ local nextGoal: NextGoal.Goal? = nil
 local profileHandle: ProfilePlate.Handle? = nil
 local ascendButton: TextButton? = nil
 local ascendLabel: TextLabel? = nil
+local ascendDetail: UiKit.CurrencyRow? = nil
 local ascendStroke: UIStroke? = nil
 local ascendScale: UIScale? = nil
 local ascendGlow: Frame? = nil
@@ -428,17 +429,35 @@ local function buildAscendButton(parent: Frame): TextButton
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.ZIndex = 2
 
+	-- The payout is a core mark and a number; the progress line is the same
+	-- number without the mark, because it is a distance to the threshold rather
+	-- than a reward. Two elements, one visible at a time.
+	ascendDetail = UiKit.currencyRow(button, {
+		kind = "cores",
+		text = "+0",
+		iconSize = 13,
+		textSize = Theme.Text.Tiny,
+		color = Theme.Color.text,
+		height = 14,
+		gap = 3,
+	})
+	ascendDetail.root.Name = "Detail"
+	ascendDetail.root.AnchorPoint = Vector2.new(0.5, 0)
+	ascendDetail.root.Position = UDim2.new(0.5, 0, 0, if Layout.COMPACT then 64 else 45)
+	ascendDetail.root.ZIndex = 2
+	ascendDetail.root.Visible = false
+
 	local detail = UiKit.label(button, {
-		text = "0 QC",
+		text = "↓ 0",
 		size = Theme.Text.Tiny,
 		color = Theme.Color.text,
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 43)
+	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 45)
 	detail.Size = UDim2.new(1, 0, 0, 14)
 	detail.ZIndex = 2
-	detail.Name = "Detail"
+	detail.Name = "DetailProgress"
 
 	ascendLabel = detail
 	ascendStroke = button:FindFirstChildOfClass("UIStroke")
@@ -499,7 +518,7 @@ local function buildDailyButton(parent: Frame): TextButton
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
-	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 43)
+	detail.Position = UDim2.fromOffset(0, if Layout.COMPACT then 64 else 45)
 	detail.Size = UDim2.new(1, 0, 0, 14)
 	detail.ZIndex = 2
 
@@ -1141,15 +1160,17 @@ function HudController.apply(state: Types.SyncPayload)
 	-- The detail line is 88px wide at 13px, so it carries one number and nothing
 	-- else. The old `(x3)` ascension suffix pushed `+398.33K QC (x3)` over the
 	-- key's edge and into the SETUP key beside it.
-	if ascendLabel then
+	if ascendLabel and ascendDetail then
 		local thresholdReached = state.sm >= Config.AscendThreshold
 		if thresholdReached then
 			local cores = math.floor((state.sm / Config.AscendThreshold) ^ Config.AscendExponent)
-			ascendLabel.Text = string.format("+%s QC", NumberUtil.abbreviate(cores))
-			ascendLabel.TextColor3 = Theme.Color.text
-			ascendLabel.TextTransparency = 0
+			ascendDetail.root.Visible = true
+			ascendLabel.Visible = false
+			ascendDetail.set(string.format("+%s", NumberUtil.abbreviate(cores)))
 		else
 			local remaining = Config.AscendThreshold - state.sm
+			ascendDetail.root.Visible = false
+			ascendLabel.Visible = true
 			ascendLabel.Text = string.format("↓ %s", NumberUtil.abbreviate(remaining))
 			ascendLabel.TextColor3 = Theme.Color.text
 			ascendLabel.TextTransparency = 0.3
@@ -1279,6 +1300,8 @@ function HudController.destroy()
 	ascendGlow = nil
 	ascendMarkScale = nil
 	ascendStroke = nil
+	ascendLabel = nil
+	ascendDetail = nil
 	dailyScale = nil
 	dailyGlow = nil
 	dailyMarkScale = nil

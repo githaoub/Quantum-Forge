@@ -17,11 +17,11 @@ local BladeRegistry = require(Shared:WaitForChild("BladeRegistry"))
 local ForgeConfig = require(Shared:WaitForChild("ForgeConfig"))
 local ModifierConfig = require(Shared:WaitForChild("ModifierConfig"))
 local Types = require(Shared:WaitForChild("Types"))
-local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 
 local Theme = require(script.Parent.Theme)
 local Layout = require(script.Parent.Layout)
 local UiKit = require(script.Parent.UiKit)
+local Icons = require(script.Parent.Icons)
 local StageBackdrop = require(script.Parent.StageBackdrop)
 local StateStore = require(script.Parent.StateStore)
 local BladePreview = require(script.Parent.BladePreview)
@@ -116,12 +116,13 @@ local lastOverdrive = 0
 -- player is already watching.
 local ventPill: TextButton? = nil
 local ventPillStroke: UIStroke? = nil
-local ventPillFill: Frame? = nil
-local ventPillLabel: TextLabel? = nil
+local ventPillIconLocked: Frame? = nil
+local ventPillIconReady: Frame? = nil
 local ventPillDetail: TextLabel? = nil
+local ventPayout: UiKit.CurrencyRow? = nil
 local ventReady = false
-local ventLabelText: string? = nil
 local ventDetailText: string? = nil
+local ventPayoutText: string? = nil
 
 -- Stage: the viewport itself is scale-punched on a hit. The colour wash that
 -- used to live on top of it is now a screen event in `Vfx`, so this frame only
@@ -542,9 +543,10 @@ local function buildHeat(parent: Frame)
 	-- Thermal vent key, bolted to the right end of the strip.
 	--
 	-- It has two jobs and they must not look alike. Below the threshold it is a
-	-- flat slate key that names the threshold; at 85% it turns into a solid
-	-- cyan plate carrying the payout. Same footprint, so the deck never shifts
-	-- and the player never has to hunt for it in a new place.
+	-- flat slate key with a grey vent mark and the threshold; at 85% it turns
+	-- red, the mark goes white and the aether payout sits under it. Same
+	-- footprint, so the deck never shifts and the player never has to hunt for
+	-- it in a new place.
 	local vent = UiKit.create("TextButton", {
 		Name = "VentStrip",
 		BackgroundColor3 = Theme.Color.slate,
@@ -561,38 +563,48 @@ local function buildHeat(parent: Frame)
 	vent.Parent = parent
 	ventPill = vent
 
-	ventPillFill = UiKit.create("Frame", {
-		BackgroundColor3 = Theme.Color.actionCyan,
-		BackgroundTransparency = 0,
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(1, 1),
-		Visible = false,
-		ZIndex = 1,
-	}) :: Frame
-	UiKit.corner(ventPillFill, Theme.Radius.md)
-	ventPillFill.Parent = vent
+	-- The mark replaces the old two-word label. Steam rising out of a tray is
+	-- the action; a second anvil would have read as "forge", and "PURGE HEAT"
+	-- left no room for the payout on a 64px key.
+	ventPillIconLocked = Icons.build(vent, "vent", 32, Theme.Color.locked)
+	ventPillIconLocked.Name = "VentMarkLocked"
+	ventPillIconLocked.AnchorPoint = Vector2.new(0.5, 0.5)
+	ventPillIconLocked.Position = UDim2.new(0.5, 0, 0, 32)
+	ventPillIconLocked.ZIndex = 3
 
-	ventPillLabel = UiKit.label(vent, {
-		text = "VENT",
+	ventPillIconReady = Icons.build(vent, "vent", 32, Theme.Color.white)
+	ventPillIconReady.Name = "VentMarkReady"
+	ventPillIconReady.AnchorPoint = Vector2.new(0.5, 0.5)
+	ventPillIconReady.Position = UDim2.new(0.5, 0, 0, 32)
+	ventPillIconReady.ZIndex = 3
+	ventPillIconReady.Visible = false
+
+	-- The payout is an icon and a number, never "+7 AETHER". It owns its own
+	-- line under the mark, so the mark and the number cannot collide.
+	ventPayout = UiKit.currencyRow(vent, {
+		kind = "aether",
+		text = "+0",
+		iconSize = 16,
+		textSize = Theme.Text.Tiny,
+		color = Theme.Color.white,
+		height = 16,
+		gap = 4,
+	})
+	ventPayout.root.Name = "VentPayout"
+	ventPayout.root.AnchorPoint = Vector2.new(0.5, 0)
+	ventPayout.root.Position = UDim2.new(0.5, 0, 0, 52)
+	ventPayout.root.ZIndex = 3
+	ventPayout.root.Visible = false
+
+	ventPillDetail = UiKit.label(vent, {
+		text = string.format("REACH %d%%", Config.VentThreshold),
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.locked,
 		align = Enum.TextXAlignment.Center,
 	})
-	ventPillLabel.Position = UDim2.fromOffset(0, 12)
-	ventPillLabel.Size = UDim2.new(1, 0, 0, 16)
-	ventPillLabel.ZIndex = 3
-
-	ventPillDetail = UiKit.label(vent, {
-		text = string.format("%d%% TO UNLOCK", Config.VentThreshold),
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.locked,
-		align = Enum.TextXAlignment.Center,
-		wrap = true,
-	})
-	ventPillDetail.Position = UDim2.fromOffset(4, 30)
-	ventPillDetail.Size = UDim2.new(1, -8, 0, 32)
+	ventPillDetail.Position = UDim2.fromOffset(4, 52)
+	ventPillDetail.Size = UDim2.new(1, -8, 0, 16)
 	ventPillDetail.ZIndex = 3
 
 	vent.Activated:Connect(function()
@@ -645,19 +657,13 @@ local function buildHud(parent: Frame)
 	strikePlate.Parent = parent
 
 	-- The payout used to read "+25 SM". SM is an abbreviation the HUD never
-	-- teaches; the crystal is the same mark the top-bar pill uses, so the line
-	-- names the currency without a legend.
-	local strikeCurrency = UiKit.create("ImageLabel", {
-		Name = "StrikeCurrency",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 4),
-		Size = UDim2.fromOffset(16, 16),
-		Image = AssetManifest.currencyArt("sm"),
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 7,
-	}) :: ImageLabel
-	strikeCurrency.Parent = strikePlate
+	-- teaches; the star is the same mark the top-bar pill uses, so the line
+	-- names the currency without a legend. Drawn, not an uploaded bitmap: the
+	-- row has to read before any CDN answer.
+	local strikeCurrency = Icons.currency(strikePlate, "sm", 16)
+	strikeCurrency.Name = "StrikeCurrency"
+	strikeCurrency.Position = UDim2.fromOffset(0, 4)
+	strikeCurrency.ZIndex = 7
 
 	strikeHint = UiKit.label(strikePlate, {
 		text = "",
@@ -759,7 +765,10 @@ local function buildHud(parent: Frame)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
 		then
-			ForgeView.strike(input.Position)
+			-- `InputObject.Position` is a Vector3; the strike layer works in
+			-- screen-space Vector2, and passing the raw vector crashed every
+			-- mouse press inside `Vfx.screenPoint`.
+			ForgeView.strike(Vector2.new(input.Position.X, input.Position.Y))
 		end
 	end)
 end
@@ -1244,72 +1253,56 @@ function ForgeView.render(payload: Types.SyncPayload)
 		strikeHint.TextColor3 = if payload.inSweetSpot then Theme.Color.heatSweet else Theme.Color.textFaint
 	end
 	-- Thermal vent key, on the right end of the heat rail. Two states, never
-	-- ambiguous: a flat slate key that names the gap while locked, and a solid
-	-- saturated plate carrying the payout once the threshold is crossed.
+	-- ambiguous: a flat slate key with a grey mark and the threshold while
+	-- locked, and a red plate with a white mark and the aether payout once the
+	-- threshold is crossed.
 	local canVent = heat >= Config.VentThreshold
-	-- Cyan means "dump heat now"; molten orange means "you burned out, purge".
-	-- Solid fills only: at 132x34 a multi-stop gradient reads as mud, and the
-	-- old cyan-to-gold ramp turned the payout line brown at the midpoint.
-	local ventAccent = Theme.Color.actionCyan
-	local ventInk = Color3.fromRGB(11, 14, 20)
 
 	if ventReady ~= canVent then
 		ventReady = canVent
-		if ventPillFill then
-			ventPillFill.Visible = canVent
+		if ventPillIconLocked then
+			ventPillIconLocked.Visible = not canVent
+		end
+		if ventPillIconReady then
+			ventPillIconReady.Visible = canVent
+		end
+		if ventPayout then
+			ventPayout.root.Visible = canVent
+		end
+		if ventPillDetail then
+			ventPillDetail.Visible = not canVent
 		end
 	end
 
 	if ventPill then
-		ventPill.BackgroundColor3 = if canVent then ventAccent else Theme.Color.slate
+		-- Red is the only plate in the console that says "dump this now". It also
+		-- makes the blue aether mark on the payout line impossible to miss.
+		ventPill.BackgroundColor3 = if canVent then Theme.Color.redDeep else Theme.Color.slate
 		ventPill.BackgroundTransparency = 0
 	end
-	if ventPillFill and canVent then
-		ventPillFill.BackgroundColor3 = ventAccent
-	end
 	if ventPillStroke then
-		ventPillStroke.Color = if canVent then ventInk else Theme.Color.outline
+		ventPillStroke.Color = if canVent then Theme.Color.red else Theme.Color.outline
 		-- Thick enough to hold the plate off the dark panel behind it, thin
 		-- enough that the fill stays the loudest thing on the row.
-		ventPillStroke.Thickness = if canVent then 2.5 else Theme.Stroke.thick
+		ventPillStroke.Thickness = if canVent then 3 else Theme.Stroke.thick
 		ventPillStroke.Transparency = 0
 	end
 
-	local labelText: string
-	local detailText: string
 	if canVent then
 		-- Lower bound: tech multipliers are applied server-side, so the payout is
 		-- never less than this.
 		local payout = math.floor(heat * Config.AetherPerHeat)
-		-- No emoji. A bolt glyph renders as a grey tofu box wherever the emoji
-		-- font is missing, and it ate a fifth of the key.
-		labelText = "PURGE HEAT"
-		detailText = string.format("+%s AETHER", NumberUtil.abbreviate(payout))
+		local text = string.format("+%s", NumberUtil.abbreviate(payout))
+		if ventPayout and text ~= ventPayoutText then
+			ventPayoutText = text
+			ventPayout.set(text)
+		end
 	else
-		labelText = "PURGE"
-		detailText = string.format("REACH %d%%", Config.VentThreshold)
-	end
-
-	if ventPillLabel and labelText ~= ventLabelText then
-		ventLabelText = labelText
-		ventPillLabel.Text = labelText
-	end
-	if ventPillDetail and detailText ~= ventDetailText then
-		ventDetailText = detailText
-		ventPillDetail.Text = detailText
-	end
-	-- Pure white on the plate, with a near-black outline so the type survives
-	-- both the cyan and the orange without changing colour between states.
-	if ventPillLabel then
-		ventPillLabel.TextColor3 = if canVent then Theme.Color.white else Theme.Color.locked
-		ventPillLabel.TextStrokeColor3 = ventInk
-		ventPillLabel.TextStrokeTransparency = if canVent then 0 else 1
-	end
-	if ventPillDetail then
-		ventPillDetail.TextColor3 = if canVent then Theme.Color.white else Theme.Color.locked
-		ventPillDetail.TextStrokeColor3 = ventInk
-		ventPillDetail.TextStrokeTransparency = if canVent then 0.15 else 1
-		ventPillDetail.TextTransparency = if canVent then 0 else 0.35
+		local text = string.format("REACH %d%%", Config.VentThreshold)
+		if ventPillDetail and text ~= ventDetailText then
+			ventDetailText = text
+			ventPillDetail.Text = text
+		end
 	end
 
 	-- Streak rail. Ten clean strikes open a fifteen-second window where every hit
@@ -1692,9 +1685,6 @@ function ForgeView.step(dt: number)
 	if ventReady and ventPillStroke then
 		local breathe = 0.5 + 0.5 * math.sin(comboTimer * 5.4)
 		ventPillStroke.Transparency = breathe * 0.12
-		if ventPillFill then
-			ventPillFill.BackgroundTransparency = breathe * 0.03
-		end
 	end
 
 	if comboChip == nil then
@@ -1911,11 +1901,17 @@ function ForgeView.init(canvas: Frame, x: number, y: number, width: number, heig
 		ventPill.AnchorPoint = Vector2.zero
 		ventPill.Position = UDim2.new(0, 10, 1, -106)
 		ventPill.Size = UDim2.new(1, -20, 0, 88)
-		if ventPillLabel then
-			ventPillLabel.Position = UDim2.fromOffset(0, 20)
+		if ventPillIconLocked then
+			ventPillIconLocked.Position = UDim2.new(0.5, 0, 0, 32)
+		end
+		if ventPillIconReady then
+			ventPillIconReady.Position = UDim2.new(0.5, 0, 0, 32)
+		end
+		if ventPayout then
+			ventPayout.root.Position = UDim2.new(0.5, 0, 0, 52)
 		end
 		if ventPillDetail then
-			ventPillDetail.Position = UDim2.fromOffset(4, 42)
+			ventPillDetail.Position = UDim2.fromOffset(4, 52)
 		end
 	end
 
@@ -1931,8 +1927,8 @@ function ForgeView.init(canvas: Frame, x: number, y: number, width: number, heig
 	currentBladeId = nil
 	unlocked = false
 	ventReady = false
-	ventLabelText = nil
 	ventDetailText = nil
+	ventPayoutText = nil
 	rolling = false
 	rollToken += 1
 	pendingRoll = nil
@@ -2002,9 +1998,10 @@ function ForgeView.destroy()
 	viewportScale = nil
 	ventPillStroke = nil
 	ventPill = nil
-	ventPillFill = nil
-	ventPillLabel = nil
+	ventPillIconLocked = nil
+	ventPillIconReady = nil
 	ventPillDetail = nil
+	ventPayout = nil
 	rollButton = nil
 	rollCostLabel = nil
 	rollFooter = nil

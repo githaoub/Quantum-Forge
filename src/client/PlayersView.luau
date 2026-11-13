@@ -25,6 +25,7 @@ local TechTreeConfig = require(Shared:WaitForChild("TechTreeConfig"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
+local Icons = require(script.Parent.Icons)
 local ModalShell = require(script.Parent.ModalShell)
 local BladePreview = require(script.Parent.BladePreview)
 local StateStore = require(script.Parent.StateStore)
@@ -130,16 +131,34 @@ local function sectionTitle(parent: Instance, x: number, y: number, text: string
 	return label
 end
 
-local function statCell(parent: Frame, x: number, y: number, label: string, value: string, accent: Color3)
-	local caption = UiKit.label(parent, {
-		text = label,
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Black,
-		color = Theme.Color.textFaint,
-		align = Enum.TextXAlignment.Left,
-	})
-	caption.Position = UDim2.fromOffset(x, y)
-	caption.Size = UDim2.fromOffset(150, 15)
+local function statCell(parent: Frame, x: number, y: number, label: string?, value: string, accent: Color3, kind: string?)
+	if label ~= nil then
+		local caption = UiKit.label(parent, {
+			text = label,
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = Theme.Color.textFaint,
+			align = Enum.TextXAlignment.Left,
+		})
+		caption.Position = UDim2.fromOffset(x, y)
+		caption.Size = UDim2.fromOffset(150, 15)
+	end
+	if kind then
+		-- The three wallet cells carry the same mark as the top bar instead of
+		-- a caption. The icon sits in a holder so its 24px canvas scales about
+		-- the cell's corner rather than overflowing it.
+		local holder = UiKit.create("Frame", {
+			Name = "Mark",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(16, 16),
+		}) :: Frame
+		holder.Parent = parent
+		local mark = Icons.currency(holder, kind, 16, accent)
+		mark.AnchorPoint = Vector2.new(0.5, 0.5)
+		mark.Position = UDim2.fromScale(0.5, 0.5)
+	end
 
 	local figure = UiKit.label(parent, {
 		text = value,
@@ -148,9 +167,9 @@ local function statCell(parent: Frame, x: number, y: number, label: string, valu
 		color = accent,
 		align = Enum.TextXAlignment.Left,
 	})
-	figure.Position = UDim2.fromOffset(x, y + 17)
+	figure.Position = UDim2.fromOffset(x, y + 19)
 	figure.Size = UDim2.fromOffset(156, 23)
-	figure.Name = label
+	figure.Name = label or string.format("Currency_%s", kind or "value")
 end
 
 --- A quiet chip for a rune or a tech node. The name is the information; the tint
@@ -251,16 +270,17 @@ local function paintList()
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		name.ZIndex = 3
 
-		local score = UiKit.label(row, {
-			text = string.format("%s SM", NumberUtil.compact(tonumber(entry.lifetimeSm) or 0)),
-			size = Theme.Text.Tiny,
-			font = Theme.Font.Numeric,
+		local score = UiKit.currencyRow(row, {
+			kind = "sm",
+			text = NumberUtil.compact(tonumber(entry.lifetimeSm) or 0),
+			iconSize = 16,
+			textSize = Theme.Text.Tiny,
 			color = if selected then Theme.Color.cyan else Theme.Color.textFaint,
-			align = Enum.TextXAlignment.Left,
+			height = 17,
+			gap = 3,
 		})
-		score.Position = UDim2.fromOffset(56, 30)
-		score.Size = UDim2.new(1, -112, 0, 17)
-		score.ZIndex = 3
+		score.root.Position = UDim2.fromOffset(56, 30)
+		score.root.ZIndex = 3
 
 		if you then
 			local tag = UiKit.badge(row, {
@@ -699,13 +719,13 @@ local function paintDetail(data: any)
 	}) :: Frame
 	stats.Parent = host
 
-	local function cell(column: number, row: number, label: string, value: string, colour: Color3)
-		statCell(stats, column * 164, row * 55, label, value, colour)
+	local function cell(column: number, row: number, label: string?, value: string, colour: Color3, kind: string?)
+		statCell(stats, column * 164, row * 55, label, value, colour, kind)
 	end
-	cell(0, 0, "STAR-MATTER", NumberUtil.compact(tonumber(data.sm) or 0), Theme.Color.starMatter)
+	cell(0, 0, nil, NumberUtil.compact(tonumber(data.sm) or 0), Theme.Color.starMatter, "sm")
 	cell(1, 0, "LIFETIME", NumberUtil.compact(tonumber(data.lifetimeSm) or 0), Theme.Color.gold)
-	cell(2, 0, "AETHER", NumberUtil.compact(tonumber(data.aether) or 0), Theme.Color.aether)
-	cell(0, 1, "CORES", NumberUtil.compact(tonumber(data.cores) or 0), Theme.Color.quantum)
+	cell(2, 0, nil, NumberUtil.compact(tonumber(data.aether) or 0), Theme.Color.aether, "as")
+	cell(0, 1, nil, NumberUtil.compact(tonumber(data.cores) or 0), Theme.Color.quantum, "qc")
 	cell(1, 1, "SHARDS", NumberUtil.compact(tonumber(data.shards) or 0), Theme.Color.magenta)
 	cell(2, 1, "SCRAP", NumberUtil.compact(tonumber(data.scrap) or 0), Theme.Color.textSecondary)
 	cell(0, 2, "DRONES", NumberUtil.compact(tonumber(data.drones) or 0), Theme.Color.cyan)
