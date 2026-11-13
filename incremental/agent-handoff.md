@@ -31,11 +31,17 @@ checkpoint before large structural changes.
 
 ## Current state
 
-Forge 31 is the live pass: `Main.client` finally calls `TradeView.step`, so a
-real two-player session leaves the idle page and paints both offers. A 4:3
-tablet now grows the canvas height instead of letterboxing, the phone top bar
-switches to 84px keys, and the drone lesson points at PURGE until the first
-drone is affordable. See `incremental/build-log-forge-31.md`.
+Forge 32 is the live pass: fleet, runes and tech are full-bleed pages instead
+of two-column row stacks. Fleet is a hangar (hull stage, five-row rack, service
+deck), runes is a bay and a 2x2 card shelf, and tech is three lanes with spines
+and a core/feat sidebar. The top bar now repaints every key when the compact
+line changes, button faces truncate, and the focus ring restores the stroke it
+found instead of a fixed 2px. See `incremental/build-log-forge-32.md`.
+
+Forge 31 remains the behind-the-scenes pass: `Main.client` calls
+`TradeView.step`, a 4:3 tablet grows the canvas height instead of letterboxing,
+the phone top bar switches to 84px keys, and the drone lesson points at PURGE
+until the first drone is affordable. See `incremental/build-log-forge-31.md`.
 
 Forge 30 (ADR-124) remains the visual pass: `VIEW` opens the full player card,
 the trade desk takes Aether and shows every owned copy, badge art waits behind
@@ -45,6 +51,9 @@ actionable.
 
 Known gaps, unchanged:
 
+- No human visual pass on the Forge 32 pages yet. Geometry and text fit were
+  measured in Studio; the composition has not been judged on a real screen.
+- A gamepad selection pass. The focus restore is code-verified only.
 - DataStore writes return 401 here; the profile runs MOCK, so nothing persists
   across sessions and the first-join cards repeat on every Studio play.
 - A two-client trade reproduced `NO TRADE OPEN` before the polling fix. The

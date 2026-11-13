@@ -611,11 +611,14 @@ function UiKit.button(parent: Instance, opts: ButtonOpts): TextButton
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
+		ClipsDescendants = true,
 		Text = o.text or "",
 		TextColor3 = faceColor,
 		TextSize = o.size or Theme.Text.Body,
 		Font = o.font or Theme.Font.Heading,
 		TextStrokeTransparency = 1,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextWrapped = false,
 		LayoutOrder = o.layoutOrder or 0,
 		Size = UDim2.new(1, 0, 0, o.height or 44),
 	}) :: TextButton
@@ -707,6 +710,7 @@ function UiKit.actionButton(parent: Instance, opts: {
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
+		ClipsDescendants = true,
 		Text = "",
 		Size = UDim2.new(1, 0, 0, height),
 	}) :: TextButton
@@ -722,7 +726,12 @@ function UiKit.actionButton(parent: Instance, opts: {
 		stroke = faceStroke,
 	})
 	label.Name = "Face"
-	label.Size = UDim2.fromScale(1, 1)
+	-- Inset the face by 6px on each side. The glyphs then truncate with an
+	-- ellipsis inside the plate instead of running into the border, which is what
+	-- made a long "BUILD 1  ·  12.4M AETHER" spill on the tablet row.
+	label.Position = UDim2.fromOffset(6, 0)
+	label.Size = UDim2.new(1, -12, 1, 0)
+	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.ZIndex = 3
 
 	local function set(kind: ActionKind, text: string, nextAccent: Color3?)
@@ -886,19 +895,32 @@ end
 
 --- Makes gamepad and keyboard selection visible. Roblox's default selection box is
 --- easy to miss against this palette, so the focused control brightens its own
---- border instead of relying on platform chrome. `base*` is the resting state the
---- border returns to on selection lost.
+--- border instead of relying on platform chrome.
+---
+--- Whatever the border was before the focus arrives is what it returns to. The
+--- old version restored a fixed 2px, so a 1px card or a 3px hero kept the thick
+--- focus ring after the pointer or the gamepad pad moved on. That read as a
+--- highlight escaping the control. `baseColor`/`baseTransparency` are the
+--- fallback for a control that has never been focused while its stroke was
+--- touched by a render pass.
 function UiKit.focus(button: GuiButton, stroke: UIStroke, baseColor: Color3, baseTransparency: number)
+	local restColor = baseColor
+	local restThickness = stroke.Thickness
+	local restTransparency = baseTransparency
+
 	UiKit.track(button, button.SelectionGained:Connect(function()
+		restColor = stroke.Color
+		restThickness = stroke.Thickness
+		restTransparency = stroke.Transparency
 		stroke.Color = Theme.Color.white
 		stroke.Thickness = Theme.Stroke.bold
 		stroke.Transparency = 0
 	end))
 
 	UiKit.track(button, button.SelectionLost:Connect(function()
-		stroke.Color = baseColor
-		stroke.Thickness = Theme.Stroke.thick
-		stroke.Transparency = baseTransparency
+		stroke.Color = restColor
+		stroke.Thickness = restThickness
+		stroke.Transparency = restTransparency
 	end))
 end
 
@@ -1168,6 +1190,10 @@ function UiKit.screen(
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
+		-- The canvas is the app frame. A hover fill, a UIStroke or a pulse scale
+		-- on a control at the edge must die at this rectangle, never paint into
+		-- the wallpaper band beside it.
+		ClipsDescendants = true,
 		ZIndex = 1,
 	}) :: Frame
 	canvas.Parent = gui

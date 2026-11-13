@@ -74,6 +74,15 @@ local guideTextLabel: TextLabel? = nil
 local unsubscribe: (() -> ())? = nil
 local pulse = 0
 
+--- Chrome groups and keys. The top bar is built once, but a Studio play window
+--- (and a rotating phone) can cross the compact threshold after boot. Keeping
+--- the controls here lets `layout` recompute their size and mark positions for
+--- the new mode instead of leaving 84px phone keys inside a 76px bar.
+local leftGroup: Frame? = nil
+local actionGroup: Frame? = nil
+local keyButtons: { [string]: TextButton } = {}
+local chromeLayout: (() -> ())? = nil
+
 -- Four states for every number on this bar: loading (no payload yet), live,
 -- stale (payload exists but the server went quiet), and the populated value.
 -- Painting 0 before the first sync is a lie — 0 is a real balance a fresh player
@@ -305,6 +314,7 @@ local function buildPill(
 		color = Theme.Color.text,
 		stroke = true,
 	})
+	value.Name = "Value"
 	value.Position = UDim2.fromOffset(48, 8)
 	value.Size = UDim2.new(1, -56, 0, 26)
 
@@ -314,6 +324,7 @@ local function buildPill(
 		font = Theme.Font.Body,
 		color = accent,
 	})
+	sub.Name = "Sub"
 	sub.Position = UDim2.fromOffset(48, 34)
 	sub.Size = UDim2.new(1, -56, 0, 16)
 	if Layout.COMPACT then
@@ -360,6 +371,7 @@ local function buildAscendButton(parent: Frame): TextButton
 	-- buttons that happen to be next to a toolbar.
 	local markSize = if Layout.COMPACT then 28 else 20
 	local mark = Icons.build(button, "ascend", markSize, Theme.Color.gold)
+	mark.Name = "Mark"
 	mark.Position = UDim2.fromOffset((Layout.VERB_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
 
@@ -371,6 +383,7 @@ local function buildAscendButton(parent: Frame): TextButton
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
+	label.Name = "Verb"
 	label.Position = UDim2.fromOffset(0, if Layout.COMPACT then 44 else 26)
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.ZIndex = 2
@@ -419,6 +432,7 @@ local function buildDailyButton(parent: Frame): TextButton
 
 	local markSize = if Layout.COMPACT then 28 else 20
 	local mark = Icons.build(button, "daily", markSize, Theme.Color.emerald)
+	mark.Name = "Mark"
 	mark.Position = UDim2.fromOffset((Layout.DAILY_W - markSize) / 2, if Layout.COMPACT then 8 else 5)
 	mark.ZIndex = 2
 
@@ -430,6 +444,7 @@ local function buildDailyButton(parent: Frame): TextButton
 		align = Enum.TextXAlignment.Center,
 		stroke = true,
 	})
+	label.Name = "Verb"
 	label.Position = UDim2.fromOffset(0, if Layout.COMPACT then 44 else 26)
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.ZIndex = 2
@@ -479,6 +494,7 @@ local function buildKey(parent: Frame, opts: {
 
 	local iconSize = if Layout.COMPACT then 30 else 22
 	local icon = Icons.build(button, opts.icon, iconSize, opts.tint)
+	icon.Name = "Mark"
 	icon.Position = UDim2.fromOffset((Layout.KEY_W - iconSize) / 2, if Layout.COMPACT then 13 else 7)
 	icon.ZIndex = 2
 
@@ -494,6 +510,7 @@ local function buildKey(parent: Frame, opts: {
 	label.Size = UDim2.new(1, 0, 0, if Layout.COMPACT then 20 else 16)
 	label.ZIndex = 2
 
+	keyButtons[opts.name] = button
 	return button
 end
 
@@ -541,21 +558,130 @@ end
 -- Lifecycle
 -- ---------------------------------------------------------------------------
 
---- Re-places the bar and the rate readout after a window resize.
----
---- Nothing here rebuilds: the identity group is pinned left, the verbs are
---- pinned right and the pills sit in a list, so only the two roots have to move
---- when the canvas widens. The gap between the currencies and ASCEND absorbs the
---- difference, which is the whole point of pinning them apart.
-function HudController.layout()
-	if topBar then
-		topBar.Size = UDim2.fromOffset(Layout.BAR_W, Layout.TOPBAR_H)
-		topBar.Position = UDim2.fromOffset(Layout.BAR_X, Layout.TOPBAR_Y)
+--- Re-places one utility key. A key is a mark over a word, so both children
+--- move when the key changes width or when the row crosses the compact line.
+local function placeKey(button: TextButton, width: number, height: number, compact: boolean)
+	button.Size = UDim2.fromOffset(width, height)
+
+	local mark = button:FindFirstChild("Mark")
+	if mark and mark:IsA("GuiObject") then
+		local iconSize = if compact then 30 else 22
+		mark.Position = UDim2.fromOffset((width - iconSize) / 2, if compact then 13 else 7)
 	end
+
+	local face = button:FindFirstChild("Face")
+	if face and face:IsA("TextLabel") then
+		face.TextSize = if compact then Theme.Text.Micro else Theme.Text.Tiny
+		face.Position = UDim2.fromOffset(0, if compact then 52 else 34)
+		face.Size = UDim2.new(1, 0, 0, if compact then 20 else 16)
+	end
+end
+
+--- The two verb keys carry a mark, a word and a detail line. The detail line is
+--- the cost or the countdown, so it keeps its own row in both modes.
+local function placeVerb(button: TextButton, width: number, height: number, compact: boolean)
+	button.Size = UDim2.fromOffset(width, height)
+
+	local markSize = if compact then 28 else 20
+	local mark = button:FindFirstChild("Mark")
+	if mark and mark:IsA("GuiObject") then
+		mark.Position = UDim2.fromOffset((width - markSize) / 2, if compact then 8 else 5)
+	end
+
+	local verb = button:FindFirstChild("Verb")
+	if verb and verb:IsA("TextLabel") then
+		verb.TextSize = if compact then Theme.Text.Micro else Theme.Text.Small
+		verb.Position = UDim2.fromOffset(0, if compact then 44 else 26)
+		verb.Size = UDim2.new(1, 0, 0, 18)
+	end
+
+	local detail = button:FindFirstChild("Detail")
+	if detail and detail:IsA("TextLabel") then
+		detail.Position = UDim2.fromOffset(0, if compact then 64 else 43)
+		detail.Size = UDim2.new(1, 0, 0, 14)
+	end
+end
+
+--- One currency capsule. The compact row drops the caption and keeps the mark
+--- and the number, because three 148px capsules beside ten 84px phone keys do
+--- not fit an 800px screen.
+local function placePill(pill: Pill, width: number, compact: boolean)
+	pill.root.Size = UDim2.fromOffset(width, PILL_H)
+
+	local value = pill.root:FindFirstChild("Value")
+	local sub = pill.root:FindFirstChild("Sub")
+	if sub and sub:IsA("TextLabel") then
+		sub.Visible = not compact
+	end
+	if value and value:IsA("TextLabel") then
+		if compact then
+			value.Position = UDim2.fromOffset(44, 16)
+			value.Size = UDim2.new(1, -48, 0, 26)
+		else
+			value.Position = UDim2.fromOffset(48, 8)
+			value.Size = UDim2.new(1, -56, 0, 26)
+		end
+	end
+end
+
+--- Paints the whole chrome at the current `Layout` values. Runs at boot and on
+--- every resize, so a play window that starts phone-sized and grows to a tablet
+--- cannot leave the phone row behind.
+chromeLayout = function()
+	if topBar == nil then
+		return
+	end
+	local compact = Layout.COMPACT
+
+	topBar.Size = UDim2.fromOffset(Layout.BAR_W, Layout.TOPBAR_H)
+	topBar.Position = UDim2.fromOffset(Layout.BAR_X, Layout.TOPBAR_Y)
+
+	PLATE_W = if compact then 0 else 240
+	PILL_W = if compact then 104 else 148
+	LEFT_W = PLATE_W + Theme.Space.sm + PILL_W * 3 + Theme.Space.sm * 2
+
+	if leftGroup then
+		leftGroup.Size = UDim2.fromOffset(LEFT_W, Layout.TOPBAR_H)
+	end
+	if profileHandle then
+		profileHandle.root.Visible = not compact
+	end
+
+	for _, key in { "starMatter", "aether", "quantum" } do
+		local pill = pills[key]
+		if pill then
+			placePill(pill, PILL_W, compact)
+		end
+	end
+
+	if actionGroup then
+		actionGroup.Size = UDim2.fromOffset(Layout.RIGHT_CLUSTER, Layout.TOPBAR_H)
+	end
+	for _, button in keyButtons do
+		placeKey(button, Layout.KEY_W, Layout.KEY_H, compact)
+	end
+	if ascendButton then
+		placeVerb(ascendButton, Layout.VERB_W, Layout.KEY_H, compact)
+	end
+	if dailyButton then
+		placeVerb(dailyButton, Layout.DAILY_W, Layout.KEY_H, compact)
+	end
+
 	if rateStrip then
 		-- Parented to the rail foot, which `Sections.layout` owns. Fill it.
 		rateStrip.Size = UDim2.fromScale(1, 1)
 		rateStrip.Position = UDim2.fromOffset(0, 0)
+	end
+end
+
+--- Re-places the bar and the rate readout after a window resize.
+---
+--- The roots are pinned to opposite ends, so a wider canvas only widens the gap
+--- between the currencies and ASCEND. The per-key repaint above is what handles
+--- the compact switch, which is a change of control size, not just of width.
+function HudController.layout()
+	if chromeLayout then
+		chromeLayout()
 	end
 end
 
@@ -587,6 +713,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		Size = UDim2.fromOffset(LEFT_W, Layout.TOPBAR_H),
 	}) :: Frame
 	left.Parent = bar
+	leftGroup = left
 	UiKit.hlist(left, Theme.Space.sm, Enum.VerticalAlignment.Center)
 
 	profileHandle = ProfilePlate.build(left)
@@ -609,6 +736,7 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 		Size = UDim2.fromOffset(Layout.RIGHT_CLUSTER, Layout.TOPBAR_H),
 	}) :: Frame
 	right.Parent = bar
+	actionGroup = right
 	UiKit.hlist(right, Layout.ACTION_GAP, Enum.VerticalAlignment.Center)
 
 	-- Vault first: it is the thing a player opens twenty times a session, and it
@@ -830,6 +958,10 @@ function HudController.init(canvas: Frame, railFoot: Frame?)
 			HudController.nextGoalHandler(nextGoal.key)
 		end
 	end))
+
+	if chromeLayout then
+		chromeLayout()
+	end
 
 	unsubscribe = StateStore.onSync(function(state: Types.SyncPayload)
 		HudController.apply(state)
@@ -1095,6 +1227,9 @@ function HudController.destroy()
 		topBar = nil
 	end
 	table.clear(pills)
+	table.clear(keyButtons)
+	leftGroup = nil
+	actionGroup = nil
 end
 
 return HudController

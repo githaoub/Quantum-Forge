@@ -32,10 +32,6 @@ local Layout = require(script.Parent.Layout)
 local Icons = require(script.Parent.Icons)
 local TechTreeConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("TechTreeConfig"))
 
-local DroneView = require(script.Parent.DroneView)
-local RuneView = require(script.Parent.RuneView)
-local TechTreeView = require(script.Parent.TechTreeView)
-
 local Sections = {}
 
 type SectionDef = {
@@ -80,8 +76,10 @@ local SECTIONS: { SectionDef } = {
 		kicker = "DRONES  ·  EXPEDITIONS",
 		accent = Theme.Color.cyan,
 		icon = "fleet",
-		init = DroneView.init,
-		destroy = DroneView.destroy,
+		-- A page, not a panel of rows: the hangar is a stage with a hull rack
+		-- beside it and a service deck under them. The row distributor would cut
+		-- that composition in half and leave one column empty.
+		page = true,
 	},
 	{
 		key = "runes",
@@ -90,8 +88,7 @@ local SECTIONS: { SectionDef } = {
 		kicker = "MASTER THE BLADE IN HAND  ·  SOCKET SHARDS  ·  STACK BONUSES",
 		accent = Theme.Color.quantum,
 		icon = "runes",
-		init = RuneView.init,
-		destroy = RuneView.destroy,
+		page = true,
 	},
 	{
 		key = "tech",
@@ -100,8 +97,7 @@ local SECTIONS: { SectionDef } = {
 		kicker = "SPEND QUANTUM CORES  ·  PERMANENT MULTIPLIERS",
 		accent = Theme.Color.quantum,
 		icon = "tech",
-		init = TechTreeView.init,
-		destroy = TechTreeView.destroy,
+		page = true,
 	},
 	{
 		key = "store",
@@ -412,6 +408,17 @@ function Sections.layout()
 	rail.Position = UDim2.fromOffset(Layout.RAIL_X, Layout.RAIL_Y)
 	rail.Size = UDim2.fromOffset(Layout.RAIL_W, Layout.CONTENT_H)
 
+	-- Rail items are fixed-height cells, not a UIListLayout, so the gap and the
+	-- row height have to be written here when the compact row changes. A phone
+	-- boot that grows into a tablet used to leave 52px cells on a 56px rail.
+	for index, def in SECTIONS do
+		local handle = tabHandles[def.key]
+		if handle then
+			handle.button.Position = UDim2.fromOffset(0, (index - 1) * (Layout.RAIL_ITEM_H + Layout.RAIL_ITEM_GAP))
+			handle.button.Size = UDim2.fromOffset(Layout.RAIL_W - 16, Layout.RAIL_ITEM_H)
+		end
+	end
+
 	if railFoot then
 		railFoot.Position = UDim2.new(0, 6, 1, -(Layout.RAIL_FOOT_H + 6))
 		railFoot.Size = UDim2.new(1, -12, 0, Layout.RAIL_FOOT_H)
@@ -420,6 +427,14 @@ function Sections.layout()
 	if host then
 		host.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
 		host.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
+	end
+
+	-- Every section is a full-bleed page now, so the host owns the outer frame
+	-- for all six and a resize is one rect for each hidden card. The views still
+	-- reflow their own interiors through `Main`.
+	for _, card in pages do
+		card.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
+		card.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
 	end
 
 	if headerBox then
@@ -527,6 +542,7 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	shell.Name = "Rail"
 	shell.Size = UDim2.fromOffset(Layout.RAIL_W, Layout.CONTENT_H)
 	shell.Position = UDim2.fromOffset(Layout.RAIL_X, Layout.RAIL_Y)
+	shell.ClipsDescendants = true
 	rail = shell
 
 	local items = UiKit.create("Frame", {
@@ -566,6 +582,7 @@ function Sections.init(canvas: Frame, forgeCard: Frame?, pageCards: { [string]: 
 	panel.Name = "Section"
 	panel.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
 	panel.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
+	panel.ClipsDescendants = true
 	panel.Visible = false
 	host = panel
 

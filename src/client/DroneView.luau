@@ -1,19 +1,20 @@
 --!strict
--- Fleet panel: the drone ladder, the live rung preview, and the fleet services.
+-- Fleet page: the drone ladder, the live hull preview, and the fleet services.
 --
 -- Drones are the idle half of the economy. The ladder is hard-coded: five rungs,
 -- each with its own hull, yield and price curve, and no ceiling. A player buys
 -- the rung they can afford, the rung above opens on fleet size, and the numbers
 -- climb into the millions. That staircase is the point of the tab.
 --
--- The panel is four bands, in reading order:
+-- This is a page, not a panel of rows. The hangar reads as one composition:
 --
---   hero     the 3D rung preview, its name and count, and the two buy keys
---   strip    FLEET, OUTPUT and PER DRONE, the three numbers a purchase needs
---   ladder   one key per rung, with owned count and unlock progress
---   services expedition, salvage rack, codex
+--   masthead   the fleet name and the live drone count
+--   top row    the 3D hull on the left, the hull rack and buy keys on the right
+--   deck       expedition, salvage and the sigil codex as three service cards
+--   notes      three rules of the idle loop, in the order they matter
 --
--- Fixed-height bands mean nothing below the stage ever moves as numbers change.
+-- Everything under the masthead scrolls as one body. Fixed card heights mean a
+-- number changing never moves a card under the pointer.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -21,10 +22,12 @@ local NumberUtil = require(Shared:WaitForChild("NumberUtil"))
 local DroneRegistry = require(Shared:WaitForChild("DroneRegistry"))
 local AssetManifest = require(Shared:WaitForChild("AssetManifest"))
 local SalvageConfig = require(Shared:WaitForChild("SalvageConfig"))
+local ExpeditionConfig = require(Shared:WaitForChild("ExpeditionConfig"))
 local Types = require(Shared:WaitForChild("Types"))
 
 local Theme = require(script.Parent.Theme)
 local UiKit = require(script.Parent.UiKit)
+local Layout = require(script.Parent.Layout)
 local StageBackdrop = require(script.Parent.StageBackdrop)
 local StateStore = require(script.Parent.StateStore)
 local DroneModelBuilder = require(script.Parent.DroneModelBuilder)
@@ -32,34 +35,48 @@ local Sfx = require(script.Parent.Sfx)
 
 local DroneView = {}
 
-local ExpeditionConfig = require(Shared:WaitForChild("ExpeditionConfig"))
+local HEADER_H = 58
+local HERO_H = 300
+local RACK_H = 300
+local SERVICE_H = 300
+local NOTES_H = 102
+local PAGE_PAD = 16
+local GAP = 12
 
--- Bands, in design pixels: hero 208, strip 64, ladder 82, then the services.
-local HERO_H = 208
-local LADDER_H = 82
---- Salvage rack: 28 header/meter + 100 slots + 12 bottom.
-local SALVAGE_H = 164
---- Codex: 26 header + four 26px set rows + 8 bottom.
-local CODEX_H = 142
+local root: Frame? = nil
+local scroll: ScrollingFrame? = nil
+local hero: Frame? = nil
+local rack: Frame? = nil
+local notes: Frame? = nil
+local expeditionCard: Frame? = nil
+local salvageCard: Frame? = nil
+local codexCard: Frame? = nil
+local headerDetail: TextLabel? = nil
 
 local viewport: ViewportFrame? = nil
 local tierNameLabel: TextLabel? = nil
 local tierOwnedLabel: TextLabel? = nil
 local fleetLabel: TextLabel? = nil
 local outputLabel: TextLabel? = nil
+local perDroneLabel: TextLabel? = nil
+local flavorLabel: TextLabel? = nil
+local gateLabel: TextLabel? = nil
+local gatePercent: TextLabel? = nil
+local gateBar: UiKit.BarParts? = nil
 local buyOneHandle: UiKit.ActionHandle? = nil
 local buyTenHandle: UiKit.ActionHandle? = nil
 local unsubscribe: (() -> ())? = nil
 local cleanupModel: (() -> ())? = nil
+local relayout: (() -> ())? = nil
 
 --- The rung the hero is showing. `nil` until the first payload, then the best
---- unlocked rung. Clicking a ladder key pins it, including a locked rung, which
---- is how the next hull gets advertised before it is affordable.
+--- unlocked rung. Clicking a rack row pins it, including a locked rung, which is
+--- how the next hull gets advertised before it is affordable.
 local selectedTier: string? = nil
 local mountedTier: string? = nil
 local latest: Types.SyncPayload? = nil
 
-type LadderKey = {
+type RackRow = {
 	root: TextButton,
 	name: TextLabel,
 	count: TextLabel,
@@ -67,8 +84,8 @@ type LadderKey = {
 	stroke: UIStroke,
 }
 
-local ladderKeys: { [string]: LadderKey } = {}
-local ladderOrder: { string } = {}
+local rackRows: { [string]: RackRow } = {}
+local rackOrder: { string } = {}
 
 -- Expedition band. Two halves that never coexist: the mission shelf while the
 -- fleet is home, and a single flight line while it is out.
@@ -81,8 +98,7 @@ local expReward: TextLabel? = nil
 local expBar: UiKit.BarParts? = nil
 local expButtons: { [string]: UiKit.ActionHandle } = {}
 
--- Salvage rack and codex. Slots are built once and repainted by index; the
--- payload is capped at `SalvageConfig.MaxCaches`, so there is never a fourth.
+-- Salvage rack and codex.
 type CacheSlot = {
 	root: TextButton,
 	name: TextLabel,
@@ -102,15 +118,11 @@ local function buy(count: number)
 	if selectedTier == nil then
 		return
 	end
-	-- The press is the purchase; the payload confirms it. `Sfx.purchase` is the
-	-- same two-note confirmation the store uses, so spending Aether and spending
-	-- Robux land in the same register.
 	Sfx.purchase()
 	StateStore.send("buyDrones", { id = selectedTier, count = count })
 end
 
---- The fleet entry for a rung, from the tick payload. Falls back to a synthesized
---- locked entry so a stale selection cannot nil-error between a reset and a sync.
+--- The fleet entry for a rung, from the tick payload.
 local function entryFor(payload: Types.SyncPayload, id: string): Types.FleetEntry?
 	for _, entry in payload.fleet do
 		if entry.id == id then
@@ -119,6 +131,69 @@ local function entryFor(payload: Types.SyncPayload, id: string): Types.FleetEntr
 	end
 	return nil
 end
+
+--- The next hull the fleet has not opened yet. The hero advertises this when the
+--- selected hull is already buyable, so the rack always has a next step.
+local function nextLocked(payload: Types.SyncPayload): (string?, Types.FleetEntry?)
+	for _, id in rackOrder do
+		local entry = entryFor(payload, id)
+		if entry and not entry.unlocked then
+			return id, entry
+		end
+	end
+	return nil, nil
+end
+
+-- ---------------------------------------------------------------------------
+-- Page shell
+-- ---------------------------------------------------------------------------
+
+local function buildPage(canvas: Frame, x: number, y: number, width: number, height: number)
+	local card = UiKit.panel(canvas, {
+		tier = "shell",
+		radius = Theme.Radius.xl,
+	})
+	card.Name = "Fleet"
+	card.Size = UDim2.fromOffset(width, height)
+	card.Position = UDim2.fromOffset(x, y)
+	card.Visible = false
+	card.ClipsDescendants = true
+	root = card
+
+	local body = UiKit.create("Frame", {
+		Name = "Inner",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(PAGE_PAD, PAGE_PAD),
+		Size = UDim2.new(1, -PAGE_PAD * 2, 1, -PAGE_PAD * 2),
+	}) :: Frame
+	body.Parent = card
+
+	local header = UiKit.header(body, {
+		eyebrow = "HANGAR  /  FLEET",
+		title = "DRONE FLEET",
+		detail = "0 DRONES ONLINE",
+		height = HEADER_H,
+	})
+	header.Name = "FleetHeader"
+	local detail = header:FindFirstChild("Detail")
+	if detail and detail:IsA("TextLabel") then
+		headerDetail = detail
+	end
+
+	local box = UiKit.scroll(body, { thickness = 6, transparency = 0.2 })
+	box.Name = "FleetBody"
+	box.Position = UDim2.fromOffset(0, HEADER_H + 2)
+	box.Size = UDim2.new(1, 0, 1, -(HEADER_H + 2))
+	box.AutomaticCanvasSize = Enum.AutomaticSize.None
+	box.CanvasSize = UDim2.fromOffset(0, 0)
+	box.ScrollingDirection = Enum.ScrollingDirection.Y
+	box.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+	scroll = box
+end
+
+-- ---------------------------------------------------------------------------
+-- Hero
+-- ---------------------------------------------------------------------------
 
 --- The stage behind the drone: a gradient wash, a faint grid for depth, then
 --- the viewport. The wash itself lives in `StageBackdrop`, shared with the forge
@@ -136,9 +211,6 @@ local function buildStage(parent: Frame)
 	UiKit.gradient(stage, { Theme.Color.void, Theme.Color.panelSunken }, 90)
 	stage.Parent = parent
 
-	-- Gradient floor. The wash is built from aether and quantum, so the hull
-	-- reads as lit by its own drive. Painted before the grid so the grid lines
-	-- sit on top of it.
 	StageBackdrop.paint(stage, {
 		warm = Theme.Color.aether,
 		cool = Theme.Color.quantum,
@@ -190,75 +262,324 @@ local function buildStage(parent: Frame)
 	return stage
 end
 
---- One cell of the three-column stat strip.
-local function buildStat(parent: Frame, x: number, width: number, caption: string, color: Color3, y: number?): TextLabel
+--- One cell of the three-column stat strip. Scale widths, because the hero is
+--- 58% of the page on a tablet and 100% on a phone, and three fixed cells left a
+--- third of the panel empty at the wide size.
+local function buildStat(
+	parent: Frame,
+	xScale: number,
+	wScale: number,
+	caption: string,
+	color: Color3,
+	y: number
+): TextLabel
 	local head = UiKit.label(parent, {
 		text = caption,
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
+		color = Theme.Color.textFaint,
 	})
-	local top = y or 7
-	head.Position = UDim2.fromOffset(x, top)
-	head.Size = UDim2.fromOffset(width, 18)
+	head.Position = UDim2.new(xScale, 0, 0, y)
+	head.Size = UDim2.new(wScale, 0, 0, 16)
 
 	local value = UiKit.label(parent, {
-		text = "0 / sec",
+		text = "0",
 		size = Theme.Text.Subheading,
 		font = Theme.Font.Numeric,
 		color = color,
 	})
-	value.Position = UDim2.fromOffset(x, top + 20)
-	value.Size = UDim2.fromOffset(width, 28)
+	value.Position = UDim2.new(xScale, 0, 0, y + 18)
+	value.Size = UDim2.new(wScale, 0, 0, 26)
 	return value
 end
 
---- Expedition band: three mission keys while the fleet is home, one live flight
---- line while it is away.
----
---- The shelf is a stack rather than a picker with a confirm step because the
---- commitment is the interesting decision, not the navigation. Each row states
---- the squad, the duration and the payout before the button is pressed, so a
---- player can compare "five drones for five minutes" against "thirty for an
---- hour" without opening anything.
-local function buildExpedition(parent: Instance)
-	local band = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.md,
+local function buildHero(parent: Frame)
+	local card = UiKit.panel(parent, {
+		tier = "raised",
+		radius = Theme.Radius.card,
 	})
-	band.Name = "ExpeditionBand"
-	-- 28 (header) + 228 (shelf) + 10 bottom. Rows are 72 tall now: a 64px badge
-	-- needs 4px of air above and below, which is what makes the art read at
-	-- arm's length instead of as a decorated bullet point. Band 204 -> 266.
-	band.Size = UDim2.new(1, -4, 0, 266)
-	band.LayoutOrder = 5
+	card.Name = "FleetHero"
+	hero = card
 
-	local head = UiKit.label(band, {
-		text = "EXPEDITION",
-		size = Theme.Text.Micro,
+	local stage = buildStage(card)
+	stage.Position = UDim2.fromOffset(8, 8)
+	stage.Size = UDim2.new(0.46, -12, 1, -16)
+
+	local info = UiKit.create("Frame", {
+		Name = "FleetInfo",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0.46, 4, 0, 10),
+		Size = UDim2.new(0.54, -18, 1, -20),
+		ZIndex = 3,
+	}) :: Frame
+	info.Parent = card
+
+	local eyebrow = UiKit.eyebrow(info, "SELECTED HULL")
+	eyebrow.Position = UDim2.fromOffset(0, 0)
+
+	tierNameLabel = UiKit.label(info, {
+		text = "SCRAP DRONE",
+		size = Theme.Text.Title - 8,
+		font = Theme.Font.Black,
+		color = Theme.Color.aether,
+	})
+	tierNameLabel.Name = "TierName"
+	tierNameLabel.Position = UDim2.fromOffset(0, 14)
+	tierNameLabel.Size = UDim2.new(1, -120, 0, 28)
+
+	tierOwnedLabel = UiKit.label(info, {
+		text = "0 OWNED",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textSecondary,
+		align = Enum.TextXAlignment.Right,
+	})
+	tierOwnedLabel.Name = "TierOwned"
+	tierOwnedLabel.Position = UDim2.new(1, -118, 0, 20)
+	tierOwnedLabel.Size = UDim2.fromOffset(118, 18)
+
+	local rule = UiKit.rule(info, { position = UDim2.fromOffset(0, 48) })
+	rule.Size = UDim2.new(1, 0, 0, 1)
+
+	fleetLabel = buildStat(info, 0, 1 / 3, "FLEET", Theme.Color.text, 56)
+	outputLabel = buildStat(info, 1 / 3, 1 / 3, "OUTPUT", Theme.Color.starMatter, 56)
+	perDroneLabel = buildStat(info, 2 / 3, 1 / 3, "PER COPY", Theme.Color.cyan, 56)
+
+	for _, x in { 1 / 3, 2 / 3 } do
+		local divider = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.stroke,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(1, 36),
+			Position = UDim2.new(x, 0, 0, 58),
+			ZIndex = 3,
+		}) :: Frame
+		divider.Parent = info
+	end
+
+	gateLabel = UiKit.label(info, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.cyan,
+	})
+	gateLabel.Position = UDim2.fromOffset(0, 114)
+	gateLabel.Size = UDim2.new(1, -100, 0, 16)
+
+	gatePercent = UiKit.label(info, {
+		text = "",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	gatePercent.Position = UDim2.new(1, -100, 0, 114)
+	gatePercent.Size = UDim2.fromOffset(100, 16)
+
+	gateBar = UiKit.bar(info, {
+		height = 6,
+		radius = 3,
+		gradient = { Theme.Color.cyanDeep, Theme.Color.cyan },
+	})
+	gateBar.track.Position = UDim2.fromOffset(0, 134)
+	gateBar.track.Size = UDim2.new(1, 0, 0, 6)
+
+	flavorLabel = UiKit.label(info, {
+		text = "",
+		size = Theme.Text.Tiny,
+		color = Theme.Color.textSecondary,
+		wrap = true,
+	})
+	flavorLabel.Position = UDim2.fromOffset(0, 150)
+	flavorLabel.Size = UDim2.new(1, 0, 0, 32)
+
+	local dock = UiKit.create("Frame", {
+		Name = "FleetDock",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(0, 0, 1, -46),
+		Size = UDim2.new(1, 0, 0, 46),
+		ZIndex = 4,
+	}) :: Frame
+	dock.Parent = info
+	UiKit.hlist(dock, 8, Enum.VerticalAlignment.Center)
+
+	local oneHandle = UiKit.actionButton(dock, {
+		accent = Theme.Color.actionCyan,
+		height = 46,
+		radius = Theme.Radius.md,
+		size = 14,
+		solid = true,
+		labelColor = Theme.Color.ink,
+		labelStroke = false,
+		label = "BUILD 1",
+		handler = function()
+			buy(1)
+		end,
+	})
+	oneHandle.button.Name = "BuyDrone"
+	oneHandle.button.Size = UDim2.new(0.46, -4, 0, 46)
+	oneHandle.button.ZIndex = 5
+	buyOneHandle = oneHandle
+
+	local tenHandle = UiKit.actionButton(dock, {
+		accent = Theme.Color.aether,
+		height = 46,
+		radius = Theme.Radius.md,
+		size = 14,
+		label = "BUILD 10",
+		handler = function()
+			buy(10)
+		end,
+	})
+	tenHandle.button.Name = "BuyDroneTen"
+	tenHandle.button.Size = UDim2.new(0.54, -4, 0, 46)
+	tenHandle.button.ZIndex = 5
+	buyTenHandle = tenHandle
+end
+
+-- ---------------------------------------------------------------------------
+-- Hull rack
+-- ---------------------------------------------------------------------------
+
+--- Five rows stacked, not five keys across a strip. A row carries the hull name,
+--- the owned count and the unlock meter in one line, and the column reads as a
+--- ladder instead of a tab bar.
+local function buildRack(parent: Frame)
+	local card = UiKit.panel(parent, {
+		tier = "item",
+		radius = Theme.Radius.card,
+	})
+	card.Name = "HullRack"
+	rack = card
+
+	local head = UiKit.label(card, {
+		text = "HULL RACK",
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textSecondary,
 	})
-	head.Position = UDim2.fromOffset(12, 6)
-	head.Size = UDim2.fromOffset(150, 18)
+	head.Position = UDim2.fromOffset(12, 7)
+	head.Size = UDim2.new(1, -120, 0, 16)
 
-	expShardLabel = UiKit.label(band, {
+	local hint = UiKit.label(card, {
+		text = "PICK A HULL TO PREVIEW",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Numeric,
+		color = Theme.Color.textFaint,
+		align = Enum.TextXAlignment.Right,
+	})
+	hint.Position = UDim2.new(1, -180, 0, 7)
+	hint.Size = UDim2.fromOffset(168, 16)
+
+	for index, tier in DroneRegistry.tiers do
+		local row = UiKit.create("TextButton", {
+			Name = string.format("Rung_%s", tier.id),
+			BackgroundColor3 = Theme.Color.panelSunken,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			Size = UDim2.new(1, -20, 0, 48),
+			Position = UDim2.fromOffset(10, 30 + (index - 1) * 52),
+		}) :: TextButton
+		UiKit.corner(row, Theme.Radius.sm)
+		local stroke = UiKit.stroke(row, Theme.Color.stroke, 1, 0)
+		row.Parent = card
+
+		local accent = UiKit.create("Frame", {
+			BackgroundColor3 = tier.glow,
+			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(4, 26),
+			Position = UDim2.new(0, 8, 0.5, -13),
+		}) :: Frame
+		UiKit.corner(accent, 2)
+		accent.Parent = row
+
+		local name = UiKit.label(row, {
+			text = string.upper(tier.name),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Black,
+			color = Theme.Color.locked,
+		})
+		name.Position = UDim2.fromOffset(22, 5)
+		name.Size = UDim2.new(1, -92, 0, 18)
+
+		local count = UiKit.label(row, {
+			text = "0",
+			size = Theme.Text.Small,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.textDim,
+			align = Enum.TextXAlignment.Right,
+		})
+		count.Position = UDim2.new(1, -62, 0, 4)
+		count.Size = UDim2.fromOffset(52, 20)
+
+		local track = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.void,
+			BorderSizePixel = 0,
+			Size = UDim2.new(1, -84, 0, 4),
+			Position = UDim2.new(0, 22, 1, -11),
+		}) :: Frame
+		UiKit.corner(track, 2)
+		track.Parent = row
+
+		local bar = UiKit.create("Frame", {
+			BackgroundColor3 = Theme.Color.stroke,
+			BorderSizePixel = 0,
+			Size = UDim2.fromScale(0, 1),
+		}) :: Frame
+		UiKit.corner(bar, 2)
+		bar.Parent = track
+
+		rackRows[tier.id] = { root = row, name = name, count = count, bar = bar, stroke = stroke }
+		rackOrder[#rackOrder + 1] = tier.id
+
+		row.Activated:Connect(function()
+			selectedTier = tier.id
+			if latest then
+				DroneView.render(latest)
+			end
+		end)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Expedition
+-- ---------------------------------------------------------------------------
+
+local function buildExpedition(parent: Frame)
+	local card = UiKit.panel(parent, {
+		tier = "item",
+		radius = Theme.Radius.card,
+	})
+	card.Name = "ExpeditionCard"
+	expeditionCard = card
+
+	local head = UiKit.label(card, {
+		text = "EXPEDITION",
+		size = Theme.Text.Tiny,
+		font = Theme.Font.Black,
+		color = Theme.Color.textSecondary,
+	})
+	head.Position = UDim2.fromOffset(12, 7)
+	head.Size = UDim2.fromOffset(150, 16)
+
+	expShardLabel = UiKit.label(card, {
 		text = "0 SHARDS",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.quantum,
 		align = Enum.TextXAlignment.Right,
 	})
-	expShardLabel.Position = UDim2.new(1, -162, 0, 6)
-	expShardLabel.Size = UDim2.fromOffset(150, 18)
+	expShardLabel.Position = UDim2.new(1, -160, 0, 7)
+	expShardLabel.Size = UDim2.fromOffset(148, 16)
 
 	local shelf = UiKit.create("Frame", {
 		Name = "ExpeditionShelf",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 228),
+		Size = UDim2.new(1, 0, 0, 258),
 		Position = UDim2.fromOffset(0, 28),
 	}) :: Frame
-	shelf.Parent = band
+	shelf.Parent = card
 	expShelf = shelf
 
 	for index, mission in ExpeditionConfig.list() do
@@ -267,22 +588,19 @@ local function buildExpedition(parent: Instance)
 			BackgroundColor3 = Theme.Color.panelSunken,
 			BackgroundTransparency = 0.25,
 			BorderSizePixel = 0,
-			Size = UDim2.new(1, -20, 0, 72),
-			Position = UDim2.fromOffset(10, (index - 1) * 76),
+			Size = UDim2.new(1, -20, 0, 76),
+			Position = UDim2.fromOffset(10, (index - 1) * 84),
 		}) :: Frame
 		UiKit.corner(row, Theme.Radius.sm)
 		row.Parent = shelf
 
-		-- 64px badge, the same well the store rows use. It is the mission's
-		-- whole identity at a glance: a hull on a cable, a drone on a wave, a
-		-- magnet full of junk. Without it the three rows differ only by a name.
 		local well = UiKit.badgeWell(row, {
 			image = AssetManifest.uiArt(mission.icon),
-			size = 64,
+			size = 56,
 			accent = Theme.Color.aether,
 		})
 		if well ~= nil then
-			well.Position = UDim2.fromOffset(8, 4)
+			well.Position = UDim2.fromOffset(8, 10)
 		end
 
 		local name = UiKit.label(row, {
@@ -291,54 +609,62 @@ local function buildExpedition(parent: Instance)
 			font = Theme.Font.Black,
 			color = Theme.Color.text,
 		})
-		name.Position = UDim2.fromOffset(84, 14)
-		name.Size = UDim2.new(1, -220, 0, 22)
+		name.Position = UDim2.fromOffset(76, 12)
+		name.Size = UDim2.new(1, -200, 0, 22)
 
 		local detail = UiKit.label(row, {
 			text = string.format(
-				"%d DRONES  ·  %s  ·  +%s AETHER",
+				"%d DRONES  ·  %s",
 				mission.squad,
-				if mission.seconds >= 3600 then string.format("%dH", mission.seconds // 3600) else string.format("%dM", mission.seconds // 60),
-				NumberUtil.compact(mission.aether)
+				if mission.seconds >= 3600
+					then string.format("%dH", mission.seconds // 3600)
+					else string.format("%dM", mission.seconds // 60)
 			),
-			size = Theme.Text.Micro,
+			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textSecondary,
 		})
-		detail.Position = UDim2.fromOffset(84, 38)
-		detail.Size = UDim2.new(1, -220, 0, 18)
+		detail.Position = UDim2.fromOffset(76, 34)
+		detail.Size = UDim2.new(1, -200, 0, 16)
+
+		-- The reward gets its own line instead of riding the end of the squad
+		-- line. On the tablet the card is a third of the deck, and the joined
+		-- string did not fit at the 13px floor.
+		local reward = UiKit.label(row, {
+			text = string.format("+%s AE", NumberUtil.compact(mission.aether)),
+			size = Theme.Text.Tiny,
+			font = Theme.Font.Numeric,
+			color = Theme.Color.aether,
+		})
+		reward.Position = UDim2.fromOffset(76, 52)
+		reward.Size = UDim2.new(1, -200, 0, 16)
 
 		local handle = UiKit.actionButton(row, {
 			accent = Theme.Color.quantum,
-			height = 34,
+			height = 32,
 			radius = Theme.Radius.sm,
-			size = 14,
+			size = 13,
 			label = "SEND",
 			handler = function()
-				-- Launch sound on the press: the mission is the verb, and the
-				-- payload only confirms it. A refused dispatch pushes a toast,
-				-- which is the same contract the forge uses for a vent.
 				Sfx.dispatch()
 				StateStore.send("dispatch", { id = mission.id })
 			end,
 		})
 		handle.button.Name = string.format("Dispatch_%s", mission.id)
-		handle.button.Position = UDim2.new(1, -116, 0.5, -17)
-		handle.button.Size = UDim2.fromOffset(104, 34)
+		handle.button.Position = UDim2.new(1, -98, 0.5, -16)
+		handle.button.Size = UDim2.fromOffset(86, 32)
 		handle.set("ready", "SEND", Theme.Color.quantum)
 		expButtons[mission.id] = handle
 	end
 
-	-- Live block. Same footprint as the shelf so nothing below it moves when a
-	-- mission launches.
 	local live = UiKit.create("Frame", {
 		Name = "ExpeditionLive",
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -20, 0, 228),
+		Size = UDim2.new(1, -20, 0, 258),
 		Position = UDim2.fromOffset(10, 28),
 		Visible = false,
 	}) :: Frame
-	live.Parent = band
+	live.Parent = card
 	expLive = live
 
 	expTitle = UiKit.label(live, {
@@ -347,7 +673,7 @@ local function buildExpedition(parent: Instance)
 		font = Theme.Font.Black,
 		color = Theme.Color.quantum,
 	})
-	expTitle.Position = UDim2.fromOffset(2, 8)
+	expTitle.Position = UDim2.fromOffset(2, 12)
 	expTitle.Size = UDim2.new(1, -140, 0, 24)
 
 	expTimer = UiKit.label(live, {
@@ -357,7 +683,7 @@ local function buildExpedition(parent: Instance)
 		color = Theme.Color.starMatter,
 		align = Enum.TextXAlignment.Right,
 	})
-	expTimer.Position = UDim2.new(1, -150, 0, 6)
+	expTimer.Position = UDim2.new(1, -150, 0, 10)
 	expTimer.Size = UDim2.fromOffset(148, 26)
 
 	expBar = UiKit.bar(live, {
@@ -365,117 +691,114 @@ local function buildExpedition(parent: Instance)
 		radius = 4,
 		gradient = { Theme.Color.quantumDeep, Theme.Color.quantum },
 	})
-	expBar.track.Position = UDim2.fromOffset(2, 44)
+	expBar.track.Position = UDim2.fromOffset(2, 50)
 	expBar.track.Size = UDim2.new(1, -4, 0, 8)
 
 	expReward = UiKit.label(live, {
 		text = "",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
 	})
-	expReward.Position = UDim2.fromOffset(2, 62)
+	expReward.Position = UDim2.fromOffset(2, 70)
 	expReward.Size = UDim2.new(1, -4, 0, 20)
 end
 
---- Salvage rack: three slots, one meter, one tap target per slot.
----
---- The rarity is decided at drop and drawn on the sealed slot, so the rack is a
---- row of small anticipations rather than a mystery box with the lid painted on.
---- Cracking runs on the server clock; the slot only renders what the payload says.
-local function buildSalvage(parent: Instance)
-	local band = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.md,
-	})
-	band.Name = "SalvageBand"
-	band.Size = UDim2.new(1, -4, 0, SALVAGE_H)
-	band.LayoutOrder = 6
+-- ---------------------------------------------------------------------------
+-- Salvage
+-- ---------------------------------------------------------------------------
 
-	local head = UiKit.label(band, {
+local function buildSalvage(parent: Frame)
+	local card = UiKit.panel(parent, {
+		tier = "item",
+		radius = Theme.Radius.card,
+	})
+	card.Name = "SalvageCard"
+	salvageCard = card
+
+	local head = UiKit.label(card, {
 		text = "SALVAGE RACK",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textSecondary,
 	})
-	head.Position = UDim2.fromOffset(12, 6)
-	head.Size = UDim2.fromOffset(180, 18)
+	head.Position = UDim2.fromOffset(12, 7)
+	head.Size = UDim2.fromOffset(180, 16)
 
-	cacheMeterBar = UiKit.bar(band, {
-		height = 6,
+	cacheMeterBar = UiKit.bar(card, {
+		height = 5,
 		radius = 3,
 		gradient = { Theme.Color.quantumDeep, Theme.Color.quantum },
 	})
-	cacheMeterBar.track.Position = UDim2.fromOffset(12, 27)
-	cacheMeterBar.track.Size = UDim2.new(1, -24, 0, 6)
+	cacheMeterBar.track.Position = UDim2.fromOffset(12, 28)
+	cacheMeterBar.track.Size = UDim2.new(1, -24, 0, 5)
 
-	cacheMeterText = UiKit.label(band, {
+	cacheMeterText = UiKit.label(card, {
 		text = "NEXT CACHE  0 / 40 STRIKES",
 		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.textSecondary,
 	})
-	cacheMeterText.Position = UDim2.fromOffset(12, 36)
+	cacheMeterText.Position = UDim2.fromOffset(12, 37)
 	cacheMeterText.Size = UDim2.new(1, -24, 0, 16)
 
-	-- 10 + 132 + 8 + 132 + 8 + 132 = 422 of 432, so the rack is edge to edge
-	-- with the shelf above it and never wraps on a narrower canvas.
-	local slotWidth = 132
 	for index = 1, SalvageConfig.MaxCaches do
-		local root = UiKit.create("TextButton", {
+		local slotW = 1 / SalvageConfig.MaxCaches
+		local rootSlot = UiKit.create("TextButton", {
 			Name = string.format("CacheSlot%d", index),
 			BackgroundColor3 = Theme.Color.panelSunken,
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
-			Size = UDim2.fromOffset(slotWidth, 96),
-			Position = UDim2.fromOffset(10 + (index - 1) * (slotWidth + 8), 58),
+			Size = UDim2.new(slotW, -8, 0, 142),
+			Position = UDim2.new((index - 1) * slotW, 6, 0, 62),
 		}) :: TextButton
-		UiKit.corner(root, Theme.Radius.sm)
-		local stroke = UiKit.stroke(root, Theme.Color.stroke, 2, 0.25)
-		root.Parent = band
+		UiKit.corner(rootSlot, Theme.Radius.sm)
+		local stroke = UiKit.stroke(rootSlot, Theme.Color.stroke, 2, 0.25)
+		rootSlot.Parent = card
 
-		local nameLabel = UiKit.label(root, {
+		local nameLabel = UiKit.label(rootSlot, {
 			text = "EMPTY",
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Black,
 			color = Theme.Color.textFaint,
 			align = Enum.TextXAlignment.Center,
 		})
-		nameLabel.Position = UDim2.fromOffset(8, 8)
-		nameLabel.Size = UDim2.new(1, -16, 0, 16)
+		nameLabel.Position = UDim2.fromOffset(6, 8)
+		nameLabel.Size = UDim2.new(1, -12, 0, 16)
 
-		local stateLabel = UiKit.label(root, {
+		local stateLabel = UiKit.label(rootSlot, {
 			text = "",
 			size = Theme.Text.Subheading,
 			font = Theme.Font.Black,
 			color = Theme.Color.text,
 			align = Enum.TextXAlignment.Center,
 		})
-		stateLabel.Position = UDim2.fromOffset(8, 30)
-		stateLabel.Size = UDim2.new(1, -16, 0, 28)
+		stateLabel.Position = UDim2.fromOffset(6, 36)
+		stateLabel.Size = UDim2.new(1, -12, 0, 28)
 
-		local hint = UiKit.label(root, {
+		local hint = UiKit.label(rootSlot, {
 			text = "",
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textSecondary,
 			align = Enum.TextXAlignment.Center,
+			wrap = true,
 		})
-		hint.Position = UDim2.fromOffset(6, 62)
-		hint.Size = UDim2.new(1, -12, 0, 16)
+		hint.Position = UDim2.fromOffset(6, 70)
+		hint.Size = UDim2.new(1, -12, 0, 34)
 
-		local bar = UiKit.bar(root, {
+		local bar = UiKit.bar(rootSlot, {
 			height = 4,
 			radius = 2,
 			gradient = { Theme.Color.quantumDeep, Theme.Color.quantum },
 		})
-		bar.track.Position = UDim2.new(0, 8, 1, -10)
+		bar.track.Position = UDim2.new(0, 8, 1, -16)
 		bar.track.Size = UDim2.new(1, -16, 0, 4)
 		bar.set(0)
 
-		root.Activated:Connect(function()
+		rootSlot.Activated:Connect(function()
 			local state = StateStore.current
 			if state == nil then
 				return
@@ -494,7 +817,7 @@ local function buildSalvage(parent: Instance)
 		end)
 
 		cacheSlots[index] = {
-			root = root,
+			root = rootSlot,
 			name = nameLabel,
 			state = stateLabel,
 			hint = hint,
@@ -502,7 +825,20 @@ local function buildSalvage(parent: Instance)
 			stroke = stroke,
 		}
 	end
+
+	local footnote = UiKit.label(card, {
+		text = "Caches crack on the server clock. One rack per account.",
+		size = Theme.Text.Tiny,
+		color = Theme.Color.textFaint,
+		wrap = true,
+	})
+	footnote.Position = UDim2.new(0, 12, 1, -46)
+	footnote.Size = UDim2.new(1, -24, 0, 34)
 end
+
+-- ---------------------------------------------------------------------------
+-- Codex
+-- ---------------------------------------------------------------------------
 
 local STAT_LABEL: { [string]: string } = {
 	click = "STRIKE",
@@ -511,37 +847,32 @@ local STAT_LABEL: { [string]: string } = {
 	vent = "VENT",
 }
 
---- Sigil codex: four set rows, three pips each, one permanent bonus per set.
----
---- The pips are the whole progress read. A count ("7 / 12") is on the header, but
---- a player chases one set at a time, and three pips fill faster than a fraction.
-local function buildCodex(parent: Instance)
-	local band = UiKit.panel(parent, {
+local function buildCodex(parent: Frame)
+	local card = UiKit.panel(parent, {
 		tier = "item",
-		radius = Theme.Radius.md,
+		radius = Theme.Radius.card,
 	})
-	band.Name = "CodexBand"
-	band.Size = UDim2.new(1, -4, 0, CODEX_H)
-	band.LayoutOrder = 7
+	card.Name = "CodexCard"
+	codexCard = card
 
-	local head = UiKit.label(band, {
+	local head = UiKit.label(card, {
 		text = "SIGIL CODEX",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
 		color = Theme.Color.textSecondary,
 	})
-	head.Position = UDim2.fromOffset(12, 5)
-	head.Size = UDim2.fromOffset(180, 18)
+	head.Position = UDim2.fromOffset(12, 7)
+	head.Size = UDim2.fromOffset(180, 16)
 
-	codexCount = UiKit.label(band, {
+	codexCount = UiKit.label(card, {
 		text = "0 / 4 SETS",
-		size = Theme.Text.Micro,
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Numeric,
 		color = Theme.Color.quantum,
 		align = Enum.TextXAlignment.Right,
 	})
-	codexCount.Position = UDim2.new(1, -172, 0, 5)
-	codexCount.Size = UDim2.fromOffset(160, 18)
+	codexCount.Position = UDim2.new(1, -172, 0, 7)
+	codexCount.Size = UDim2.fromOffset(160, 16)
 
 	for index, setId in SalvageConfig.SetOrder do
 		local set = SalvageConfig.SigilSets[setId]
@@ -550,11 +881,11 @@ local function buildCodex(parent: Instance)
 			BackgroundColor3 = Theme.Color.panelSunken,
 			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
-			Size = UDim2.new(1, -24, 0, 24),
-			Position = UDim2.fromOffset(12, 26 + (index - 1) * 27),
+			Size = UDim2.new(1, -24, 0, 48),
+			Position = UDim2.fromOffset(12, 30 + (index - 1) * 56),
 		}) :: Frame
 		UiKit.corner(row, 6)
-		row.Parent = band
+		row.Parent = card
 
 		local name = UiKit.label(row, {
 			text = set.name,
@@ -562,8 +893,8 @@ local function buildCodex(parent: Instance)
 			font = Theme.Font.Black,
 			color = Theme.Color.textSecondary,
 		})
-		name.Position = UDim2.fromOffset(8, 3)
-		name.Size = UDim2.fromOffset(92, 18)
+		name.Position = UDim2.fromOffset(10, 4)
+		name.Size = UDim2.new(1, -32, 0, 18)
 
 		local pips: { Frame } = {}
 		for pip = 1, #set.sigils do
@@ -571,7 +902,7 @@ local function buildCodex(parent: Instance)
 				BackgroundColor3 = Theme.Color.panelSunken,
 				BorderSizePixel = 0,
 				Size = UDim2.fromOffset(10, 10),
-				Position = UDim2.fromOffset(104 + (pip - 1) * 16, 7),
+				Position = UDim2.fromOffset(10 + (pip - 1) * 16, 28),
 			}) :: Frame
 			UiKit.corner(dot, 5)
 			UiKit.stroke(dot, Theme.Color.stroke, 1, 0.15)
@@ -580,122 +911,144 @@ local function buildCodex(parent: Instance)
 		end
 
 		local bonus = UiKit.label(row, {
-			text = string.format("+%d%% %s", math.floor(set.amount * 100 + 0.5), STAT_LABEL[set.stat] or set.stat),
+			text = string.format(
+				"+%d%% %s",
+				math.floor(set.amount * 100 + 0.5),
+				STAT_LABEL[set.stat] or set.stat
+			),
 			size = Theme.Text.Tiny,
 			font = Theme.Font.Numeric,
 			color = Theme.Color.textFaint,
 			align = Enum.TextXAlignment.Right,
 		})
-		bonus.Position = UDim2.new(1, -150, 0, 3)
-		bonus.Size = UDim2.fromOffset(142, 18)
+		bonus.Position = UDim2.new(1, -160, 0, 24)
+		bonus.Size = UDim2.fromOffset(150, 18)
 
 		codexRows[setId] = { root = row, pips = pips, bonus = bonus }
 	end
 end
 
 -- ---------------------------------------------------------------------------
--- Ladder
+-- Field notes
 -- ---------------------------------------------------------------------------
 
---- One key per rung. Five across, each carrying its short name, its owned count
---- and a meter that fills toward the rung's unlock gate. A locked rung is still
---- clickable: the hero previews the hull before it is affordable, which is the
---- entire sales pitch of the next tier.
-local function buildLadder(parent: Instance)
-	local band = UiKit.panel(parent, {
-		tier = "item",
-		radius = Theme.Radius.md,
+local function buildNotes(parent: Frame)
+	local card = UiKit.panel(parent, {
+		tier = "well",
+		radius = Theme.Radius.card,
+		stroke = Theme.Color.cyan,
+		strokeTransparency = 0.7,
 	})
-	band.Name = "DroneLadder"
-	band.Size = UDim2.new(1, -4, 0, LADDER_H)
-	band.LayoutOrder = 3
+	card.Name = "FleetNotes"
+	notes = card
 
-	local head = UiKit.label(band, {
-		text = "DRONE LADDER",
-		size = Theme.Text.Micro,
+	local head = UiKit.label(card, {
+		text = "FIELD NOTES",
+		size = Theme.Text.Tiny,
 		font = Theme.Font.Black,
-		color = Theme.Color.textSecondary,
+		color = Theme.Color.cyan,
 	})
-	head.Position = UDim2.fromOffset(12, 5)
-	head.Size = UDim2.fromOffset(150, 18)
+	head.Position = UDim2.fromOffset(14, 8)
+	head.Size = UDim2.new(1, -28, 0, 16)
 
-	local row = UiKit.create("Frame", {
-		Name = "LadderRow",
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -24, 0, 50),
-		Position = UDim2.fromOffset(12, 26),
-	}) :: Frame
-	row.Parent = band
-	UiKit.hlist(row, 6, Enum.VerticalAlignment.Center)
-
-	for _, tier in DroneRegistry.tiers do
-		local key = UiKit.create("TextButton", {
-			Name = string.format("Rung_%s", tier.id),
-			BackgroundColor3 = Theme.Color.panelSunken,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
-			Size = UDim2.new(0.2, -5, 0, 50),
-		}) :: TextButton
-		UiKit.corner(key, Theme.Radius.sm)
-		local stroke = UiKit.stroke(key, Theme.Color.stroke, 1, 0)
-		key.Parent = row
-
-		local name = UiKit.label(key, {
-			text = string.upper(tier.name),
+	local lines = {
+		"A hull opens when the whole fleet reaches its gate, not when you can afford it.",
+		"An expedition keeps earning while you are away. Send the squad first.",
+		"Caches crack on the server clock. A closed tab still finishes the job.",
+	}
+	for index, line in lines do
+		local marker = UiKit.label(card, {
+			text = string.format("%02d", index),
 			size = Theme.Text.Tiny,
-			font = Theme.Font.Black,
-			color = Theme.Color.locked,
-			align = Enum.TextXAlignment.Center,
-		})
-		name.Size = UDim2.new(1, 0, 0, 18)
-		name.Position = UDim2.fromOffset(0, 5)
-		name.ZIndex = 2
-
-		local count = UiKit.label(key, {
-			text = "0",
-			size = 15,
 			font = Theme.Font.Numeric,
-			color = Theme.Color.textDim,
-			align = Enum.TextXAlignment.Center,
+			color = Theme.Color.cyan,
 		})
-		count.Size = UDim2.new(1, 0, 0, 18)
-		count.Position = UDim2.fromOffset(0, 22)
-		count.ZIndex = 2
+		marker.Position = UDim2.fromOffset(14, 30 + (index - 1) * 26)
+		marker.Size = UDim2.fromOffset(24, 18)
 
-		local track = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.void,
-			BorderSizePixel = 0,
-			Size = UDim2.new(1, -16, 0, 3),
-			Position = UDim2.new(0, 8, 1, -7),
-			ZIndex = 2,
-		}) :: Frame
-		UiKit.corner(track, 2)
-		track.Parent = key
-
-		local bar = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.stroke,
-			BorderSizePixel = 0,
-			Size = UDim2.fromScale(0, 1),
-			ZIndex = 3,
-		}) :: Frame
-		UiKit.corner(bar, 2)
-		bar.Parent = track
-
-		ladderKeys[tier.id] = { root = key, name = name, count = count, bar = bar, stroke = stroke }
-		ladderOrder[#ladderOrder + 1] = tier.id
-
-		key.Activated:Connect(function()
-			selectedTier = tier.id
-			if latest then
-				DroneView.render(latest)
-			end
-		end)
+		local copy = UiKit.label(card, {
+			text = line,
+			size = Theme.Text.Tiny,
+			color = Theme.Color.textSecondary,
+			wrap = true,
+		})
+		copy.Position = UDim2.fromOffset(42, 30 + (index - 1) * 26)
+		copy.Size = UDim2.new(1, -56, 0, 18)
 	end
 end
 
---- Remounts the viewport at a rung. The camera frames the hull in the 42%-wide
---- stage beside the purchase column.
+-- ---------------------------------------------------------------------------
+-- Layout
+-- ---------------------------------------------------------------------------
+
+--- Places the body cards for the current canvas. The top row is a stage and a
+--- rack side by side; the service deck is three cards on a wide canvas and one
+--- column on a phone. The scroll canvas is measured from the last card, so the
+--- page never reports a canvas shorter than its content.
+relayout = function()
+	if root == nil or scroll == nil or hero == nil or rack == nil then
+		return
+	end
+
+	local bodyW = Layout.CONTENT_W - PAGE_PAD * 2 - 8
+	local bodyH = Layout.CONTENT_H - PAGE_PAD * 2 - HEADER_H - 2
+	local wide = bodyW >= 980
+
+	if wide then
+		local rackW = math.clamp(math.floor(bodyW * 0.34), 320, 430)
+		hero.Size = UDim2.fromOffset(bodyW - rackW - GAP, HERO_H)
+		hero.Position = UDim2.fromOffset(0, 0)
+		rack.Size = UDim2.fromOffset(rackW, HERO_H)
+		rack.Position = UDim2.fromOffset(bodyW - rackW, 0)
+	else
+		hero.Size = UDim2.fromOffset(bodyW, HERO_H)
+		hero.Position = UDim2.fromOffset(0, 0)
+		rack.Size = UDim2.fromOffset(bodyW, RACK_H)
+		rack.Position = UDim2.fromOffset(0, HERO_H + GAP)
+	end
+
+	local servicesY = if wide then HERO_H + GAP else HERO_H + RACK_H + GAP * 2
+	local cols = if bodyW >= 980 then 3 elseif bodyW >= 760 then 2 else 1
+	local cardW = math.floor((bodyW - (cols - 1) * GAP) / cols)
+	local cards = { expeditionCard, salvageCard, codexCard }
+	for index, card in cards do
+		if card then
+			local column = (index - 1) % cols
+			local row = (index - 1) // cols
+			card.Size = UDim2.fromOffset(cardW, SERVICE_H)
+			card.Position = UDim2.fromOffset(column * (cardW + GAP), servicesY + row * (SERVICE_H + GAP))
+		end
+	end
+
+	local rows = math.ceil(#cards / cols)
+	local notesY = servicesY + rows * (SERVICE_H + GAP)
+	if notes then
+		notes.Size = UDim2.fromOffset(bodyW, NOTES_H)
+		notes.Position = UDim2.fromOffset(0, notesY)
+	end
+
+	-- The body is taller than the window on a laptop and shorter on a tablet. A
+	-- canvas at least the window height keeps the scrollbar honest and lets the
+	-- last card sit above the fold instead of under a dead band.
+	local contentH = math.max(bodyH, notesY + NOTES_H)
+	scroll.CanvasSize = UDim2.fromOffset(0, contentH)
+end
+
+function DroneView.layout()
+	if root == nil then
+		return
+	end
+	root.Size = UDim2.fromOffset(Layout.CONTENT_W, Layout.CONTENT_H)
+	root.Position = UDim2.fromOffset(Layout.CONTENT_X, Layout.CONTENT_Y)
+	if relayout then
+		relayout()
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Model mount
+-- ---------------------------------------------------------------------------
+
 local function mountTier(id: string)
 	if viewport == nil then
 		return
@@ -705,130 +1058,33 @@ local function mountTier(id: string)
 		cleanupModel = nil
 	end
 	cleanupModel = DroneModelBuilder.mount(viewport, id, {
-		-- 6.4 units of stand-off on a 42%-wide stage, aimed just below the hull.
-		-- The old 8.8 was measured for a full-width 220px stage; in the smaller stage
-		-- it left the drone the size of a postage stamp.
-		distance = 6.4,
+		distance = 5.8,
 		centre = Vector3.new(0, -0.15, 0),
 	})
 	mountedTier = id
 end
 
-function DroneView.init(parent: Instance)
-	-- Band 1: hero. Two columns instead of one empty hangar band: the drone on the
-	-- left, the numbers and the buy keys on the right. The wide stage put the
-	-- name plate at the top, the keys at the bottom and the hull in a 34px gap
-	-- between them.
-	local hero = UiKit.panel(parent, {
-		tier = "raised",
-		radius = Theme.Radius.card,
-	})
-	hero.Name = "FleetHero"
-	hero.Size = UDim2.new(1, -4, 0, HERO_H)
-	hero.LayoutOrder = 1
+-- ---------------------------------------------------------------------------
+-- Init
+-- ---------------------------------------------------------------------------
 
-	local stage = buildStage(hero)
-	stage.Position = UDim2.fromOffset(8, 8)
-	stage.Size = UDim2.new(0.42, -12, 1, -16)
-
-	local info = UiKit.create("Frame", {
-		Name = "FleetInfo",
-		BackgroundTransparency = 1,
-		Position = UDim2.new(0.42, 6, 0, 12),
-		Size = UDim2.new(0.58, -22, 1, -24),
-		ZIndex = 3,
-	}) :: Frame
-	info.Parent = hero
-
-	tierNameLabel = UiKit.label(info, {
-		text = "SCRAP DRONE",
-		size = Theme.Text.Title - 6,
-		font = Theme.Font.Heading,
-		color = Theme.Color.aether,
-	})
-	tierNameLabel.Name = "TierName"
-	tierNameLabel.Position = UDim2.fromOffset(0, 0)
-	tierNameLabel.Size = UDim2.new(1, -130, 0, 28)
-
-	tierOwnedLabel = UiKit.label(info, {
-		text = "0 OWNED",
-		size = Theme.Text.Tiny,
-		font = Theme.Font.Numeric,
-		color = Theme.Color.textSecondary,
-	})
-	tierOwnedLabel.Name = "TierOwned"
-	tierOwnedLabel.Position = UDim2.fromOffset(0, 32)
-	tierOwnedLabel.Size = UDim2.fromOffset(180, 14)
-
-	UiKit.rule(info, { position = UDim2.fromOffset(0, 56) })
-
-	-- Two figures, not three: "per drone" is the output divided by the count,
-	-- which the player can already see on this line.
-	fleetLabel = buildStat(info, 0, 112, "FLEET", Theme.Color.text, 66)
-	outputLabel = buildStat(info, 124, 112, "OUTPUT", Theme.Color.starMatter, 66)
-	for _, x in { 112 } do
-		local divider = UiKit.create("Frame", {
-			BackgroundColor3 = Theme.Color.stroke,
-			BackgroundTransparency = 0.35,
-			BorderSizePixel = 0,
-			Size = UDim2.fromOffset(1, 38),
-			Position = UDim2.fromOffset(x, 66),
-			ZIndex = 3,
-		}) :: Frame
-		divider.Parent = info
+function DroneView.init(canvas: Frame, x: number, y: number, width: number, height: number)
+	buildPage(canvas, x, y, width, height)
+	local body = scroll
+	if body == nil then
+		return
 	end
 
-	-- Buy keys, bottom of the information column. The single is the primary key;
-	-- the ten-pack is a quiet plate beside it, so the column has one verb.
-	local dock = UiKit.create("Frame", {
-		Name = "FleetDock",
-		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 0, 1, -46),
-		Size = UDim2.new(1, 0, 0, 46),
-		ZIndex = 4,
-	}) :: Frame
-	dock.Parent = info
-	UiKit.hlist(dock, 8, Enum.VerticalAlignment.Center)
+	buildHero(body)
+	buildRack(body)
+	buildExpedition(body)
+	buildSalvage(body)
+	buildCodex(body)
+	buildNotes(body)
 
-	local oneHandle = UiKit.actionButton(dock, {
-		accent = Theme.Color.actionCyan,
-		height = 46,
-		radius = Theme.Radius.md,
-		size = 15,
-		solid = true,
-		labelColor = Theme.Color.ink,
-		labelStroke = false,
-		label = "BUILD 1",
-		handler = function()
-			buy(1)
-		end,
-	})
-	oneHandle.button.Name = "BuyDrone"
-	oneHandle.button.Size = UDim2.new(0.44, -4, 0, 46)
-	oneHandle.button.ZIndex = 5
-	buyOneHandle = oneHandle
-
-	local tenHandle = UiKit.actionButton(dock, {
-		accent = Theme.Color.aether,
-		height = 46,
-		radius = Theme.Radius.md,
-		size = 15,
-		label = "BUILD 10",
-		handler = function()
-			buy(10)
-		end,
-	})
-	tenHandle.button.Name = "BuyDroneTen"
-	tenHandle.button.Size = UDim2.new(0.56, -4, 0, 46)
-	tenHandle.button.ZIndex = 5
-	buyTenHandle = tenHandle
-
-	-- Band 3: the ladder.
-	buildLadder(parent)
-
-	buildExpedition(parent)
-	buildSalvage(parent)
-	buildCodex(parent)
+	if relayout then
+		relayout()
+	end
 
 	unsubscribe = StateStore.onSync(function(payload: Types.SyncPayload)
 		DroneView.render(payload)
@@ -840,6 +1096,14 @@ function DroneView.init(parent: Instance)
 	end
 end
 
+function DroneView.card(): Frame?
+	return root
+end
+
+-- ---------------------------------------------------------------------------
+-- Render
+-- ---------------------------------------------------------------------------
+
 local function formatClock(seconds: number): string
 	local total = math.max(0, math.ceil(seconds))
 	if total >= 3600 then
@@ -850,8 +1114,6 @@ end
 
 local expActiveShown: boolean? = nil
 
---- Expedition band. Repaints the shelf only when the fleet's availability can
---- have changed, and the flight line on the tick.
 local function paintExpedition(payload: Types.SyncPayload)
 	if expShelf == nil or expLive == nil then
 		return
@@ -920,8 +1182,6 @@ local function formatShort(seconds: number): string
 	return string.format("0:%02d", total)
 end
 
---- Base payout at the current blade. The rack states what a cache is worth before
---- it is claimed, because a reward the player cannot see is not a decision.
 local function rewardHint(rarity: SalvageConfig.Rarity): string
 	local parts = { string.format("+%s AE", NumberUtil.compact(rarity.aether)) }
 	if rarity.cores > 0 then
@@ -1049,7 +1309,10 @@ function DroneView.render(payload: Types.SyncPayload)
 		mountTier(id)
 	end
 
-	-- Hero.
+	if headerDetail then
+		headerDetail.Text = string.format("%s DRONES ONLINE", NumberUtil.abbreviate(payload.drones))
+	end
+
 	if tierNameLabel then
 		tierNameLabel.Text = string.upper(tier.name)
 		tierNameLabel.TextColor3 = tier.glow
@@ -1058,24 +1321,63 @@ function DroneView.render(payload: Types.SyncPayload)
 		tierOwnedLabel.Text = string.format("%s OWNED", NumberUtil.abbreviate(entry.owned))
 	end
 
-	-- Strip.
 	if fleetLabel then
 		fleetLabel.Text = NumberUtil.abbreviate(payload.drones)
 	end
 	if outputLabel then
 		outputLabel.Text = NumberUtil.abbreviateRate(payload.passiveYield)
 	end
+	if perDroneLabel then
+		perDroneLabel.Text = NumberUtil.abbreviateRate(tier.yield)
+	end
+	if flavorLabel then
+		flavorLabel.Text = tier.flavor
+	end
 
-	-- Buy keys price the selected rung, not the best unlocked one. A locked rung
-	-- states its gate; there is no separate legend under the buttons.
+	-- The gate line answers "what opens next". A selected locked hull states its
+	-- own gate; an open hull advertises the next one. When every hull is open the
+	-- bar is full and the caption says so instead of printing a fake percentage.
+	local gateTier: DroneRegistry.DroneTier? = nil
+	local gateEntry: Types.FleetEntry? = nil
+	if not entry.unlocked then
+		gateTier = tier
+		gateEntry = entry
+	else
+		local nextId, nextEntry = nextLocked(payload)
+		if nextId then
+			gateTier = DroneRegistry.get(nextId)
+			gateEntry = nextEntry
+		end
+	end
+
+	if gateLabel and gatePercent and gateBar then
+		if gateTier and gateEntry then
+			local progress = math.clamp(payload.drones / math.max(1, gateEntry.unlockAt), 0, 1)
+			gateLabel.Text = string.format("NEXT HULL  ·  %s", string.upper(gateTier.name))
+			gateLabel.TextColor3 = if entry.unlocked then Theme.Color.cyan else Theme.Color.warn
+			gatePercent.Text = string.format(
+				"%s / %s DRONES",
+				NumberUtil.abbreviate(payload.drones),
+				NumberUtil.abbreviate(gateEntry.unlockAt)
+			)
+			gateBar.set(progress)
+		else
+			gateLabel.Text = "EVERY HULL OPEN"
+			gateLabel.TextColor3 = Theme.Color.cyan
+			gatePercent.Text = "FULL LADDER"
+			gateBar.set(1)
+		end
+	end
+
+	-- Buy keys price the selected rung, not the best unlocked one.
 	local oneReady = entry.unlocked and payload.as >= entry.cost
 	local tenReady = entry.unlocked and payload.as >= entry.bulk
 	if buyOneHandle then
 		buyOneHandle.set(
 			if oneReady then "ready" else "locked",
 			if entry.unlocked
-				then string.format("BUILD 1  ·  %s AETHER", NumberUtil.compact(entry.cost))
-				else string.format("LOCKED AT %s", NumberUtil.compact(entry.unlockAt)),
+				then string.format("BUILD 1  ·  %s", NumberUtil.compact(entry.cost))
+				else string.format("LOCKED  ·  %s", NumberUtil.compact(entry.unlockAt)),
 			Theme.Color.actionCyan
 		)
 	end
@@ -1083,16 +1385,16 @@ function DroneView.render(payload: Types.SyncPayload)
 		buyTenHandle.set(
 			if tenReady then "ready" else "locked",
 			if entry.unlocked
-				then string.format("BUILD 10  ·  %s AETHER", NumberUtil.compact(entry.bulk))
-				else string.format("LOCKED AT %s", NumberUtil.compact(entry.unlockAt)),
-			Theme.Color.deepBlue
+				then string.format("BUILD 10  ·  %s", NumberUtil.compact(entry.bulk))
+				else string.format("LOCKED  ·  %s", NumberUtil.compact(entry.unlockAt)),
+			Theme.Color.aether
 		)
 	end
 
-	-- Ladder. Every key repaints from the tick payload: owned count, unlock
+	-- Rack. Every row repaints from the tick payload: owned count, unlock
 	-- meter, and the selected border.
-	for _, rungId in ladderOrder do
-		local key = ladderKeys[rungId]
+	for _, rungId in rackOrder do
+		local key = rackRows[rungId]
 		local rungTier = DroneRegistry.get(rungId)
 		local rung = entryFor(payload, rungId)
 		if key ~= nil and rungTier ~= nil and rung ~= nil then
@@ -1117,8 +1419,7 @@ function DroneView.render(payload: Types.SyncPayload)
 	paintCodex(payload)
 end
 
---- Selects a rung and repaints. Public for the Studio seam: a ladder key cannot
---- be clicked from a script, and the five hulls are the whole point of the tab.
+--- Selects a rung and repaints. Public for the Studio seam.
 function DroneView.select(id: string): boolean
 	if DroneRegistry.get(id) == nil then
 		return false
@@ -1130,12 +1431,12 @@ function DroneView.select(id: string): boolean
 	return true
 end
 
---- The rung currently on the hero. Nil before the first payload.
 function DroneView.selected(): string?
 	return selectedTier
 end
 
-function DroneView.destroy()	if unsubscribe then
+function DroneView.destroy()
+	if unsubscribe then
 		unsubscribe()
 		unsubscribe = nil
 	end
@@ -1143,18 +1444,35 @@ function DroneView.destroy()	if unsubscribe then
 		cleanupModel()
 		cleanupModel = nil
 	end
+	if root then
+		root:Destroy()
+		root = nil
+	end
+	scroll = nil
+	hero = nil
+	rack = nil
+	notes = nil
+	expeditionCard = nil
+	salvageCard = nil
+	codexCard = nil
+	headerDetail = nil
 	viewport = nil
 	tierNameLabel = nil
 	tierOwnedLabel = nil
 	fleetLabel = nil
 	outputLabel = nil
+	perDroneLabel = nil
+	flavorLabel = nil
+	gateLabel = nil
+	gatePercent = nil
+	gateBar = nil
 	buyOneHandle = nil
 	buyTenHandle = nil
 	selectedTier = nil
 	mountedTier = nil
 	latest = nil
-	table.clear(ladderKeys)
-	table.clear(ladderOrder)
+	table.clear(rackRows)
+	table.clear(rackOrder)
 	expShelf = nil
 	expLive = nil
 	expShardLabel = nil
@@ -1169,6 +1487,7 @@ function DroneView.destroy()	if unsubscribe then
 	cacheMeterText = nil
 	table.clear(codexRows)
 	codexCount = nil
+	relayout = nil
 end
 
 return DroneView

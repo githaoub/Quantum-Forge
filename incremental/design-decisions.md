@@ -5226,3 +5226,66 @@ load separately from a slow one.
 Not verified: two real players in one server, so roster selection, cheer and a
 live trade have only been exercised with one client. DataStore writes still
 return 401 and the profile runs MOCK, so nothing here proves persistence.
+
+## ADR-125 - The management sections are pages, not dealt rows
+
+**Context.** Fleet, runes and tech were stacks of blocks handed to the section
+host, which measured each block and dealt them into two half-width columns. None
+of the three has blocks of matching height. The deal left one column short, and
+the leftover band read as an empty panel on every device. The same blocks were
+also text-first: a key strip, full-width rows and one repeated node card. The
+tab was not selling a fleet, a blade or a tree.
+
+**Decision.**
+
+1. Fleet, runes and tech join the forge, the crate shelf and the store as
+   full-bleed pages. `Main` builds each card once at boot and passes it to
+   `Sections.init`. `Sections.select` shows one card and hides the host, so a
+   page never sits over a half-built row panel.
+
+2. Fleet is a hangar. A 3D hull stage and a five-row hull rack share the top
+   row. Expedition, salvage and the sigil codex form a service deck under them.
+   Field notes close the page. The rack is a ladder of named rows with owned
+   counts and unlock meters, not a strip of five keys.
+
+3. Runes is a bay and a shelf. The bay holds the equipped blade, its rank, the
+   mastery meter, three sockets, the socketed-bonus grid and the per-blade
+   record. The shelf is a 2x2 rune card grid with art, effect and one action
+   plate per card. The four-step chain and the five-rank ladder are printed
+   under the pair, so the loop needs no tutorial.
+
+4. Tech is a tree of three lanes. Each lane has a header, a spine and its node
+   cards. The sidebar holds the core reserve, the nearest forge feats and the
+   branch totals. The heat lane ends in a live readout, so a two-node branch
+   still fills its lane.
+
+5. The top bar repaints from `Layout` on every resize. Handles to the keys, the
+   verbs, the pills and the two groups live in `HudController`; a window that
+   crosses the compact line gets the other row, not a mix of both.
+
+6. A button face truncates and its plate clips. Long labels end in an ellipsis
+   inside the border. The 13px floor is unchanged.
+
+7. A focus ring restores the stroke it found. `UiKit.focus` snapshots colour,
+   thickness and transparency on `SelectionGained` and writes them back on
+   `SelectionLost`.
+
+8. The canvas, the rail and the page host clip descendants. Nothing paints into
+   the wallpaper band beside the app frame.
+
+**Consequences.** Each page owns its own scroll, header and empty state, which is
+more code than one row builder but is the only way the three sections can have
+three different shapes. The section host and its two-column distributor remain
+in `Sections` for any future row section; no current section uses them. A page
+that is taller than the window scrolls as one body, and its fixed card heights
+mean a live number never moves a card under the pointer.
+
+**Verification.** iPad Pro M5 (13in), 1375x1032: bar 1353x80, keys 48x65 inside
+it, page 1241x866, fleet body 727 against a 768 window, runes bay 503x487 beside
+a 683x487 shelf, tech lanes 275x621 each, zero offscreen controls and zero
+labels failing `TextFits`. HD 720, 1280x720: keys 42x57, every face fits, each
+page scrolls in its own body. iPhone 16 Pro Max sim, 830x439: compact bar
+819x48 with 44x44 keys, no overflow. `selene src` clean, `rojo build` writes the
+place file. A human visual pass and a gamepad selection pass are still open.
+
+

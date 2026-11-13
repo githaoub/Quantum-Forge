@@ -34,6 +34,8 @@ local FeedbackView = require(script.Parent.FeedbackView)
 local HudController = require(script.Parent.HudController)
 local ForgeView = require(script.Parent.ForgeView)
 local DroneView = require(script.Parent.DroneView)
+local RuneView = require(script.Parent.RuneView)
+local TechTreeView = require(script.Parent.TechTreeView)
 local Sections = require(script.Parent.Sections)
 local InventoryModal = require(script.Parent.InventoryModal)
 local CodexView = require(script.Parent.CodexView)
@@ -72,6 +74,9 @@ local function reflow(width: number, height: number, fit: number)
 	ForgeView.layout()
 	CratesView.layout()
 	ShopView.layout()
+	DroneView.layout()
+	RuneView.layout()
+	TechTreeView.layout()
 end
 
 
@@ -253,9 +258,21 @@ local function boot()
 	ForgeView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
 	CratesView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
 	ShopView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
-	-- The nav owns the section panels; the three full-bleed cards are passed in
+	-- The three management sections are pages too. Building them once at boot
+	-- keeps their viewports and subscriptions stable, and lets each one own a
+	-- composition the row host could never lay out.
+	DroneView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
+	RuneView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
+	TechTreeView.init(canvas, Layout.CONTENT_X, Layout.CONTENT_Y, Layout.CONTENT_W, Layout.CONTENT_H)
+	-- The nav owns the section panels; the six full-bleed cards are passed in
 	-- so the host can hide them without reaching into another module's state.
-	Sections.init(canvas, ForgeView.card(), { crates = CratesView.card(), store = ShopView.card() })
+	Sections.init(canvas, ForgeView.card(), {
+		crates = CratesView.card(),
+		store = ShopView.card(),
+		fleet = DroneView.card(),
+		runes = RuneView.card(),
+		tech = TechTreeView.card(),
+	})
 	-- After the rail exists, because the rate readout lives at its foot.
 	HudController.init(canvas, Sections.railFoot())
 	-- The vault is a canvas-level overlay, so it is built after the panels and
@@ -475,6 +492,9 @@ local function boot()
 		HudController.destroy()
 		ForgeView.destroy()
 		ShopView.destroy()
+		DroneView.destroy()
+		RuneView.destroy()
+		TechTreeView.destroy()
 		SpriteFx.destroy()
 		Sections.destroy()
 		InventoryModal.destroy()
